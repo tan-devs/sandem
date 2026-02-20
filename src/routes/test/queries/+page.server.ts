@@ -9,6 +9,9 @@ export const load = (async ({ locals }) => {
 	const publicData = await client.query(api.auth.getPublicData, {});
 
 	let protectedData = null;
+	// Attempt to load data that requires an authenticated session. The
+	// Convex client will throw if the token is missing/invalid, so we catch
+	// and treat that as "not authenticated".
 	try {
 		protectedData = await client.query(api.auth.getCurrentUser, {});
 	} catch {

@@ -8,10 +8,9 @@ if (!liveblocksSecret) throw new Error('LIVEBLOCKS_SECRET_KEY is not set');
 const liveblocks = new Liveblocks({ secret: liveblocksSecret });
 
 export async function POST({ request }) {
-	// Debug: log whatever cookies we received from the browser. In production
-	// you can remove this once you confirm things are working.
+	// Debug: log whatever cookies we received from the browser
 	const cookieHeader = request.headers.get('cookie') || '';
-	console.debug('[liveblocks-auth] incoming cookies:', cookieHeader);
+	console.debug(`[liveblocks-auth] incoming cookies: ${cookieHeader}`);
 
 	// 2. Ask Better Auth (running on Convex) to verify the session
 	// We forward the exact cookie string the browser sent to SvelteKit

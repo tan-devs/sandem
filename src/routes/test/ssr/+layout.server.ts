@@ -1,3 +1,6 @@
+// Layout load used for SSR testing. Retrieves auth state and, if
+// possible, the current user on every request so that the page can render
+// server-side with the right data.
 import { api } from '$convex/_generated/api.js';
 import { createAuth } from '$convex/auth.js';
 import { createConvexHttpClient, getAuthState } from '$lib/sveltekit/index.js';

@@ -1,3 +1,6 @@
+// Centralized configuration for the Better Auth client used throughout
+// the app. We include the Convex plugin so that auth tokens can be
+// exchanged seamlessly with the Convex backend.
 import { createAuthClient } from 'better-auth/svelte';
 import { convexClient } from '@convex-dev/better-auth/client/plugins';
 

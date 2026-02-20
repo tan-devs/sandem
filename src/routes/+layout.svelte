@@ -5,6 +5,7 @@
 	import { page } from '$app/state';
 	import ModeToggle from '$lib/components/ModeToggle.svelte';
 
+	// grab child content from layout props
 	let { children } = $props();
 
 	const pages = [
@@ -21,6 +22,7 @@
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
+<!-- snippet defines a reusable chunk for rendering nav links -->
 {#snippet navigation(link: { path: string; label: string })}
 	<li>
 		<a href={link.path} class=" {page.url.pathname === link.path ? 'on_it' : 'not_on'}">
