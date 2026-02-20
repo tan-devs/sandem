@@ -24,13 +24,12 @@ export const getMyProfile = query({
 	}
 });
 
-
 export const getUserByAuthId = query({
-  args: { authUserId: v.string() },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query('users')
-      .withIndex('by_authUserId', (q) => q.eq('authUserId', args.authUserId))
-      .first();
-  }
+	args: { authUserId: v.string() },
+	handler: async (ctx, args) => {
+		return await ctx.db
+			.query('users')
+			.withIndex('by_authUserId', (q) => q.eq('authUserId', args.authUserId))
+			.first();
+	}
 });
