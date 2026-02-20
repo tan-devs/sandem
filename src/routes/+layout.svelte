@@ -21,7 +21,7 @@
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
-{#snippet navigation(link: { path:string; label:string})}
+{#snippet navigation(link: { path: string; label: string })}
 	<li>
 		<a href={link.path} class=" {page.url.pathname === link.path ? 'on_it' : 'not_on'}">
 			<span>{link.label}</span>
@@ -56,28 +56,34 @@
 		grid-template-columns: auto 4rem;
 	}
 	nav,
-	.button-group {
-		display: inline-block;
+	ul {
+		display: flex;
 		height: 4rem;
-		width: 100%;
 	}
 	ul {
 		display: grid;
-		grid-template-columns: repeat(6, 8rem);
-		height: 4rem;
-
-		background: var(--fg);
-	}
-	li {
-		display: flex;
-		justify-content: center;
+		grid-template-columns: repeat(6, 4rem);
+		justify-items: center;
 		align-items: center;
+
+		padding: 0 1rem;
+		gap: 1rem;
+
+		border: 1px solid var(--border);
+		box-shadow: var(--shadow);
+		border-radius: var(--radius);
+		cursor: pointer;
+
+		background: var(--mg);
 	}
+
 	.on_it {
 		color: var(--accent);
 		font-weight: bold;
+		text-decoration: underline;
+		text-underline-offset: 4px;
 	}
-	
+
 	.not_on {
 		color: var(--text);
 		opacity: 0.7;
