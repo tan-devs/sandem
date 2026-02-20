@@ -1,10 +1,11 @@
 import { Liveblocks } from '@liveblocks/node';
 import { ConvexHttpClient } from 'convex/browser';
-import { env } from '$env/dynamic/private';
+import { SECRET_LIVEBLOCKS_KEY } from '$env/static/private';
+import { PUBLIC_CONVEX_URL } from '$env/static/public';
 import { api } from '$convex/_generated/api.js';
 
 // 1. Initialize Liveblocks with your SECRET key (Do not use the public key here)
-const liveblocksSecret = env.LIVEBLOCKS_SECRET_KEY;
+const liveblocksSecret = SECRET_LIVEBLOCKS_KEY;
 if (!liveblocksSecret) throw new Error('LIVEBLOCKS_SECRET_KEY is not set');
 
 const liveblocks = new Liveblocks({
@@ -12,7 +13,7 @@ const liveblocks = new Liveblocks({
 });
 
 // 2. Initialize Convex to read your database
-const convexUrl = env.PUBLIC_CONVEX_URL;
+const convexUrl = PUBLIC_CONVEX_URL;
 if (!convexUrl) throw new Error('PUBLIC_CONVEX_URL is not set');
 
 const convex = new ConvexHttpClient(convexUrl);
