@@ -1,6 +1,7 @@
 // convex/users.ts
 import { query } from './_generated/server.js';
 import { authComponent } from './auth.js';
+import { v } from 'convex/values';
 
 export const getMyProfile = query({
 	args: {},
@@ -21,4 +22,15 @@ export const getMyProfile = query({
 
 		return appUser;
 	}
+});
+
+
+export const getUserByAuthId = query({
+  args: { authUserId: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query('users')
+      .withIndex('by_authUserId', (q) => q.eq('authUserId', args.authUserId))
+      .first();
+  }
 });

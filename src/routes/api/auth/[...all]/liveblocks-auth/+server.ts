@@ -4,14 +4,20 @@ import { env } from '$env/dynamic/private';
 import { api } from '$convex/_generated/api.js';
 
 // 1. Initialize Liveblocks with your SECRET key (Do not use the public key here)
+const liveblocksSecret = env.LIVEBLOCKS_SECRET_KEY;
+if (!liveblocksSecret) throw new Error('LIVEBLOCKS_SECRET_KEY is not set');
+
 const liveblocks = new Liveblocks({
-	secret: env.LIVEBLOCKS_SECRET_KEY
+	secret: liveblocksSecret
 });
 
 // 2. Initialize Convex to read your database
-const convex = new ConvexHttpClient(env.PUBLIC_CONVEX_URL);
+const convexUrl = env.PUBLIC_CONVEX_URL;
+if (!convexUrl) throw new Error('PUBLIC_CONVEX_URL is not set');
 
-export async function POST({  locals }) {
+const convex = new ConvexHttpClient(convexUrl);
+
+export async function POST({ locals }) {
 	// Grab the user from your Auth provider (You mentioned Better Auth in schema.ts)
 	const authUserId = locals.session?.user?.id;
 
@@ -22,6 +28,10 @@ export async function POST({  locals }) {
 	// 3. Fetch the user's data from your Convex database
 	// You will need a simple Convex query that finds a user by their authUserId
 	const convexUser = await convex.query(api.users.getUserByAuthId, { authUserId });
+
+	if (!convexUser) {
+		return new Response('User not found', { status: 404 });
+	}
 
 	// 4. Start a Liveblocks session using the Convex user ID
 	const session = liveblocks.prepareSession(convexUser._id, {
