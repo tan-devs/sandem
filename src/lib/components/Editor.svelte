@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { env } from '$env/dynamic/public';
 	import { onMount } from 'svelte';
 	import { createClient } from '@liveblocks/client';
 	import { getYjsProviderForRoom } from '@liveblocks/yjs';
@@ -13,7 +12,7 @@
 
 	// Set up Liveblocks client
 	const client = createClient({
-		publicApiKey: String(env.PUBLIC_LIVEBLOCKS_KEY)
+		publicApiKey: '/api/liveblocks-auth'
 	});
 
 	onMount(() => {

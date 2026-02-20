@@ -9,5 +9,10 @@ export default defineSchema({
 		authUserId: v.string(),
 		name: v.optional(v.string())
 		// ... other fields
-	}).index('by_authUserId', ['authUserId'])
+	}).index('by_authUserId', ['authUserId']),
+
+	documents: defineTable({
+		roomId: v.string(),
+		content: v.string()
+	}).index('by_roomId', ['roomId'])
 });

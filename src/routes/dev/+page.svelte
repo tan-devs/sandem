@@ -3,7 +3,7 @@
 	import { api } from '$convex/_generated/api.js';
 	import { useQuery } from 'convex-svelte';
 	import { useAuth } from '$lib/svelte/index.js';
-	import  Button  from '$lib/components/ui/Button.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 
 	let { data } = $props();
