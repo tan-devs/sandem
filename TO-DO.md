@@ -4,9 +4,9 @@
 
 _WebContainers require strict cross-origin isolation to enable `SharedArrayBuffer` in the browser. If you skip this, the container will instantly crash._
 
-- [ ] **Install dependencies:**
+- [x] **Install dependencies:**
   - Run `pnpm add @webcontainer/api xterm @xterm/addon-fit`
-- [ ] **Configure Vite/SvelteKit Headers:**
+- [x] **Configure Vite/SvelteKit Headers:**
   - Open `vite.config.ts`.
   - Add a custom Vite plugin or configure the dev server headers to inject:
     - `Cross-Origin-Embedder-Policy: require-corp`
@@ -79,6 +79,14 @@ _If the user runs a web server inside the terminal, you need to show them the re
 - [ ] **Listen for ports opening:**
   - Hook into `webcontainerInstance.on('server-ready', (port, url) => { ... })`.
 - [ ] **Render an Iframe:**
-  - Create a Svelte `$state` variable `let previewUrl = $state('')`.
+  - Create a Svelte `$state$ variable `let previewUrl = $state('')`.
   - When the `server-ready` event fires, update `previewUrl = url`.
   - Render an `<iframe src={previewUrl}>` next to your editor.
+
+## Phase 7: Documentation & Cleanup
+
+_As integration stabilizes, document the workflow and tidy up remaining TODOs._
+
+- [ ] Update `README.md` with installation and usage notes for the WebContainer feature.
+- [ ] Remove temporary log statements and debug components.
+- [ ] Ensure `.gitignore` includes any new environment files created during development.

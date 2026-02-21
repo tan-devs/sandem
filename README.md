@@ -63,6 +63,11 @@ understand how things fit.
 - **Liveblocks + Yjs + CodeMirror** provide the collaborative editor at
   `/code`. The editor component handles mounting and unmounting, while the
   server verifies Liveblocks webhooks and writes updates back into Convex.
+- **WebContainer & Terminal** is an experimental feature that boots a
+  lightweight Node environment directly in the browser. A terminal UI is
+  rendered with `xterm`, and the underlying file system is kept in sync with
+  the collaborative editor. See `TO-DO.md` for the full step‑by‑step
+  integration plan.
 
 The `src/routes/test` folder contains several small apps you can use while
 learning:
@@ -244,7 +249,18 @@ Please run `pnpm format` and `pnpm lint` before submitting a PR.
 - Add a new route or component? look under `src/routes/`.
 - Convex functions & schema go in `src/convex/`.
 - Tests live in `e2e/` and `src/lib/sveltekit/index.spec.ts`.
+### WebContainer & Terminal demo ⚙️
 
+A work‑in‑progress feature allows you to spin up a full Node.js shell right
+in the browser using the [WebContainer API](https://webcontainer.io). The
+terminal is built with `xterm`, and keystrokes are piped back to a spawned
+shell process. As you type in the collaborative editor, the container file
+system updates automatically, so you can run code without leaving the
+sandbox.
+
+Refer to [`TO-DO.md`](TO-DO.md) for a detailed checklist of implementation
+phases and installation notes; once the integration is finished we’ll move
+this documentation into its own guide.
 ---
 
 ## License
