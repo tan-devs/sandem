@@ -5,6 +5,12 @@
 
 Version: 0.5.2
 
+<picture>
+  <source srcset="./bannerDark.webp" media="(prefers-color-scheme: dark)">
+  <source srcset="./banner.webp" media="(prefers-color-scheme: light)">
+  <img src="./banner.webp" alt="Auth components preview">
+</picture>
+
 ## Quick summary ✅
 
 - Frontend: SvelteKit (Svelte v5) + Vite

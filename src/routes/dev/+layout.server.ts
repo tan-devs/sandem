@@ -1,6 +1,3 @@
-// Development-only layout load that fetches the current user and
-// authentication state. This lets the /dev page show live info for
-// debugging without exposing it in production.
 import { api } from '$convex/_generated/api.js';
 import { createAuth } from '$convex/auth.js';
 import { createConvexHttpClient, getAuthState } from '$lib/sveltekit/index.js';

@@ -1,11 +1,11 @@
 {
-	"name": "sandem",
-	"author": "tan-devs",
+	"name": "@mmailaender/convex-better-auth-svelte",
+	"author": "Micha Mailaender",
 	"version": "0.5.1",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/tan-devs/sandem.git"
+		"url": "git+https://github.com/mmailaender/convex-better-auth-svelte.git"
 	},
 	"publishConfig": {
 		"access": "public"
@@ -72,13 +72,15 @@
 		"@sveltejs/kit": "^2.50.2",
 		"@sveltejs/package": "^2.5.7",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
+		"@tailwindcss/forms": "^0.5.11",
+		"@tailwindcss/vite": "^4.1.18",
 		"@types/node": "^25.2.2",
 		"@vitest/browser": "^4.0.18",
 		"better-auth": "1.4.9",
 		"concurrently": "^9.2.1",
 		"convex": "1.31.7",
 		"dotenv": "^17.2.4",
-		"eslint": "^9.39.2",
+		"eslint": "^10.0.0",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.14.0",
 		"globals": "^17.3.0",
@@ -86,10 +88,12 @@
 		"playwright": "^1.58.2",
 		"prettier": "^3.8.1",
 		"prettier-plugin-svelte": "^3.4.1",
+		"prettier-plugin-tailwindcss": "^0.7.2",
 		"publint": "^0.3.17",
 		"svelte": "^5.50.0",
 		"svelte-check": "^4.3.6",
 		"svelte-eslint-parser": "^1.4.1",
+		"tailwindcss": "^4.1.18",
 		"tsx": "^4.21.0",
 		"typescript": "^5.9.3",
 		"typescript-eslint": "^8.54.0",
@@ -101,22 +105,6 @@
 	"keywords": [
 		"svelte"
 	],
-	"dependencies": {
-		"@codemirror/lang-javascript": "^6.2.4",
-		"@codemirror/state": "^6.5.4",
-		"@liveblocks/client": "^3.14.0",
-		"@liveblocks/node": "^3.14.0",
-		"@liveblocks/yjs": "^3.14.0",
-		"@lucide/svelte": "^0.575.0",
-		"@mmailaender/convex-better-auth-svelte": "^0.5.1",
-		"bits-ui": "^2.16.0",
-		"codemirror": "^6.0.2",
-		"is-network-error": "^1.3.0",
-		"lucide-svelte": "^0.575.0",
-		"y-codemirror.next": "^0.3.5",
-		"yjs": "^13.6.29",
-		"zod": "^3.25.76"
-	},
 	"pnpm": {
 		"onlyBuiltDependencies": [
 			"esbuild"
@@ -135,5 +123,21 @@
 			"zod": "^4.1.13",
 			"eslint": "^9.39.2"
 		}
+	},
+	"dependencies": {
+		"@codemirror/lang-javascript": "^6.2.4",
+		"@codemirror/state": "^6.5.4",
+		"@liveblocks/client": "^3.14.0",
+		"@liveblocks/node": "^3.14.0",
+		"@liveblocks/yjs": "^3.14.0",
+		"@lucide/svelte": "^0.575.0",
+		"@mmailaender/convex-better-auth-svelte": "^0.5.1",
+		"bits-ui": "^2.16.0",
+		"codemirror": "^6.0.2",
+		"is-network-error": "^1.3.0",
+		"lucide-svelte": "^0.575.0",
+		"y-codemirror.next": "^0.3.5",
+		"yjs": "^13.6.29",
+		"zod": "^3.25.76"
 	}
 }

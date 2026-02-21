@@ -27,8 +27,8 @@
 </script>
 
 <div class="mx-auto max-w-2xl px-4 py-12">
-	<h1 class="mb-2 text-3xl font-bold text-gray-900">Sandem</h1>
-	<p class="mb-8 text-gray-600">SvelteKit + Tandem</p>
+	<h1 class="mb-2 text-3xl font-bold text-gray-900">convex-better-auth-svelte</h1>
+	<p class="mb-8 text-gray-600">Convex + Better Auth integration for Svelte/SvelteKit</p>
 
 	<!-- Development Section -->
 	<section class="mb-10">

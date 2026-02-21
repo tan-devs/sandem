@@ -2,15 +2,9 @@
 // for information about these interfaces
 declare global {
 	namespace App {
+		// interface Error {}
 		interface Locals {
 			token: string | undefined;
-			session?: {
-				user?: {
-					id?: string;
-					// Add more user fields as needed
-				};
-				// Add more session fields as needed
-			};
 		}
 		// interface PageData {}
 		// interface PageState {}
