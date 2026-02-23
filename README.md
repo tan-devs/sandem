@@ -18,9 +18,10 @@ Version: 0.6.0
 - **Auth:** [`better-auth`](https://github.com/better-auth/better-auth)) + [`@mmailaender/convex-better-auth-svelte`](https://github.com/mmailaender/convex-better-auth-svelte)
 - **Terminal:** [`xterm.js`](https://github.com/xtermjs/xterm.js) (via [`@battlefieldduck/xterm-svelte`](https://github.com/battlefieldduck/xterm-svelte))
 
-- **Collaboration:** Liveblocks + Yjs (Real-time syncing)
-- **Backend:** Convex serverless functions (folder: `src/convex`)
-- **Tests:** Vitest (unit) and Playwright (E2E)
+- **Collaboration:** [`Liveblocks`](https://github.com/liveblocks/liveblocks) + [`Yjs`](https://github.com/yjs/yjs) (Real-time syncing)
+- **Backend:** [`Convex`](https://github.com/get-convex/convex-backend) serverless functions (folder: `src/convex`)
+- **Tests:** [`Vitest`](https://github.com/vitest-dev/vitest) (unit) and [`Playwright`](https://github.com/microsoft/playwright) (E2E)
+
 
 This repo is a hands‑on reference implementation for building a full in-browser collaborative development environment (IDE) using modern web standards, complete with SSR and client auth.
 
