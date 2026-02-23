@@ -13,8 +13,8 @@ Version: 0.6.0
 
 ## Quick summary ✅
 
-- **Frontend:** SvelteKit (Svelte v5) + Vite + TailwindCSS
-- **IDE Engine:** Monaco Editor + WebContainer API
+- **Frontend:** [SvelteKit](https://svelte.dev/docs) ([`Svelte v5`](https://github.com/sveltejs/svelte))
+- **IDE Engine:** [Monaco Editor](https://microsoft.github.io/monaco-editor/) + [WebContainer API](https://webcontainer.io)
 - **Auth:** [`better-auth`](https://github.com/better-auth/better-auth)) + [`@mmailaender/convex-better-auth-svelte`](https://github.com/mmailaender/convex-better-auth-svelte)
 - **Terminal:** [`xterm.js`](https://github.com/xtermjs/xterm.js) (via [`@battlefieldduck/xterm-svelte`](https://github.com/battlefieldduck/xterm-svelte))
 
