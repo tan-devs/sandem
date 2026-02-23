@@ -22,7 +22,6 @@ Version: 0.6.0
 - **Backend:** [`Convex`](https://github.com/get-convex/convex-backend) serverless functions (folder: `src/convex`)
 - **Tests:** [`Vitest`](https://github.com/vitest-dev/vitest) (unit) and [`Playwright`](https://github.com/microsoft/playwright) (E2E)
 
-
 This repo is a hands‑on reference implementation for building a full in-browser collaborative development environment (IDE) using modern web standards, complete with SSR and client auth.
 
 ---

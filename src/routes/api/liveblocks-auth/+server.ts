@@ -1,51 +1,52 @@
 import { type RequestEvent } from '@sveltejs/kit';
 import { LIVEBLOCKS_SECRET_KEY } from '$env/static/private';
+import { PUBLIC_CONVEX_URL } from '$env/static/public';
 import { Liveblocks } from '@liveblocks/node';
-
-// 1. Import your Better Auth client (adjust the path if needed)
-import { authClient } from '$lib/auth-client.js';
+import { ConvexHttpClient } from 'convex/browser';
+import { api } from '$convex/_generated/api.js';
 
 const liveblocks = new Liveblocks({
 	secret: LIVEBLOCKS_SECRET_KEY
 });
 
-export async function POST({ request }: RequestEvent): Promise<Response> {
-	try {
-		// 2. Fetch the session from Better Auth / Convex.
-		// We pass `request.headers` so that Better Auth can read the session cookie
-		// that the user's browser sent to this API route.
-		const { data: session, error } = await authClient.getSession({
-			fetchOptions: {
-				headers: request.headers
-			}
-		});
+// Initialize the Convex HTTP client for server-side queries
+const convex = new ConvexHttpClient(PUBLIC_CONVEX_URL);
 
-		// 3. Reject the request if they aren't logged in
-		if (error || !session?.user) {
-			return new Response('Unauthorized', { status: 401 });
+export async function POST({ locals }: RequestEvent): Promise<Response> {
+	try {
+		// 1. Grab the token that hooks.server.ts already parsed for us
+		if (!locals.token) {
+			return new Response('Unauthorized - No Token', { status: 401 });
 		}
 
-		// 4. Register the user with Liveblocks
+		// 2. Authenticate the Convex client with the user's token
+		convex.setAuth(locals.token);
+
+		// 3. Call your perfect `getCurrentUser` query from src/convex/auth.ts!
+		const user = await convex.query(api.auth.getCurrentUser);
+
+		if (!user) {
+			return new Response('Unauthorized - User not found', { status: 401 });
+		}
+
+		// 4. Register the securely fetched user with Liveblocks
 		const { status, body } = await liveblocks.identifyUser(
 			{
-				userId: session.user.id,
+				userId: user._id, // Ensure you use Convex's internal _id or the specific string ID Liveblocks expects
 				groupIds: []
 			},
 			{
 				userInfo: {
-					name: session.user.name,
-					email: session.user.email,
-					// If the user doesn't have an avatar, give them a placeholder based on their ID
-					avatar:
-						session.user.image ||
-						`https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.id}`
+					name: user.name || 'Anonymous',
+					email: user.email || '',
+					avatar: user.image || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user._id}`
 				}
 			}
 		);
 
 		return new Response(body, { status });
 	} catch (error) {
-		console.error('Authentication error:', error);
+		console.error('Liveblocks Auth Error:', error);
 		return new Response('Internal Server Error', { status: 500 });
 	}
 }

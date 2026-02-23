@@ -1,12 +1,16 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores'; // <-- 1. Import SvelteKit page store
 	import { WebContainer } from '@webcontainer/api';
+	import { PaneGroup, Pane, PaneResizer } from 'paneforge';
 
 	import Editor from '$lib/components/Editor.svelte';
 	import Preview from '$lib/components/Preview.svelte';
-	import Terminal from '$lib/components/Terminal.svelte'; // <-- 1. Import Terminal
+	import Terminal from '$lib/components/Terminal.svelte';
+	import { VITE_REACT_TEMPLATE } from '$lib/templates.js';
 
-	import { VITE_REACT_TEMPLATE, type CodeFile } from '$lib/templates.js';
+	// 2. Extract the dynamic projectId from the URL
+	let projectId = $derived($page.params.projectId);
 
 	let wc: WebContainer | undefined = $state();
 	let error: string | undefined = $state();
@@ -15,19 +19,11 @@
 		async function init() {
 			try {
 				const instance = await WebContainer.boot();
-
-				const wcFiles = Object.fromEntries(
-					Object.entries(VITE_REACT_TEMPLATE.files).map(([name, file]) => [
-						name,
-						{ file: { contents: (file as CodeFile).contents } }
-					])
-				);
-				await instance.mount(wcFiles);
-
+				await instance.mount(VITE_REACT_TEMPLATE.files);
 				wc = instance;
 			} catch (e) {
 				console.error('WebContainer boot failed:', e);
-				error = 'Failed to boot WebContainer. Ensure COOP/COEP headers are set.';
+				error = 'Failed to boot WebContainer.';
 			}
 		}
 		init();
@@ -39,51 +35,46 @@
 {:else if !wc}
 	<div class="status-screen">
 		<div class="spinner"></div>
-		<p>Initializing WebContainer...</p>
+		<p>Loading Project: {projectId}...</p>
 	</div>
 {:else}
-	<div class="ide-grid">
-		<div class="editor-pane">
-			<Editor webcontainer={wc} />
-		</div>
-		<div class="preview-pane">
-			<Preview webcontainer={wc} />
-		</div>
-		<div class="terminal-pane">
-			<Terminal webcontainer={wc} />
-		</div>
+	<div class="app-container">
+		<PaneGroup direction="horizontal">
+			<Pane defaultSize={50}>
+				<PaneGroup direction="vertical">
+					<Pane defaultSize={70}>
+						<div class="pane-content editor-pane">
+							<Editor webcontainer={wc} {projectId} />
+						</div>
+					</Pane>
+					<PaneResizer class="resizer-horizontal" />
+					<Pane defaultSize={30}>
+						<div class="pane-content terminal-pane">
+							<Terminal webcontainer={wc} />
+						</div>
+					</Pane>
+				</PaneGroup>
+			</Pane>
+			<PaneResizer class="resizer-vertical" />
+			<Pane defaultSize={50}>
+				<div class="pane-content preview-pane">
+					<Preview webcontainer={wc} />
+				</div>
+			</Pane>
+		</PaneGroup>
 	</div>
 {/if}
 
 <style>
-	/* --- IDE Grid Layout --- */
-	.ide-grid {
-		display: grid;
-		grid-template-columns: 50% 50%; /* Left / Right split */
-		grid-template-rows: 70% 30%; /* Top / Bottom split for the right side */
+	/* --- Container & Pane Helpers --- */
+	.app-container {
 		height: 100vh;
 		width: 100%;
-		overflow: hidden;
 		background-color: #1e1e1e;
 	}
 
-	.editor-pane {
-		grid-column: 1 / 2;
-		grid-row: 1 / 3; /* Spans the entire height of the left column */
-		border-right: 1px solid #2d2d2d;
-		overflow: hidden; /* Ensures child components don't break the grid */
-	}
-
-	.preview-pane {
-		grid-column: 2 / 3;
-		grid-row: 1 / 2; /* Top right */
-		overflow: hidden;
-	}
-
-	.terminal-pane {
-		grid-column: 2 / 3;
-		grid-row: 2 / 3; /* Bottom right */
-		border-top: 1px solid #2d2d2d;
+	.pane-content {
+		height: 100%;
 		overflow: hidden;
 	}
 

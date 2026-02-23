@@ -5,69 +5,71 @@
 		ITerminalInitOnlyOptions,
 		Terminal
 	} from '@battlefieldduck/xterm-svelte';
-	import type { WebContainerProcess } from '@webcontainer/api';
+	import type { WebContainer, WebContainerProcess } from '@webcontainer/api';
 
-	// Accept the booted and mounted webcontainer
-	let { webcontainer }: { webcontainer: import('@webcontainer/api').WebContainer } = $props();
+	let {
+		webcontainer
+	}: {
+		webcontainer: WebContainer;
+	} = $props();
 
-	let terminal = $state<Terminal>();
+	// STRICT FIX: Explicitly allow undefined
+	let terminal: Terminal | undefined = $state(undefined);
 	let shellProcess: WebContainerProcess | undefined;
 	let shellInput: WritableStreamDefaultWriter<string> | undefined;
 
 	const options: ITerminalOptions & ITerminalInitOnlyOptions = {
 		fontFamily: 'Consolas, monospace',
-		convertEol: true, // Prevents diagonal staircase text
-		theme: { background: '#1e1e1e' } // Matches the editor
+		convertEol: true,
+		theme: { background: '#1e1e1e' }
 	};
 
 	async function onLoad() {
 		if (!terminal) return;
 
-		// 1. Load and apply FitAddon
 		const fitAddon = new (await XtermAddon.FitAddon()).FitAddon();
 		terminal.loadAddon(fitAddon);
 		fitAddon.fit();
 
-		// 2. Make it responsive!
 		window.addEventListener('resize', () => fitAddon.fit());
 
-		// 3. Spawn a 'jsh' (JavaScript Shell) process in the WebContainer
 		shellProcess = await webcontainer.spawn('jsh', {
-			terminal: {
-				cols: terminal.cols,
-				rows: terminal.rows
-			}
+			terminal: { cols: terminal.cols, rows: terminal.rows }
 		});
 
-		// 4. Get the input writer so we can send keystrokes to the shell
 		shellInput = shellProcess.input.getWriter();
 
-		// 5. Pipe the shell's output to the terminal
 		shellProcess.output.pipeTo(
-			new WritableStream({
+			new WritableStream<string>({
 				write(data) {
 					terminal?.write(data);
 				}
 			})
 		);
 
-		// Optional: Tell the shell when the terminal is resized
-		terminal.onResize((size) => {
-			shellProcess?.resize({
-				cols: size.cols,
-				rows: size.rows
-			});
+		terminal.onResize((size: { cols: number; rows: number }) => {
+			shellProcess?.resize({ cols: size.cols, rows: size.rows });
 		});
 	}
 
 	function onData(data: string) {
-		// 6. Send keystrokes directly into the WebContainer shell
 		if (shellInput) {
 			shellInput.write(data);
 		}
 	}
 </script>
 
-<div class="h-full w-full overflow-hidden border-t border-[#2d2d2d] bg-[#1e1e1e] p-2">
+<div class="terminal-container">
 	<Xterm bind:terminal {options} {onLoad} {onData} />
 </div>
+
+<style>
+	.terminal-container {
+		height: 100%;
+		width: 100%;
+		overflow: hidden;
+		background-color: #1e1e1e;
+		padding: 0.5rem;
+		box-sizing: border-box;
+	}
+</style>

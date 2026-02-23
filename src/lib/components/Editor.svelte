@@ -15,7 +15,7 @@
 	import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 
 	// --- Import Template and Types ---
-	import { VITE_REACT_TEMPLATE, type CodeFile } from '$lib/templates.js';
+	import { VITE_REACT_TEMPLATE } from '$lib/templates.js';
 	import type { Id } from '$convex/_generated/dataModel.js';
 
 	const convexClient = useConvexClient();
@@ -31,9 +31,13 @@
 	let isSaving: boolean = $state(false);
 
 	// webcontainer prop
-	let { webcontainer }: { webcontainer: import('@webcontainer/api').WebContainer } = $props();
-
-	const roomId = 'my-room';
+	let {
+		webcontainer,
+		projectId // 👈 1. Extract projectId from props
+	}: {
+		webcontainer: import('@webcontainer/api').WebContainer;
+		projectId: string; // 👈 Add type
+	} = $props();
 
 	function getLanguage(fileName: string): string {
 		if (fileName.endsWith('.jsx') || fileName.endsWith('.js')) return 'javascript';
@@ -46,17 +50,20 @@
 	async function handleSaveToConvex() {
 		isSaving = true;
 		try {
-			const filesArray = Object.entries(VITE_REACT_TEMPLATE.files).map(([name, file]) => ({
+			// compute at call time so we grab the latest prop value
+			const roomId = projectId || `room-${crypto.randomUUID()}`;
+
+			const filesArray = Object.entries(VITE_REACT_TEMPLATE.files).map(([name, node]) => ({
 				name: name,
-				contents: (file as CodeFile).contents
+				contents: (node as { file: { contents: string } }).file.contents
 			}));
 
-			// FIXED: Changed reactTemplate to VITE_REACT_TEMPLATE
 			const newProjectId = await convexClient.mutation(api.projects.createProject, {
 				title: 'React Vite Starter',
 				entry: VITE_REACT_TEMPLATE.entry,
 				visibleFiles: VITE_REACT_TEMPLATE.visibleFiles,
-				files: filesArray
+				files: filesArray,
+				liveblocksRoomId: roomId
 			});
 
 			alert(`Success! Project saved with ID: ${newProjectId}`);
@@ -67,17 +74,10 @@
 			isSaving = false;
 		}
 	}
-
 	// --- WebContainer helpers ---
 	async function mountFiles() {
-		// Map templates.ts files to WebContainer format
-		const wcFiles = Object.fromEntries(
-			Object.entries(VITE_REACT_TEMPLATE.files).map(([name, file]) => [
-				name,
-				{ file: { contents: (file as CodeFile).contents } }
-			])
-		);
-		await webcontainer.mount(wcFiles);
+		// The template files are already in the correct WebContainer FileSystemTree format!
+		await webcontainer.mount(VITE_REACT_TEMPLATE.files);
 	}
 
 	onMount(() => {
@@ -105,6 +105,8 @@
 
 			if (isDestroyed) return;
 
+			// determine the appropriate room for this session
+			const roomId = projectId || `room-${crypto.randomUUID()}`;
 			const { room, leave } = client.enterRoom(roomId);
 			leaveRoom = leave;
 
@@ -137,6 +139,16 @@
 					yProvider.awareness as unknown as Awareness
 				);
 				bindings.push(binding);
+
+				// --- NEW: WebContainer HMR Sync ---
+				// Listen for code changes and write them directly to the WebContainer!
+				model.onDidChangeContent(async () => {
+					try {
+						await webcontainer.fs.writeFile(fileName, model.getValue());
+					} catch (error) {
+						console.error(`Failed to write ${fileName} to WebContainer:`, error);
+					}
+				});
 			}
 
 			// Mount the default entry file to start
@@ -150,7 +162,10 @@
 
 						// If the Yjs text is completely empty, it means this room is brand new.
 						if (yText.length === 0) {
-							yText.insert(0, VITE_REACT_TEMPLATE.files[fileName].contents);
+							const initialContent = (
+								VITE_REACT_TEMPLATE.files[fileName] as { file: { contents: string } }
+							).file.contents;
+							yText.insert(0, initialContent);
 						}
 					}
 				}

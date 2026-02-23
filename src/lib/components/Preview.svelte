@@ -1,21 +1,24 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import type { WebContainer } from '@webcontainer/api';
 
-	// Accept the booted and mounted webcontainer
-	let { webcontainer }: { webcontainer: import('@webcontainer/api').WebContainer } = $props();
+	let {
+		webcontainer
+	}: {
+		webcontainer: WebContainer;
+	} = $props();
+
 	let iframeUrl: string = $state('');
 
 	onMount(() => {
 		async function startServer() {
-			// Install dependencies
 			const installProcess = await webcontainer.spawn('npm', ['install']);
 			await installProcess.exit;
 
-			// Start the dev server
 			await webcontainer.spawn('npm', ['run', 'dev']);
 
-			// Listen for the URL
-			webcontainer.on('server-ready', (port, url) => {
+			// STRICT FIX: Type the callback variables natively
+			webcontainer.on('server-ready', (port: number, url: string) => {
 				iframeUrl = url;
 			});
 		}
