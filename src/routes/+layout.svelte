@@ -3,10 +3,19 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import { page } from '$app/state';
 
+	import { PUBLIC_CONVEX_URL } from '$env/static/public';
+	import { setupConvex } from 'convex-svelte';
+
+	// create a Convex client for use in the app
+
+	// register the URL with the Convex Svelte helper
+	setupConvex(PUBLIC_CONVEX_URL);
+
 	let { children } = $props();
 
 	const navLinks = [
 		{ path: '/', label: 'Home' },
+		{ path: '/ide', label: 'IDE' },
 		{ path: '/dev', label: 'Dev' },
 		{ path: '/test/ssr', label: 'SSR Test' },
 		{ path: '/test/client-only', label: 'Client Test' },
