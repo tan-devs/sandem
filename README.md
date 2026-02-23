@@ -15,10 +15,11 @@ Version: 0.6.0
 
 - **Frontend:** SvelteKit (Svelte v5) + Vite + TailwindCSS
 - **IDE Engine:** Monaco Editor + WebContainer API
-- **Terminal:** `xterm.js` (via `@battlefieldduck/xterm-svelte`)
+- ** Auth: ** [`better-auth`](https://github.com/m-mailaender/better-auth) + [`@mmailaender/convex-better-auth-svelte`](https://github.com/m-mailaender/convex-better-auth-svelte)
+- ** Terminal: ** [`xterm.js`](https://github.com/xtermjs/xterm.js) (via [`@battlefieldduck/xterm-svelte`](https://github.com/battlefieldduck/xterm-svelte))
+
 - **Collaboration:** Liveblocks + Yjs (Real-time syncing)
 - **Backend:** Convex serverless functions (folder: `src/convex`)
-- **Auth:** `better-auth` + `@mmailaender/convex-better-auth-svelte`
 - **Tests:** Vitest (unit) and Playwright (E2E)
 
 This repo is a hands‑on reference implementation for building a full in-browser collaborative development environment (IDE) using modern web standards, complete with SSR and client auth.
