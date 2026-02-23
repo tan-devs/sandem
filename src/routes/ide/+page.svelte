@@ -1,68 +1,77 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { WebContainer, type FileSystemTree } from '@webcontainer/api';
-	import { PaneGroup, Pane, PaneResizer } from 'paneforge';
-	import { useConvexClient } from 'convex-svelte';
+	import { useQuery, useConvexClient } from 'convex-svelte';
+	import { WebContainer } from '@webcontainer/api';
 	import { api } from '$convex/_generated/api.js';
 	import type { Doc } from '$convex/_generated/dataModel.js';
+	import { VITE_REACT_TEMPLATE } from '$lib/templates.js';
 
+	import { PaneGroup, Pane, PaneResizer } from 'paneforge';
 	import Editor from '$lib/components/Editor.svelte';
 	import Preview from '$lib/components/Preview.svelte';
 	import Terminal from '$lib/components/Terminal.svelte';
-	import { VITE_REACT_TEMPLATE } from '$lib/templates.js';
 
-	// Extract the user data that your layout/auth hooks provide
+	// 1. Get user from BOTH sources
 	let { data }: { data: { user?: { id: string } } } = $props();
-	let user = $derived(data?.user);
-
+	const currentUser = useQuery(api.auth.getCurrentUser, {});
 	const convexClient = useConvexClient();
 
-	let wc: WebContainer | undefined = $state();
-	let error: string | undefined = $state();
-	let project = $state<Doc<'projects'> | null | undefined>(undefined); // The database project object
-
-	let isBooting = false; // Guard to prevent multiple boot attempts
+	let wc = $state<WebContainer | undefined>();
+	let project = $state<Doc<'projects'> | null | undefined>(undefined);
+	let error = $state<string | undefined>();
+	let isBooting = false;
 
 	$effect(() => {
-		// Only run init if we have a user, haven't booted yet, and aren't currently booting
-		if (user?.id && !wc && !isBooting) {
+		// Use the Convex ID if available, otherwise fallback to the Auth ID from props
+		const dbUser = currentUser.data;
+		const effectiveUserId = dbUser?._id || data?.user?.id;
+
+		console.log('IDE Sync Check:', {
+			dbUserReady: !!dbUser,
+			authPropReady: !!data?.user?.id,
+			hasWc: !!wc,
+			isBooting
+		});
+
+		// Trigger init only if we have an ID and haven't started booting yet
+		if (effectiveUserId && !wc && !isBooting) {
 			isBooting = true;
-			init();
+			init(effectiveUserId);
 		}
 	});
 
-	// Move the init function outside of the effect for clarity
-	async function init() {
+	async function init(ownerId: string) {
 		try {
-			// 1. Convert template format
+			// Step A: Prepare Template
 			const filesArray = Object.entries(VITE_REACT_TEMPLATE.files).map(([name, node]) => ({
 				name,
 				contents: (node as { file: { contents: string } }).file.contents
 			}));
 
-			// 2. Fetch or Create workspace
-			project = await convexClient.mutation(api.projects.getOrCreateUserWorkspace, {
-				ownerId: user!.id,
+			// Step B: Sync Project with Database
+			// This ensures 'project' is set before we try to mount
+			const syncProject = await convexClient.mutation(api.projects.getOrCreateUserWorkspace, {
+				ownerId,
 				defaultFiles: filesArray,
 				entry: VITE_REACT_TEMPLATE.entry,
 				visibleFiles: VITE_REACT_TEMPLATE.visibleFiles
 			});
 
-			if (!project) throw new Error('Failed to load or create workspace.');
+			if (!syncProject) throw new Error('Failed to load workspace.');
+			project = syncProject;
 
-			// 3. Prepare WebContainer files
-			const wcFiles: import('@webcontainer/api').FileSystemTree = {};
-			for (const f of project.files) {
-				wcFiles[f.name] = { file: { contents: f.contents } };
+			// Step C: Boot WebContainer (The Singleton Guard)
+			if (!wc) {
+				const wcFiles: import('@webcontainer/api').FileSystemTree = {};
+				for (const f of project.files) {
+					wcFiles[f.name] = { file: { contents: f.contents } };
+				}
+
+				const instance = await WebContainer.boot();
+				await instance.mount(wcFiles);
+				wc = instance; // This finally breaks the loading loop
 			}
-
-			// 4. Boot WebContainer
-			const instance = await WebContainer.boot();
-			await instance.mount(wcFiles);
-			wc = instance;
-		} catch (e) {
-			console.error('WebContainer boot failed:', e);
-			error = 'Failed to boot WebContainer.';
+		} catch (e: unknown) {
+			console.error('Initialization Error:', e);
 			isBooting = false;
 		}
 	}
