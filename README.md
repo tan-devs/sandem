@@ -3,7 +3,9 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)  
 [![SvelteKit](https://img.shields.io/badge/framework-SvelteKit-orange.svg)]
 
-Version: 0.6.0
+Version: 0.8.0
+
+**Status:** ✅ build succeeded on 2026‑02‑24; all checks (type, lint, format, E2E) are green
 
 <picture>
   <source srcset="./bannerDark.webp" media="(prefers-color-scheme: dark)">
@@ -13,16 +15,18 @@ Version: 0.6.0
 
 ## Quick summary ✅
 
-- **Frontend:** [SvelteKit](https://svelte.dev/docs) ([`Svelte v5`](https://github.com/sveltejs/svelte))
-- **IDE Engine:** [Monaco Editor](https://microsoft.github.io/monaco-editor/) + [WebContainer API](https://webcontainer.io)
-- **Auth:** [`better-auth`](https://github.com/better-auth/better-auth)) + [`@mmailaender/convex-better-auth-svelte`](https://github.com/mmailaender/convex-better-auth-svelte)
-- **Terminal:** [`xterm.js`](https://github.com/xtermjs/xterm.js) (via [`@battlefieldduck/xterm-svelte`](https://github.com/battlefieldduck/xterm-svelte))
+- **Frontend:** [SvelteKit](https://svelte.dev/docs) ([`Svelte v5`](https://github.com/sveltejs/svelte) with runes)
+- **UI toolkit:** a growing library of reusable, themeable components (`Button`, `Card`, `Accordion`, `Tabs`, etc.) built with modern Svelte conventions and semantic CSS tokens.
+- **Theming:** four built‑in palettes (`default`, `forest`, `solar`, `ocean`) plus light/dark mode toggling via `ModeToggle`/`ThemeSwitcher`. Colors are managed with semantic custom properties and layered tokens.
+- **IDE Engine:** [Monaco Editor](https://microsoft.github.io/monaco-editor/) + [WebContainer API](https://webcontainer.io) powering an in‑browser Node.js environment.
+- **Auth:** [`better-auth`](https://github.com/better-auth/better-auth)) + [`@mmailaender/convex-better-auth-svelte`](https://github.com/mmailaender/convex-better-auth-svelte) with Convex-backed sessions.
+- **Terminal:** [`xterm.js`](https://github.com/xtermjs/xterm.js) (via [`@battlefieldduck/xterm-svelte`](https://github.com/battlefieldduck/xterm-svelte)) hooked into the WebContainer shell.
+- **Collaboration:** [`Liveblocks`](https://liveblocks.io/) + [`Yjs`](https://github.com/yjs/yjs) sync for realtime co‑editing.
+- **Backend:** [`Convex`](https://github.com/get-convex/convex-backend) serverless functions (folder: `src/convex`).
+- **Docker:** development and deployment ready with `Dockerfile` / `docker-compose` (`README.Docker.md`).
+- **Tests:** [`Vitest`](https://github.com/vitest-dev/vitest) (unit) and [`Playwright`](https://github.com/microsoft/playwright) (E2E).
 
-- **Collaboration:** [`Liveblocks`](https://liveblocks.io/) + [`Yjs`](https://github.com/yjs/yjs) (Real-time syncing)
-- **Backend:** [`Convex`](https://github.com/get-convex/convex-backend) serverless functions (folder: `src/convex`)
-- **Tests:** [`Vitest`](https://github.com/vitest-dev/vitest) (unit) and [`Playwright`](https://github.com/microsoft/playwright) (E2E)
-
-This repo is a hands‑on reference implementation for building a full in-browser collaborative development environment (IDE) using modern web standards, complete with SSR and client auth.
+This repo serves both as a **modern Svelte auth starter kit** with a clean component library and as a **hands‑on reference** for building a collaborative, in‑browser IDE.
 
 ---
 
@@ -50,23 +54,102 @@ This repo is a hands‑on reference implementation for building a full in-browse
 
 ## Architecture & key patterns
 
-This repo stitches together a handful of powerful pieces that work nicely together to create a complex web application. It’s meant to be useful when you’re trying to understand how things fit in a modern Svelte 5 stack.
+Sandem is built as a modular example of how to compose several modern web-platform pieces:
 
-- **SvelteKit** powers the frontend routing, server-side rendering, and API endpoints.
-- **Convex** acts as the real-time database and backend logic layer.
-- **COOP/COEP Headers** are strictly enforced via Vite config and SvelteKit hooks to enable `SharedArrayBuffer`, which is required for WebContainers to function securely.
+- **SvelteKit** handles routing, SSR, and API routes while keeping the UI reactive with runes (`$state`, `$props`, `$derived`).
+- **Convex** hosts serverless functions and acts as a realtime database; helpers in `src/lib/auth-client.ts` wire authentication state to the UI.
+- **Auth** uses `better-auth` together with a small Convex adapter to manage sign‑in, sign‑out, and user sessions on both server and client.
+- **UI component library** lives under `src/lib/components` and hosts colors, layout primitives, and atomic UI pieces that are wired to CSS custom properties defined in `src/app.css`.
+- **Theming** uses two token layers: primitive color/spacing tokens in `app.css`, and semantic tokens (e.g. `--color-brand`) that are swapped per theme via `[data-theme]` attributes.
+
+  To experiment yourself, open `/docs/theme` in the running app or copy the following snippet into a Svelte REPL or a new page:
+
+  ```svelte
+  <script>
+  	let currentTheme = 'default';
+  	let currentMode = 'light';
+  	const themes = ['default', 'forest', 'solar', 'ocean'];
+  	$: document.documentElement.dataset.theme = currentTheme;
+  	$: document.documentElement.dataset.mode = currentMode;
+  </script>
+
+  <select bind:value={currentTheme}
+  	>{#each themes as t}<option value={t}>{t}</option>{/each}</select
+  >
+  <select bind:value={currentMode}><option>light</option><option>dark</option></select>
+  <button style="background:var(--accent);color:var(--fg)">Hello</button>
+  ```
+
+- **WebContainer / Terminal / Monaco** code is concentrated in the `routes/ide` page and supporting modules; COOP/COEP headers are enforced via `vite.config.ts` and `src/hooks.server.ts` so the container can boot securely.
+
+---
+
+## Quick start
+
+1. `pnpm install` to fetch dependencies.
+2. Put your Convex URL in `.env` (see `.env.example`).
+3. `pnpm run dev` to start the dev server at http://localhost:5173.
+4. Optionally, spin up with Docker: `docker compose up --build` (see [README.Docker.md](README.Docker.md)).
+
+> Tip: switch themes with the selector in the header and toggle dark/light mode using the moon/sun icon. For a live demo of the color palettes, visit `/docs/theme` after the app is running; it provides interactive selectors and sample components.
+
+---
+
+## Environment variables
+
+- `PUBLIC_CONVEX_URL` – Convex deployment URL used by the client.
+- `CONVEX_ADMIN_KEY` – (server‑only) key for administrative operations, loaded automatically by Convex CLI.
+
+---
+
+## Project layout
+
+- `src/routes` – SvelteKit pages; notable entry points:\
+  `routes/(home)/+page.svelte` – marketing home with theme demo.\
+  `routes/ide/...` – the in‑browser IDE layout and boot code.\
+  `routes/test/` – various examples and auth test pages.\
+- `src/lib/components` – shared component library organized by category\
+  `colors`, `layout`, `ui`, `ide`, `preview`, etc.
+- `src/convex` – Convex backend functions and schema definitions.
+- `e2e/` and `src/lib/sveltekit` – integration and unit tests.
+- `Dockerfile` / `compose.yaml` – container definitions for local dev and cloud builds.
+
+---
+
+## Docker support
+
+Sandem ships with a production‑ready Dockerfile and a `docker compose` stack for development. See [README.Docker.md](README.Docker.md) for usage details.
+
+---
+
+## Development & testing
+
+Run `pnpm run check` for TypeScript/Svelte diagnostics, `pnpm run format` for prettier, and `pnpm run lint` for ESLint. Unit tests: `pnpm run test` (Vitest). E2E: `pnpm run e2e` (Playwright).
+
+---
+
+## Deployment
+
+Build with `pnpm run build` or via Docker. Ensure COOP/COEP headers are preserved on your hosting platform for WebContainer functionality.
+
+---
+
+## Troubleshooting
+
+- If the IDE fails to boot, check COOP/COEP headers and open console errors.\
+- Missing theme colours? Clear localStorage or verify `data-theme` attribute on `<html>`.
 
 ---
 
 ## Contributing & roadmap
 
-Want to add features or improve the docs? Great. Here are some ideas in order of importance:
+The repository is evolving rapidly; contributions are welcome. Current top priorities:
 
-1. Link the Monaco editor state to the WebContainer file system (Live HMR syncing).
-2. Add GitHub Actions workflows for lint → test → build → deploy.
-3. Expand the E2E suite to cover token expiry, refresh, and other edge cases.
-4. Add accessibility and performance checks (axe, Lighthouse) to CI.
-5. Write a short contributor guide and draw an architecture diagram.
+1. Finish the shared webcontainer helper and extract logic from the IDE page.\
+2. Create a live component catalog and improve theming documentation.\
+3. Add CI workflows (lint → test → build → deploy) and Docker publish pipeline.\
+4. Expand the E2E suite to cover auth edge cases and UI component rendering.\
+5. Add accessibility audits and visual regression testing for theme variants.
 
 Please run `pnpm format` and `pnpm lint` before submitting a PR.
 
@@ -84,3 +167,5 @@ Please run `pnpm format` and `pnpm lint` before submitting a PR.
 ## License
 
 [MIT](LICENSE)
+
+---

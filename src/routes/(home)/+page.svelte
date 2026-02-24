@@ -1,81 +1,134 @@
 <script lang="ts">
-	const devRoutes = [
-		{
-			title: 'Development Playground',
-			path: '/dev',
-			description: 'Full SSR auth demo with sign in/out functionality'
-		}
-	];
-
-	const testRoutes = [
-		{
-			title: 'SSR Auth Test',
-			path: '/test/ssr',
-			description: 'Tests SSR authentication state and hydration'
-		},
-		{
-			title: 'Client-Only Auth Test',
-			path: '/test/client-only',
-			description: 'Tests client-side only authentication (no SSR)'
-		},
-		{
-			title: 'Query Behavior Test',
-			path: '/test/queries',
-			description: 'Tests public and protected query behavior'
-		}
-	];
+	import Button from '$lib/components/ui/Button.svelte';
+	import PageHeader from '$lib/components/layout/PageHeader.svelte';
+	import PageSection from '$lib/components/layout/PageSection.svelte';
+	import ThemeSwitcher from '$lib/components/colors/ThemeSwitcher.svelte';
 </script>
 
-<div class="mx-auto max-w-2xl px-4 py-12">
-	<h1 class="mb-2 text-3xl font-bold text-gray-900">convex-better-auth-svelte</h1>
-	<p class="mb-8 text-gray-600">Convex + Better Auth integration for Svelte/SvelteKit</p>
-
-	<!-- Development Section -->
-	<section class="mb-10">
-		<h2 class="mb-4 flex items-center gap-2 text-xl font-semibold text-gray-800">
-			<span class="h-2 w-2 rounded-full bg-green-500"></span>
-			Development
-		</h2>
-		<div class="space-y-3">
-			{#each devRoutes as route}
-				<a
-					href={route.path}
-					class="block rounded-lg border border-green-200 bg-white p-4 shadow transition-shadow hover:border-green-400 hover:shadow-md"
-				>
-					<h3 class="text-lg font-semibold text-gray-900">{route.title}</h3>
-					<p class="mt-1 text-sm text-gray-600">{route.description}</p>
-					<span class="mt-2 inline-block text-xs text-green-600">{route.path}</span>
-				</a>
-			{/each}
+<main class="landing-page">
+	<PageHeader
+		heading="Modern Auth for Svelte"
+		subtitle="A robust, themeable starter kit powered by Convex and Better Auth."
+	>
+		<div class="hero-actions">
+			<Button variant="default" size="lg">Get Started</Button>
+			<Button variant="outline" size="lg">Documentation</Button>
 		</div>
-	</section>
+	</PageHeader>
 
-	<!-- Test Routes Section -->
-	<section class="mb-10">
-		<h2 class="mb-4 flex items-center gap-2 text-xl font-semibold text-gray-800">
-			<span class="h-2 w-2 rounded-full bg-purple-500"></span>
-			Test Routes
-		</h2>
-		<div class="space-y-3">
-			{#each testRoutes as route}
-				<a
-					href={route.path}
-					class="block rounded-lg border border-purple-200 bg-white p-4 shadow transition-shadow hover:border-purple-400 hover:shadow-md"
-				>
-					<h3 class="text-lg font-semibold text-gray-900">{route.title}</h3>
-					<p class="mt-1 text-sm text-gray-600">{route.description}</p>
-					<span class="mt-2 inline-block text-xs text-purple-600">{route.path}</span>
-				</a>
-			{/each}
+	<PageSection heading="Experience the System">
+		<div class="theme-showcase">
+			<div class="showcase-text">
+				<h3>Truly Semantic</h3>
+				<p>
+					Toggle between themes to see the entire UI adapt. Our components use
+					<strong>CSS Variables</strong> instead of hardcoded classes, making customization effortless.
+				</p>
+				<ThemeSwitcher />
+			</div>
+
+			<div class="preview-card">
+				<div class="preview-row">
+					<div class="swatch" style="background: var(--accent)"></div>
+					<div class="swatch" style="background: var(--highlight)"></div>
+					<div class="swatch" style="background: var(--border)"></div>
+				</div>
+				<p class="preview-label">Active Palette</p>
+			</div>
 		</div>
-	</section>
+	</PageSection>
 
-	<!-- E2E Tests Info -->
-	<section class="rounded-lg border border-gray-200 bg-gray-100 p-4">
-		<h3 class="mb-2 font-semibold text-gray-900">Run E2E Tests</h3>
-		<p class="text-sm text-gray-600">
-			Execute <code class="rounded bg-gray-200 px-1.5 py-0.5 font-mono text-xs">pnpm test:e2e</code> to
-			run all test scenarios with Playwright.
-		</p>
-	</section>
-</div>
+	<PageSection heading="Features" grid>
+		<div class="card">
+			<h3>Themable</h3>
+			<p>Switch between Forest, Solar, Ocean, and Default themes instantly.</p>
+		</div>
+		<div class="card">
+			<h3>Type Safe</h3>
+			<p>Full TypeScript support for props and state using Svelte 5 runes.</p>
+		</div>
+		<div class="card">
+			<h3>Real-time</h3>
+			<p>Powered by Convex for instant data syncing across all clients.</p>
+		</div>
+	</PageSection>
+</main>
+
+<style>
+	.hero-actions {
+		display: flex;
+		gap: 1rem;
+		justify-content: center;
+		margin-top: 1rem;
+	}
+
+	/* Showcase Layout */
+	.theme-showcase {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 4rem;
+		align-items: center;
+		padding: 3rem;
+		background: var(--mg);
+		border-radius: var(--radius);
+		border: 1px solid var(--border);
+	}
+
+	.showcase-text h3 {
+		margin-bottom: 1rem;
+		font-size: 1.5rem;
+	}
+	.showcase-text p {
+		color: var(--muted);
+		margin-bottom: 2rem;
+		line-height: 1.6;
+	}
+
+	.preview-card {
+		background: var(--bg);
+		padding: 2rem;
+		border-radius: var(--radius);
+		border: 1px solid var(--border);
+		box-shadow: var(--shadow);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 1rem;
+	}
+
+	.preview-row {
+		display: flex;
+		gap: 0.5rem;
+	}
+	.swatch {
+		width: 4rem;
+		height: 4rem;
+		border-radius: 50%;
+		border: 2px solid var(--border);
+	}
+	.preview-label {
+		font-size: 0.8rem;
+		color: var(--muted);
+		font-weight: 600;
+	}
+
+	.card {
+		padding: 2rem;
+		background: var(--bg);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		transition: transform var(--time) var(--ease);
+	}
+	.card:hover {
+		transform: translateY(-4px);
+		border-color: var(--accent);
+	}
+
+	@media (max-width: 768px) {
+		.theme-showcase {
+			grid-template-columns: 1fr;
+			gap: 2rem;
+			padding: 1.5rem;
+		}
+	}
+</style>
