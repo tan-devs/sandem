@@ -90,8 +90,8 @@ src/
 │   ├── auth.ts           # better-auth integration
 │   └── http.ts           # auth HTTP routes
 ├── lib/
-│   ├── components/
-│   │                     # Editor, Terminal, Preview, Tabs
+    ├── components/       # Editor, Terminal, Preview, Tabs
+│                         
 │   ├── hooks/            # useAutoSave, useFilesystem, usePreview, useShellProcess
 │   └── utils/            # ide-context, auth-client, filesystem-utils, templates
 └── routes/
