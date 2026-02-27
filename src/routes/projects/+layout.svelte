@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { createSvelteAuthClient } from '$lib/svelte/index.js';
-	import { authClient } from '$lib/hooks/auth-client.js';
-	
+	import { authClient } from '$lib/context/auth-client.js';
 
 	let { children, data } = $props();
 

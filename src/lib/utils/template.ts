@@ -82,5 +82,5 @@ root.render(
 }`
 		}
 	],
-	entry: 'App.jsx',
+	entry: 'App.jsx'
 };

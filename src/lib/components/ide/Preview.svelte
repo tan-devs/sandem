@@ -1,9 +1,11 @@
 <script lang="ts">
-	import { getIDEContext } from '$lib/utils/ide-context.js';
-	import { usePreview } from '$lib/hooks/createPreview.svelte.js';
+	import { requireIDEContext } from '$lib/context/ide-context.js';
+	import { createPreview } from '$lib/hooks/createPreview.svelte.js';
 
-	const ide = getIDEContext();
-	const preview = usePreview(ide.getWebcontainer);
+	const ide = requireIDEContext();
+
+	// createPreview (not usePreview — that export doesn't exist)
+	const preview = createPreview(ide.getWebcontainer);
 
 	// Start listening as soon as the container is available.
 	// Because we're inside the {#if project.data && webcontainerInstance} gate
@@ -87,31 +89,31 @@
 		flex-direction: column;
 		height: 100%;
 		width: 100%;
-		background-color: #1e1e1e;
+		background-color: var(--bg);
 	}
 
 	.browser-toolbar {
 		display: flex;
 		align-items: center;
 		padding: 6px 10px;
-		background-color: #252526;
-		border-bottom: 1px solid #333;
+		background-color: var(--fg);
+		border-bottom: 1px solid var(--border);
 		gap: 8px;
 		flex-shrink: 0;
 	}
 
 	.address-bar {
 		flex: 1;
-		background-color: #1e1e1e;
-		border: 1px solid #3c3c3c;
-		border-radius: 4px;
+		background-color: var(--bg);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
 		padding: 4px 10px;
 		overflow: hidden;
 	}
 
 	.url-text {
-		color: #9cdcfe;
-		font-family: 'JetBrains Mono', monospace;
+		color: var(--accent);
+		font-family: var(--fonts-mono);
 		font-size: 11px;
 		white-space: nowrap;
 		overflow: hidden;
@@ -125,19 +127,19 @@
 		justify-content: center;
 		background: transparent;
 		border: none;
-		color: #c5c5c5;
+		color: var(--muted);
 		cursor: pointer;
 		padding: 4px;
-		border-radius: 4px;
+		border-radius: var(--radius-sm);
 		transition:
-			background-color 0.1s,
-			color 0.1s;
+			background-color var(--time) var(--ease),
+			color var(--time) var(--ease);
 		flex-shrink: 0;
 	}
 
 	.icon-btn:hover:not(.disabled):not(:disabled) {
-		background-color: #3c3c3c;
-		color: #fff;
+		background-color: var(--mg);
+		color: var(--text);
 	}
 
 	.icon-btn:disabled,
@@ -158,7 +160,6 @@
 		height: 100%;
 		border: none;
 		display: block;
-		background: #fff;
 	}
 
 	.empty-state {
@@ -168,29 +169,28 @@
 		justify-content: center;
 		gap: 16px;
 		height: 100%;
-		background: #1e1e1e;
-		color: #6b7280;
-		font-family: system-ui, sans-serif;
+		background: var(--bg);
+		color: var(--muted);
+		font-family: var(--fonts);
 		font-size: 13px;
 		text-align: center;
 		padding: 24px;
 	}
 
 	.empty-state code {
-		background: #2d2d2d;
+		background: var(--fg);
 		padding: 2px 6px;
-		border-radius: 4px;
-		color: #9cdcfe;
-		font-family: 'JetBrains Mono', monospace;
+		border-radius: var(--radius-sm);
+		color: var(--accent);
+		font-family: var(--fonts-mono);
 		font-size: 12px;
 	}
 
-	/* Simple spinning ring */
 	.spinner {
 		width: 28px;
 		height: 28px;
-		border: 2px solid #2d2d2d;
-		border-top-color: #3794ff;
+		border: 2px solid var(--border);
+		border-top-color: var(--accent);
 		border-radius: 50%;
 		animation: spin 1s linear infinite;
 	}

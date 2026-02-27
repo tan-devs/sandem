@@ -1,7 +1,6 @@
 // src/lib/hooks/createProjectMounter.svelte.ts
 import type { WebContainer } from '@webcontainer/api';
 import type { Doc } from '$convex/_generated/dataModel.js';
-import type { ProjectFile } from '$lib/utils/template.js';
 
 async function ensureParentDir(wc: WebContainer, fileName: string) {
 	const parts = fileName.split('/');
@@ -31,8 +30,8 @@ export function createProjectMounter(
 		const project = getProject();
 
 		try {
-			for (const file of project.files as ProjectFile[]) {
-				await writeWcFile(wc, file.name, file.contents ?? '');
+			for (const file of project.files) {
+				await writeWcFile(wc, file.name, file.contents);
 			}
 			mounted = true;
 			mountError = null;

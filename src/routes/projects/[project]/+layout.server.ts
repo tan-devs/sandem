@@ -1,5 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { api } from '$convex/_generated/api.js';
+import type { Id } from '$convex/_generated/dataModel.js';
 import { createAuth } from '$convex/auth.js';
 import { createConvexHttpClient, getAuthState } from '$lib/sveltekit/index.js';
 import type { LayoutServerLoad } from './$types.js';
@@ -13,7 +14,7 @@ export const load = (async ({ locals, cookies, params }) => {
 		// Note: route parameter is named `slug` (not `projectId`).
 		// use `params.slug` or rename for clarity when implementing.
 		const project = await client.query(api.projects.getProject, {
-			id: params.slug // was params.projectId in earlier draft
+			id: params.project as Id<'projects'>
 		});
 
 		// Validate ownership

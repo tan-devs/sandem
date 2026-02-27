@@ -1,332 +1,196 @@
 <script lang="ts">
-	import { page } from '$app/state';
 	import type { Snippet } from 'svelte';
-
+	import { page } from '$app/stores';
 	import Button from '$lib/components/ui/Button.svelte';
-	import ModeToggle from '../colors/ModeToggle.svelte';
-	import ThemeSwitcher from '../colors/ThemeSwitcher.svelte';
-	import Menu from 'lucide-svelte/icons/menu';
-	import X from 'lucide-svelte/icons/x';
-	import { form } from '$app/server';
+	import ModeToggle from '$lib/components/colors/ModeToggle.svelte';
+	import ThemeSwitcher from '$lib/components/colors/ThemeSwitcher.svelte';
 
 	let {
 		variant = 'standard',
 		links = [],
-		brand,
 		field,
 		actions
 	}: {
-		/**
-		 * standard   — sticky, full-width, bg-surface, border-bottom
-		 * floating   — fixed pill that hovers above content, glass backdrop
-		 * borderless — sticky, fully transparent, no border
-		 */
-		variant?: 'standard' | 'floating' | 'borderless';
+		variant?: 'standard' | 'transparent';
 		links?: { path: string; label: string }[];
 		field?: Snippet;
-		brand?: Snippet;
 		actions?: Snippet;
 	} = $props();
 
-	const isActive = (path: string) => page.url.pathname === path;
+	// Reactive active-link check — updates on every navigation
+	let pathname = $derived($page.url.pathname);
 
-	let mobileOpen = $state(false);
-	const toggleMobile = () => (mobileOpen = !mobileOpen);
-	const closeMobile = () => (mobileOpen = false);
+	function isActive(path: string): boolean {
+		// Exact match for home, prefix match for all others
+		return path === '/' ? pathname === '/' : pathname.startsWith(path);
+	}
 </script>
 
-<!-- Floating variant renders a positioned wrapper -->
-{#if variant === 'floating'}
-	<div class="floating-track" aria-hidden="true"></div>
-{/if}
+<nav class="navbar" data-variant={variant} aria-label="Main navigation">
+	<!-- Left: brand + links -->
+	<div class="navbar-left">
+		<a href="/" class="brand" aria-label="Home">
+			<span class="brand-mark" aria-hidden="true"></span>
+			<span class="brand-name">devspace</span>
+		</a>
 
-<header class="navbar" data-variant={variant} aria-label="Main navigation">
-	<div class="navbar-inner">
-		<!-- ── Brand ── -->
-		<div class="nav-brand">
-			<Button variant="link" href="/" onclick={closeMobile}>
-				{#if brand}
-					{@render brand()}
-				{:else}
-					<span class="brand-wordmark">sandem</span>
-				{/if}
-			</Button>
-		</div>
-
-		<!-- ── Desktop links ── -->
-		<nav class="nav-links" aria-label="Site links">
-			<ul>
+		{#if links.length > 0}
+			<div class="nav-links" role="list">
 				{#each links as link}
-					<li>
-						<Button variant="link" href={link.path} active={isActive(link.path)}>
+					<div role="listitem">
+						<Button
+							href={link.path}
+							variant="link"
+							active={isActive(link.path)}
+							aria-current={isActive(link.path) ? 'page' : undefined}
+						>
 							{link.label}
 						</Button>
-					</li>
+					</div>
 				{/each}
-			</ul>
-		</nav>
-		<!-- ── Search bar ── -->
-		{#if field}
-			<from>
-				{@render field()}
-			</from>
-		{/if}
-
-		<!-- ── Right-side controls ── -->
-		<div class="nav-right">
-			{#if actions}
-				<div class="nav-actions">{@render actions()}</div>
-			{/if}
-			<div class="nav-controls">
-				<ModeToggle />
-				<ThemeSwitcher />
 			</div>
-
-			<!-- Hamburger — mobile only -->
-			<button
-				class="hamburger"
-				onclick={toggleMobile}
-				aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
-				aria-expanded={mobileOpen}
-				aria-controls="mobile-menu"
-			>
-				{#if mobileOpen}
-					<X size={20} strokeWidth={2} />
-				{:else}
-					<Menu size={20} strokeWidth={2} />
-				{/if}
-			</button>
-		</div>
+		{/if}
 	</div>
 
-	<!-- ── Mobile drawer ── -->
-	{#if mobileOpen}
-		<nav class="mobile-menu" id="mobile-menu" aria-label="Mobile navigation">
-			<ul>
-				{#each links as link}
-					<li>
-						<a href={link.path} class:active={isActive(link.path)} onclick={closeMobile}>
-							{link.label}
-						</a>
-					</li>
-				{/each}
-			</ul>
-			{#if actions}
-				<div class="mobile-actions">
-					{@render actions()}
-				</div>
-			{/if}
-		</nav>
+	<!-- Centre: optional field snippet (e.g. SearchBar) -->
+	{#if field}
+		<div class="navbar-center">
+			{@render field()}
+		</div>
 	{/if}
-</header>
 
-<!-- Click-outside backdrop for mobile -->
-{#if mobileOpen}
-	<div class="mobile-backdrop" role="presentation" onclick={closeMobile}></div>
-{/if}
+	<!-- Right: optional actions snippet + theme controls -->
+	<div class="navbar-right">
+		{#if actions}
+			<div class="navbar-actions">
+				{@render actions()}
+			</div>
+		{/if}
+
+		<div class="navbar-controls">
+			<ThemeSwitcher />
+			<ModeToggle />
+		</div>
+	</div>
+</nav>
 
 <style>
-	/* ── Shared base ─────────────────────────────────────────────── */
+	/* ── Shell ───────────────────────────────────────────────────── */
 	.navbar {
-		width: 100%;
-		z-index: 100;
-	}
-
-	.navbar-inner {
-		max-width: 1280px;
-		margin: 0 auto;
-		padding: 0 1.5rem;
-		height: var(--navbar-height);
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1.5rem;
-	}
-
-	.nav-brand {
-		display: flex;
-		align-items: center;
-		flex-shrink: 0;
-	}
-
-	.brand-wordmark {
-		font-size: 0.9rem;
-		font-weight: 700;
-		letter-spacing: -0.02em;
-		color: var(--text);
-	}
-
-	.nav-links ul {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		list-style: none;
-	}
-
-	.nav-right {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		flex-shrink: 0;
-	}
-
-	.nav-controls {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.nav-actions {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		padding-right: 0.5rem;
-		border-right: 1px solid var(--border);
-	}
-
-	/* ── Variant: standard ───────────────────────────────────────── */
-	.navbar[data-variant='standard'] {
 		position: sticky;
 		top: 0;
-		background-color: var(--bg);
-		border-bottom: 1px solid var(--border);
-		transition:
-			background-color var(--time) var(--ease),
-			border-color var(--time) var(--ease);
-	}
-
-	/* ── Variant: floating ───────────────────────────────────────── */
-	.floating-track {
+		z-index: 100;
 		height: var(--navbar-height);
-		pointer-events: none;
-	}
+		width: 100%;
 
-	.navbar[data-variant='floating'] {
-		position: fixed;
-		top: 0.75rem;
-		left: 50%;
-		transform: translateX(-50%);
-		width: min(calc(100% - 2rem), 1200px);
-		border-radius: var(--radius);
-		border: 1px solid var(--glass-border);
-		background-color: var(--glass-bg);
-		backdrop-filter: var(--backdrop-blur);
-		-webkit-backdrop-filter: var(--backdrop-blur);
-		box-shadow: var(--shadow);
-		transition:
-			background-color var(--time) var(--ease),
-			border-color var(--time) var(--ease),
-			box-shadow var(--time) var(--ease);
-	}
-
-	.navbar[data-variant='floating'] .navbar-inner {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
 		padding: 0 1.25rem;
 	}
 
-	/* ── Variant: borderless ─────────────────────────────────────── */
-	.navbar[data-variant='borderless'] {
-		position: sticky;
-		top: 0;
-		background-color: transparent;
-		border-bottom: 1px solid transparent;
+	/* standard: solid surface */
+	.navbar[data-variant='standard'] {
+		background: var(--fg);
+		border-bottom: 1px solid var(--border);
+		box-shadow: var(--shadow);
 	}
 
-	/* ── Hamburger button ─────────────────────────────────────────── */
-	.hamburger {
-		display: none;
+	/* transparent: glass — for landing pages */
+	.navbar[data-variant='transparent'] {
+		background: var(--glass-bg);
+		border-bottom: 1px solid var(--glass-border);
+		backdrop-filter: var(--backdrop-blur);
+		-webkit-backdrop-filter: var(--backdrop-blur);
+	}
+
+	/* ── Left ────────────────────────────────────────────────────── */
+	.navbar-left {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		flex-shrink: 0;
+	}
+
+	/* ── Brand ───────────────────────────────────────────────────── */
+	.brand {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.55rem;
+		padding: 0.25rem 0.5rem;
+		border-radius: var(--radius-sm);
+		text-decoration: none;
+		transition:
+			opacity var(--time) var(--ease),
+			background-color var(--time) var(--ease);
+		margin-right: 0.5rem;
+	}
+
+	.brand:hover {
+		background: var(--mg);
+	}
+
+	.brand-mark {
+		width: 22px;
+		height: 22px;
+		border-radius: 6px;
+		background: var(--accent);
+		flex-shrink: 0;
+		/* Small inset notch to give the mark character */
+		box-shadow:
+			inset 0 1px 0 hsla(0, 0%, 100%, 0.18),
+			0 1px 4px hsla(0, 0%, 0%, 0.25);
+	}
+
+	.brand-name {
+		font-family: var(--fonts-mono);
+		font-size: 0.8rem;
+		font-weight: 600;
+		letter-spacing: 0.04em;
+		color: var(--text);
+	}
+
+	/* ── Nav links ───────────────────────────────────────────────── */
+	.nav-links {
+		display: flex;
+		align-items: center;
+		/* Negative margin compensates for Button's own padding */
+		margin-left: 0.125rem;
+	}
+
+	/* ── Centre ──────────────────────────────────────────────────── */
+	.navbar-center {
+		flex: 1;
+		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 2.5rem;
-		height: 2.5rem;
-		border-radius: var(--radius-sm);
-		color: var(--muted);
-		background: transparent;
-		border: none;
-		cursor: pointer;
-		transition:
-			color var(--time) var(--ease),
-			background-color var(--time) var(--ease);
+		/* Constrain the field so it doesn't stretch full-width */
+		max-width: 380px;
+		/* Auto-centre between left and right */
+		margin: 0 auto;
 	}
 
-	.hamburger:hover {
-		color: var(--text);
-		background-color: var(--mg);
-	}
-
-	/* ── Mobile menu drawer ──────────────────────────────────────── */
-	.mobile-menu {
-		border-top: 1px solid var(--border);
-		background-color: var(--mg);
-		padding: 0.75rem 1.5rem 1.25rem;
-	}
-
-	.mobile-menu ul {
+	/* ── Right ───────────────────────────────────────────────────── */
+	.navbar-right {
 		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
+		align-items: center;
+		gap: 0.5rem;
+		flex-shrink: 0;
+		margin-left: auto;
 	}
 
-	.mobile-menu a {
-		display: block;
-		padding: 0.6rem 0.75rem;
-		border-radius: var(--radius-sm);
-		font-size: 0.9rem;
-		color: var(--muted);
-		transition:
-			color var(--time) var(--ease),
-			background-color var(--time) var(--ease);
-	}
-
-	.mobile-menu a:hover,
-	.mobile-menu a.active {
-		color: var(--text);
-		background-color: var(--fg);
-	}
-
-	.mobile-menu a.active {
-		font-weight: 600;
-	}
-
-	.mobile-actions {
-		margin-top: 1rem;
-		padding-top: 1rem;
-		border-top: 1px solid var(--border);
+	.navbar-actions {
 		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
+		align-items: center;
+		gap: 0.5rem;
 	}
 
-	/* Click-outside overlay — invisible, captures taps */
-	.mobile-backdrop {
-		position: fixed;
-		inset: 0;
-		z-index: 99;
-		background: transparent;
-	}
-
-	/* ── Responsive — hide links, show hamburger ─────────────────── */
-	@media (max-width: 768px) {
-		.nav-links {
-			display: none;
-		}
-
-		.hamburger {
-			display: flex;
-		}
-
-		.nav-actions {
-			display: none;
-		}
-
-		.navbar[data-variant='floating'] {
-			top: 0;
-			border-radius: 0;
-			width: 100%;
-			left: 0;
-			transform: none;
-			border-left: none;
-			border-right: none;
-			border-top: none;
-		}
+	.navbar-controls {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		/* Thin separator between actions and controls */
+		padding-left: 0.5rem;
+		border-left: 1px solid var(--border);
 	}
 </style>

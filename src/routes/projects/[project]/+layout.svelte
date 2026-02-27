@@ -6,33 +6,41 @@
 	import { setIDEContext } from '$lib/context/ide-context.js';
 	import { createProjectMounter } from '$lib/hooks/createProjectMounter.svelte.js';
 
-	export const ssr = false; // disable SSR for the IDE route
+	export const ssr = false;
 
 	let { children, data } = $props();
 
-	// Handshake between SSR state and Client state
+	// Auth handshake between SSR state and client state
 	createSvelteAuthClient({
 		authClient,
 		getServerState: () => data.authState
 	});
 
+	// webcontainer is a plain let — the closures below always read the
+	// current value, so $state is not needed here.
 	let webcontainer: WebContainer | null = null;
+
+	// setIDEContext MUST be called synchronously during component init.
+	// Calling it inside onMount is too late — child components (Editor,
+	// Terminal, Preview) call requireIDEContext() during their own init,
+	// which happens as part of this component's synchronous render.
+	// The getters are closures, so they always return the latest value of
+	// `webcontainer` and `data.project` when eventually invoked.
+	setIDEContext({
+		getWebcontainer: () => {
+			if (!webcontainer) throw new Error('WebContainer not ready');
+			return webcontainer;
+		},
+		getProject: () => {
+			if (!data.project) throw new Error('Project not available');
+			return data.project;
+		}
+	});
 
 	onMount(async () => {
 		webcontainer = await WebContainer.boot();
 
-		setIDEContext({
-			getWebcontainer: () => {
-				if (!webcontainer) throw new Error('WebContainer not ready');
-				return webcontainer;
-			},
-			getProject: () => {
-				if (!data.project) throw new Error('missing project');
-				return data.project;
-			}
-		});
-
-		if (webcontainer && data.project) {
+		if (data.project) {
 			const mounter = createProjectMounter(
 				() => webcontainer!,
 				() => data.project
@@ -42,5 +50,4 @@
 	});
 </script>
 
-<aside>aside</aside>
 {@render children()}

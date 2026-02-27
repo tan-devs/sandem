@@ -18,7 +18,7 @@ export function getIDEContext(): IDEContext | null {
 	try {
 		return getContext<IDEContext>(IDE_CONTEXT_KEY);
 	} catch {
-		return null;  // Safe fallback
+		return null; // Safe fallback
 	}
 }
 

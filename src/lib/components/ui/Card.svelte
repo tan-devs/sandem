@@ -32,13 +32,13 @@
 		icon?: Snippet;
 		title?: string;
 		pill?: string;
-		class?: string; 
+		class?: string;
 		children?: Snippet;
-		[key: string]: any; 
+		[key: string]: any;
 	} = $props();
 </script>
 
-<article class="card {className}"  data-variant={variant} {...rest}>
+<article class="card {className}" data-variant={variant} {...rest}>
 	{#if icon}
 		{@render icon?.()}
 	{/if}

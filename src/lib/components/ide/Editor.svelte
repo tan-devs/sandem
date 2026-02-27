@@ -7,7 +7,7 @@
 	import { LiveblocksYjsProvider } from '@liveblocks/yjs';
 	import type * as Monaco from 'monaco-editor';
 
-	import { getIDEContext } from '$lib/context/ide-context.js';
+	import { requireIDEContext } from '$lib/context/ide-context.js';
 	import { createAutoSaver } from '$lib/hooks/createAutoSaver.svelte.js';
 	import { createFileWriter } from '$lib/hooks/createFileWriter.svelte.js';
 	import { getMonacoLanguage } from '$lib/utils/language.js';
@@ -18,7 +18,9 @@
 		destroy: () => void;
 	}
 
-	const ide = getIDEContext();
+	// requireIDEContext throws immediately if context is missing,
+	// giving a clear error rather than a silent null-access crash.
+	const ide = requireIDEContext();
 	let project = $derived(ide.getProject());
 	let allFiles = $derived(project.files.map((f) => f.name));
 
@@ -26,7 +28,7 @@
 	let editor: Monaco.editor.IStandaloneCodeEditor;
 	let monacoInstance: typeof Monaco;
 
-	let activeFile = $state(untrack(() => project.entry || project.files[0].name));
+	let activeFile = $state(untrack(() => project.files[0].name));
 
 	const autoSaver = createAutoSaver(() => project);
 	const { writeFile } = createFileWriter(ide.getWebcontainer);
@@ -173,13 +175,13 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		background: #151515;
+		background: var(--bg);
 	}
 	.tabs-header {
 		display: flex;
 		justify-content: space-between;
-		background: #1e1e1e;
-		border-bottom: 1px solid #2d2d2d;
+		background: var(--fg);
+		border-bottom: 1px solid var(--border);
 	}
 	.tabs {
 		display: flex;
@@ -188,19 +190,27 @@
 		padding: 8px 16px;
 		border: none;
 		background: transparent;
-		color: #888;
+		color: var(--muted);
 		cursor: pointer;
 		font-size: 12px;
-		border-right: 1px solid #2d2d2d;
+		font-family: var(--fonts-mono);
+		border-right: 1px solid var(--border);
+		transition:
+			background-color var(--time) var(--ease),
+			color var(--time) var(--ease);
+	}
+	.tab:hover:not(.active) {
+		background: var(--mg);
+		color: var(--text);
 	}
 	.tab.active {
-		background: #151515;
-		color: #fff;
-		border-top: 2px solid #3794ff;
+		background: var(--bg);
+		color: var(--text);
+		border-top: 2px solid var(--accent);
 	}
 	.save-status {
 		font-size: 11px;
-		color: #666;
+		color: var(--muted);
 		padding-right: 12px;
 		align-self: center;
 	}

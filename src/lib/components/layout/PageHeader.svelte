@@ -19,7 +19,6 @@
 </script>
 
 <header class="page-header" data-variant={variant}>
-
 	{#if badge}
 		<div class="badge-wrapper">{@render badge()}</div>
 	{/if}
@@ -146,5 +145,4 @@
 	.page-header[data-variant='hero'] .actions {
 		margin-top: 0.5rem;
 	}
-
 </style>

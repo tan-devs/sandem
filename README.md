@@ -12,7 +12,7 @@
   <img src="./banner.webp" alt="Auth components preview">
 </picture>
 
-**Version:** 0.8.0 · **Status:** ✅ build passing · all checks green
+**Version:** 0.0.1 · **Status:** ✅ build passing · all checks green
 
 ---
 
@@ -41,7 +41,7 @@ A collaborative, in-browser IDE powered by [WebContainer API](https://webcontain
 - **UI toolkit:** a growing library of reusable, themeable components (`Button`, `Card`, `Accordion`, `Tabs`, etc.) built with modern Svelte conventions and semantic CSS tokens.
 - **Theming:** four built‑in palettes (`default`, `forest`, `solar`, `ocean`) plus light/dark mode toggling via `ModeToggle`/`ThemeSwitcher`. Colors are managed with semantic custom properties and layered tokens.
 - **IDE Engine:** [Monaco Editor](https://microsoft.github.io/monaco-editor/) + [WebContainer API](https://webcontainer.io) powering an in‑browser Node.js environment.
-- **Auth:** [`better-auth`](https://github.com/better-auth/better-auth)) + [`@mmailaender/convex-better-auth-svelte`](https://github.com/mmailaender/convex-better-auth-svelte) with Convex-backed sessions.
+- **Auth:** [`better-auth`](https://github.com/better-auth/better-auth) + [`@mmailaender/convex-better-auth-svelte`](https://github.com/mmailaender/convex-better-auth-svelte) with Convex-backed sessions.
 - **Terminal:** [`xterm.js`](https://github.com/xtermjs/xterm.js) (via [`@battlefieldduck/xterm-svelte`](https://github.com/battlefieldduck/xterm-svelte)) hooked into the WebContainer shell.
 - **Collaboration:** [`Liveblocks`](https://liveblocks.io/) + [`Yjs`](https://github.com/yjs/yjs) sync for realtime co‑editing.
 - **Backend:** [`Convex`](https://github.com/get-convex/convex-backend) serverless functions (folder: `src/convex`).
@@ -54,7 +54,8 @@ A collaborative, in-browser IDE powered by [WebContainer API](https://webcontain
 
 ```bash
 pnpm install
-cp .env.example .env.local   # add your Convex + Liveblocks keys
+cp .env.local   # add your Convex / Liveblocks / OAuth keys
+# (also set PUBLIC_LIVEBLOCKS_KEY, SITE_URL, etc. as shown below)
 pnpm dev
 ```
 
@@ -67,13 +68,21 @@ App runs at `http://localhost:5173`. The Convex dev server starts alongside it v
 ## Environment variables
 
 ```env
-# .env.local
-PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
-CONVEX_DEPLOYMENT=dev:your-deployment-name
+# .env.local (copy from .env.example)
 
-LIVEBLOCKS_SECRET_KEY=sk_dev_...
+# Convex backend
+CONVEX_DEPLOYMENT=dev:your-team,project-name      # e.g. dev:tan-devs/sandem
+PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
+PUBLIC_CONVEX_SITE_URL=https://your-app-domain.com
+
+# Liveblocks (client + server keys)
+PUBLIC_LIVEBLOCKS_KEY=pk_live_...               # published to browser
+LIVEBLOCKS_SECRET_KEY=sk_live_...               # server only
+
+# Application URL (used by auth callbacks, Playwright, etc.)
 SITE_URL=http://localhost:5173
 
+# OAuth credentials
 GITHUB_CLIENT_ID=...
 GITHUB_CLIENT_SECRET=...
 ```
@@ -84,52 +93,132 @@ GITHUB_CLIENT_SECRET=...
 
 ```
 src/
-├── convex/               # Backend: schema, mutations, queries, auth
-│   ├── schema.ts         # projects table definition
-│   ├── projects.ts       # CRUD mutations/queries
-│   ├── auth.ts           # better-auth integration
-│   └── http.ts           # auth HTTP routes
-├── lib/
-    ├── components/       # Editor, Terminal, Preview, Tabs
-│                         
-│   ├── hooks/            # useAutoSave, useFilesystem, usePreview, useShellProcess
-│   └── utils/            # ide-context, auth-client, filesystem-utils, templates
-└── routes/
-    ├── (home)/           # Landing page
-    ├── login/            # Auth page (sign in / sign up)
-    ├── projects/         # Dashboard — list and create projects
-    └── projects/[projectId]/   # IDE layout + page
+├── convex/               # Backend (schema, mutations, auth, generated API)
+│   ├── _generated/       # Convex‑generated types & client code
+│   ├── auth.config.ts
+│   ├── auth.ts
+│   ├── convex.config.ts
+│   ├── http.ts
+│   ├── projects.ts
+│   ├── schema.ts
+│   └── tsconfig.json
+├── lib/                  # front‑end helper code
+│   ├── assets/           # static images, icons
+│   ├── components/       # UI library (colors, layout, ide, ui)
+│   ├── context/          # svelte context helpers (ide, auth-client)
+│   ├── hooks/            # custom svelte hooks (autoSaver, projectMount, etc.)
+│   ├── liveblocks.config.ts
+│   ├── svelte/           # svelte kit bridges & clients
+│   ├── sveltekit/        # server helpers & tests
+│   └── utils/            # filesystem, language, template helpers
+├── routes/               # sveltekit pages & endpoints
+│   ├── (home)/           # landing page
+│   ├── api/              # server endpoints (auth, liveblocks-auth)
+│   ├── dev/              # development/debug dashboard
+│   ├── projects/         # project list + creation
+│   │   ├── +layout.server.ts
+│   │   ├── +layout.svelte
+│   │   ├── +page.svelte
+│   │   └── [project]/    # dynamic IDE route
+│   └── test/             # misc test pages (ssr, client-only, queries)
+├── app.css
+├── app.html
+├── hooks.server.ts
+├── demo.spec.ts
+└── types/
+    └── env.d.ts
 ```
 
 ---
 
 ## Architecture
 
-### Boot sequence (`/projects/[projectId]`)
+### Boot sequence (`/projects/[project]`)
 
-1. SvelteKit `+layout.ts` disables SSR, extracts `projectId` from params
-2. `+layout.svelte` fires `WebContainer.boot()` immediately (doesn't wait for data)
-3. Convex `useQuery` fetches project data live
-4. `$effect` awaits both, then calls `webcontainer.mount(projectFilesToFSTree(project.files))`
-5. `setIDEContext()` exposes stable closures to child components
-6. `{#if ready}` gate renders Editor, Terminal, Preview only after mount completes
+1. A server loader (`+layout.server.ts`) runs on every visit to the
+   dynamic route. It uses the `locals.token` to create a Convex HTTP
+   client, fetches `currentUser`, and then retrieves the project
+   document by ID. Ownership is validated and only then are the data
+   objects returned to the client along with `authState` for the
+   authentication handshake.
+
+2. The client layout (`+layout.svelte`) immediately disables SSR and
+   boots a WebContainer instance. Booting is intentionally fire‑and‑forget
+   to minimise perceived latency; a loading spinner displays until the
+   filesystem is mounted.
+
+3. Parallel to the container, a reactive Convex query (`useQuery`) asks
+   for the same project by ID. Because Convex queries are live, updates
+   to the document (for example, from another browser tab) flow through
+   automatically.
+
+4. A `$effect` block waits for both the container and the project data
+   to be ready. When they are, the layout transforms `project.files` (a
+   flat array of `{name, contents}`) into a WebContainer
+   `FileSystemTree` using `filesystem-utils.ts` and calls
+   `webcontainer.mount()`.
+
+5. Once the filesystem is populated the layout calls `setIDEContext()`
+   with two getters: `getWebcontainer` returns the live container instance
+   (throwing if not yet available) and `getProject` returns the latest
+   project document. These getters allow child components to access the
+   shared state lazily without prop drilling.
+
+6. Editor, Terminal and Preview components call `requireIDEContext()`
+   during their own `onMount` hooks. They initialise Monaco models,
+   spawn a shell process or register for preview reloads only after
+   `getWebcontainer` resolves.
+
+7. A layout-level boolean `ready` gate (`{#if ready}`) ensures the panes
+   appear only when the mount and context setup have finished. This
+   prevents flashes of uninitialised editors.
+
+### Data flow outside the IDE
+
+- The project listing page (`/projects`) uses the authenticated
+  user's ID (obtained via `auth.getCurrentUser`) to fetch
+  `getProjects`. It creates and deletes projects via Convex mutations,
+  and updates the local list in real time thanks to Convex's live
+  querying.
+
+- The root layout uses the `useAuth()` store to render the navigation
+  bar differently depending on authentication state. It also preloads
+  `currentUser` via a server `load` function so the avatar and sign‑out
+  button render correctly.
 
 ### File sync
 
-- **Convex → WebContainer:** on mount, all `project.files` are written to the FS via `webcontainer.mount()`
-- **Editor → WebContainer:** every keystroke writes to the FS immediately via `wc.fs.writeFile()`
-- **Editor → Convex:** debounced 1.5s autosave via `useConvexClient().mutation(updateProject)`
-- **Collaboration:** Liveblocks Yjs provider syncs editor content across peers; local changes (origin `null`) trigger saves, remote changes are skipped
+- **Convex → WebContainer:** when a project first loads its files are
+  written in bulk via `webcontainer.mount()`. Any later updates to the
+  Convex document (for example, shared edits from collaboration) will
+  trigger additional mounts if the code is expanded to handle them.
+
+- **Editor → WebContainer:** every keystroke writing to Monaco flows
+  through `createFileWriter` which uses `wc.fs.writeFile()` to keep the
+  container's filesystem synchronized in real time.
+
+- **Editor → Convex:** `createAutoSaver` debounces edits (1.5 s) and
+  sends them to the `updateProject` mutation. Pending saves are tracked
+  per file to avoid clobbering and to retry on failure.
+
+- **Collaboration:** when a project has a `room` ID, the Editor
+  connects a `LiveblocksYjsProvider` to a shared `Y.Doc`. The provider
+  emits a `sync` event; once synced a `seedYjsFromConvex()` routine
+  populates Yjs documents with the current file contents. Local
+  changes (origin `null`) trigger auto‑saves; changes originating from
+  remote peers are ignored by the autosaver.
 
 ### Template format
 
-Files are stored in Convex as `{ name: string, contents: string }[]` — a flat array. `filesystem-utils.ts` converts this to a WebContainer `FileSystemTree` at mount time, handling nested paths.
+Files are stored in Convex as `{ name: string, contents: string }[]` —
+a flat array. `filesystem-utils.ts` converts this to a WebContainer
+`FileSystemTree` at mount time, handling nested paths.
 
 ```ts
 // Creating a project from a template
 await client.mutation(api.projects.createProject, {
 	title: 'My App',
-	ownerId: user._id,
+	owner: user._id,
 	files: VITE_REACT_TEMPLATE.files, // ProjectFile[] — flat array
 	entry: VITE_REACT_TEMPLATE.entry,
 	visibleFiles: VITE_REACT_TEMPLATE.visibleFiles
@@ -142,7 +231,7 @@ await client.mutation(api.projects.createProject, {
 
 Four built-in palettes (`default`, `forest`, `solar`, `ocean`) with light/dark variants, controlled via `data-theme` and `data-mode` attributes on `<html>`. All component colors reference semantic CSS variables (`--bg`, `--mg`, `--fg`, `--text`, `--muted`, `--border`, `--accent`, etc.) defined in `app.css`.
 
-The IDE route (`/projects/[projectId]`) overrides the theme with hardcoded dark values via `body:has(.ide-grid)` — editors always render dark regardless of the active theme.
+The IDE route (`/projects/[project]`) overrides the theme with hardcoded dark values via `body:has(.ide-grid)` — editors always render dark regardless of the active theme.
 
 ---
 
@@ -173,8 +262,10 @@ See [README.Docker.md](README.Docker.md) for environment variable injection and 
 ## Deployment notes
 
 - Ensure COOP/COEP headers survive your hosting proxy/CDN — WebContainer will not boot without them
-- Convex deployment URL must be set in environment; `PUBLIC_CONVEX_URL=null` breaks all queries
-- Liveblocks secret key is server-only; never expose it client-side
+- Convex deployment URL must be set (`PUBLIC_CONVEX_URL`) and you may also need `PUBLIC_CONVEX_SITE_URL` for auth callbacks.
+- SITE_URL should reflect your public-facing address (used by auth, tests, and scripts).
+- Liveblocks secret key is server-only (`LIVEBLOCKS_SECRET_KEY`); never expose it client-side.
+- Remember to set `PUBLIC_LIVEBLOCKS_KEY` for the client and GitHub OAuth credentials.
 
 ---
 

@@ -11,7 +11,8 @@ export default defineSchema({
 			})
 		),
 		owner: v.string(),
-		room: v.string()
+		room: v.string(),
+		entry: v.optional(v.string())
 	})
 		// This index is crucial for performance and privacy
 		.index('by_owner', ['owner'])

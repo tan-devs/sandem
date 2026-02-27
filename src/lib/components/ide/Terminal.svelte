@@ -5,27 +5,40 @@
 		ITerminalInitOnlyOptions,
 		Terminal
 	} from '@battlefieldduck/xterm-svelte';
-	import { useShellProcess } from '$lib/hooks/createShellProcess.svelte.js';
-	import { getIDEContext } from '$lib/utils/ide-context.js';
+	import { onDestroy } from 'svelte';
+	import { createShellProcess } from '$lib/hooks/createShellProcess.svelte.js';
+	import { requireIDEContext } from '$lib/context/ide-context.js';
 
-	const ide = getIDEContext();
+	const ide = requireIDEContext();
 	let terminalInstance: Terminal | undefined = $state(undefined);
 
-	// Use the hook logic
-	const shell = useShellProcess(ide.getWebcontainer);
+	// createShellProcess (not useShellProcess — that export doesn't exist)
+	const shell = createShellProcess(ide.getWebcontainer);
 
 	const options: ITerminalOptions & ITerminalInitOnlyOptions = {
-		fontFamily: '"JetBrains Mono", monospace',
 		fontSize: 13,
-		theme: { background: '#151515', foreground: '#ccc' },
 		cursorBlink: true
 	};
 
 	async function handleLoad() {
 		if (!terminalInstance) return;
-		// Initialize the shell with the terminal instance
+		// Resolve CSS tokens to concrete values for the xterm theme.
+		// CSS custom properties can't be used directly in JS objects, so
+		// we read the computed values here — we're already in browser context.
+		const style = getComputedStyle(document.documentElement);
+		terminalInstance.options.fontFamily = style.getPropertyValue('--fonts-mono').trim();
+		terminalInstance.options.theme = {
+			background: style.getPropertyValue('--bg').trim(),
+			foreground: style.getPropertyValue('--text').trim()
+		};
 		await shell.initShell(terminalInstance);
 	}
+
+	// Kill the shell process when this component is destroyed to avoid
+	// leaking the WebContainer process and the WritableStream writer.
+	onDestroy(() => {
+		shell.killShell();
+	});
 </script>
 
 <div class="terminal-layout">
@@ -47,20 +60,21 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		background: #151515;
+		background: var(--bg);
 	}
 	.terminal-header {
-		background: #1e1e1e;
-		border-bottom: 1px solid #2d2d2d;
-		border-top: 1px solid #2d2d2d;
+		background: var(--fg);
+		border-bottom: 1px solid var(--border);
+		border-top: 1px solid var(--border);
 	}
 	.terminal-tab {
 		padding: 8px 16px;
-		background: #151515;
-		color: #fff;
+		background: var(--bg);
+		color: var(--text);
 		font-size: 12px;
+		font-family: var(--fonts-mono);
 		width: fit-content;
-		border-top: 2px solid #3794ff;
+		border-top: 2px solid var(--accent);
 	}
 	.terminal-container {
 		flex: 1;

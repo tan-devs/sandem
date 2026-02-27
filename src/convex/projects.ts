@@ -16,10 +16,13 @@ export const createProject = mutation({
 		title: v.string(),
 		files: v.array(FILE),
 		owner: v.string(),
-		room: v.string()
+		room: v.string(),
+		entry: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		return await ctx.db.insert('projects', { ...args });
+		// db.insert returns the new document's _id
+		const id = await ctx.db.insert('projects', { ...args });
+		return id;
 	}
 });
 

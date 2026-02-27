@@ -3,38 +3,43 @@
 	import Terminal from '$lib/components/ide/Terminal.svelte';
 	import Preview from '$lib/components/ide/Preview.svelte';
 
-	import { getIDEContext } from '$lib/context/ide-context.js';
-
 	let { data } = $props();
-	const ideContext = getIDEContext();
-
-	const ID = data.project._id || null;
-	const DATA = ideContext || null;
 </script>
 
-<section>
-	<div class="editor"><Editor {ID} /></div>
-	<div class="terminal"><Terminal {ID} /></div>
-	<div class="preview"><Preview {ID} /></div>
-</section>
+{#if data.project}
+	<!--
+		.ide-grid is used by app.css via body:has(.ide-grid) to:
+		  - kill overflow and background bleed on the body
+		  - hide the dot-grid and glow pseudo-elements
 
-<style>
-	section {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		grid-template-rows: 1fr 1fr;
-		grid-template-areas:
-			'editor preview'
-			'terminal preview';
-	}
-
-	.editor {
-		grid-area: editor;
-	}
-	.terminal {
-		grid-area: terminal;
-	}
-	.preview {
-		grid-area: preview;
-	}
-</style>
+		Layout: editor top-left, terminal bottom-left, preview full right.
+		Inline style avoids a <style> block while keeping the named-area grid.
+	-->
+	<div
+		class="ide-grid"
+		style="
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			grid-template-rows: 1fr 1fr;
+			grid-template-areas: 'editor preview' 'terminal preview';
+			height: 100%;
+			overflow: hidden;
+		"
+	>
+		<div style="grid-area: editor; min-height: 0;">
+			<Editor />
+		</div>
+		<div style="grid-area: terminal; min-height: 0;">
+			<Terminal />
+		</div>
+		<div style="grid-area: preview; min-height: 0;">
+			<Preview />
+		</div>
+	</div>
+{:else}
+	<div
+		style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--muted); font-size: 0.875rem;"
+	>
+		Project not found or you don't have access.
+	</div>
+{/if}
