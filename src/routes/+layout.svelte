@@ -10,22 +10,38 @@
 	import SearchBar from '$lib/components/ui/SearchBar.svelte';
 	import DropDown from '$lib/components/ui/DropDown.svelte';
 	import Search from 'lucide-svelte/icons/search';
+	import { goto } from '$app/navigation';
+	import { dev } from '$app/environment';
 
 	setupConvex(PUBLIC_CONVEX_URL);
 
 	const links = [
 		{ path: '/', label: 'home' },
-		{ path: '/projects', label: 'repo' },
-		{ path: '/dev', label: 'auth' },
-		{ path: '/test/ssr', label: 'server test' },
-		{ path: '/test/client-only', label: 'client test' },
-		{ path: '/test/queries', label: 'query test' }
+		{ path: '/projects', label: 'projects' }
 	];
+
+	// Conditionally add test routes only in development
+	if (dev) {
+		links.push(
+			{ path: '/test/ssr', label: 'server test' },
+			{ path: '/test/client-only', label: 'client test' },
+			{ path: '/test/queries', label: 'query test' }
+		);
+	}
 
 	let searchValue = $state('');
 	let userDropdownOpen = $state(false);
 
 	let { children } = $props();
+	import { useAuth } from '$lib/svelte/index.js';
+	import { authClient } from '$lib/context/auth-client.js';
+
+	const auth = useAuth();
+	let { data } = $props();
+
+	async function handleSignOut() {
+		await authClient.signOut();
+	}
 </script>
 
 <svelte:head>
@@ -52,12 +68,17 @@
 		<!-- User menu -->
 		<DropDown bind:open={userDropdownOpen}>
 			{#snippet trigger()}
-				<Avatar
-					src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"
-					alt="User avatar"
-					fallback="FX"
-					size="sm"
-				/>
+				{#if auth.isAuthenticated && data.currentUser}
+					<Avatar
+						src={data.currentUser.image || ''}
+						alt="User avatar"
+						fallback={data.currentUser.name?.charAt(0).toUpperCase() || 'U'}
+						size="sm"
+					/>
+					<button onclick={handleSignOut}>Sign out</button>
+				{:else}
+					<Button variant="outline" size="sm" onclick={() => goto('/dev')}>Sign in</Button>
+				{/if}
 			{/snippet}
 			{#snippet content()}
 				<button onclick={() => (userDropdownOpen = false)}>Profile</button>

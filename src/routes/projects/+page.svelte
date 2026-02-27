@@ -1,35 +1,47 @@
 <script lang="ts">
-	import type { Id } from '$convex/_generated/dataModel.js';
-	import { api } from '$convex/_generated/api.js';
-	import { useQuery, useConvexClient } from 'convex-svelte';
-	import { useAuth } from '$lib/svelte/index.js';
-	import { authClient } from '$lib/hooks/auth-client.js';
-	import { goto } from '$app/navigation';
-	import { setIDEContext } from '$lib/utils/ide-context.js';
-	import { VITE_REACT_TEMPLATE } from '$lib/utils/template.js';
+    import type { Id, Doc } from '$convex/_generated/dataModel.js';
+    import { api } from '$convex/_generated/api.js';
+    import { useQuery, useConvexClient } from 'convex-svelte';
+    import { useAuth } from '$lib/svelte/index.js';
+    import { goto } from '$app/navigation';
+    import { setIDEContext } from '$lib/context/ide-context';
+    import { VITE_REACT_TEMPLATE } from '$lib/utils/template.js';
 
-	// Layout Components
-	import PageSection from '$lib/components/layout/PageSection.svelte';
-	import PageFooter from '$lib/components/layout/PageFooter.svelte';
+    // Layout Components
+    import PageSection from '$lib/components/layout/PageSection.svelte';
+    import PageFooter from '$lib/components/layout/PageFooter.svelte';
 
-	// UI Components
-	import Button from '$lib/components/ui/Button.svelte';
-	import Card from '$lib/components/ui/Card.svelte';
-	import { Liveblocks } from '@liveblocks/node';
+    // UI Components
+    import Button from '$lib/components/ui/Button.svelte';
+    import Card from '$lib/components/ui/Card.svelte';
 
-	let { data } = $props();
-	const auth = useAuth();
-	const client = useConvexClient();
+    let { data } = $props();
 
-	const USER = useQuery(
-		api.auth.getCurrentUser,
-		() => (auth.isAuthenticated ? {} : 'skip'),
-		() => ({ initialData: data.currentUser, keepPreviousData: true })
-	);
+    const auth = useAuth();
+    const client = useConvexClient();
+    const USER = useQuery(
+        api.auth.getCurrentUser,
+        () => (auth.isAuthenticated ? {} : 'skip'),
+        () => ({ initialData: data.currentUser, keepPreviousData: true })
+    );
 
-	const projects = useQuery(api.projects.getProjects, () =>
-		USER.data?._id ? { owner: USER.data._id } : 'skip'
-	);
+    const projects = useQuery(api.projects.getProjects, () =>
+        USER.data?._id ? { owner: USER.data._id } : 'skip'
+    );
+
+		let deleting = $state(false);
+	async function handleDeleteProject(e: MouseEvent, id: string) {
+		if (!USER.data?._id || deleting) return;
+		deleting= true;
+		
+		e.preventDefault();
+		e.stopPropagation();
+		if (confirm('Are you sure you want to delete this project?')) {
+			await client.mutation(api.projects.deleteProject, { id: id as Id<'projects'> });
+		}
+		deleting = false;
+	}
+
 
 	let creating = $state(false);
 	async function handleNewProject() {
@@ -49,27 +61,32 @@
 			});
 
 			if (project) {
-				setIDEContext({	});
+				// build a minimal project document that mirrors the server record
+				// (the mutation currently returns just the id). this allows the IDE
+				// to render immediately while the real query for the project doc
+				// is still in flight.
+				const stub: Doc<'projects'> = {
+					_id: project,
+					title: 'Untitled Project',
+					owner: USER.data?._id || '',
+					files: FILES,
+					entry: VITE_REACT_TEMPLATE.entry,
+					room: ''
+				};
+
+				setIDEContext({
+					getWebcontainer: () => {
+						// container isn't booted yet; callers should guard or retry later
+						throw new Error('WebContainer not available');
+					},
+					getProject: () => stub
+				});
 				await goto(`/projects/${project}`);
 			}
 		} finally {
 			creating = false;
 		}
 	}
-
-	let deleting = $state(false);
-	async function handleDeleteProject(e: MouseEvent, id: string) {
-		if (USER.data?._id || !deleting) return window.alert('not ur repo buddy!')
-		deleting= true;
-		
-		e.preventDefault();
-		e.stopPropagation();
-		if (confirm('Are you sure you want to delete this project?')) {
-			await client.mutation(api.projects.deleteProject, { id: id as Id<'projects'> });
-		}
-		deleting = false;
-	}
-
 
 </script>
 

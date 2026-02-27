@@ -7,7 +7,7 @@
 	import { LiveblocksYjsProvider } from '@liveblocks/yjs';
 	import type * as Monaco from 'monaco-editor';
 
-	import { getIDEContext } from '$lib/context/ide.js';
+	import { getIDEContext } from '$lib/context/ide-context.js';
 	import { createAutoSaver } from '$lib/hooks/createAutoSaver.svelte.js';
 	import { createFileWriter } from '$lib/hooks/createFileWriter.svelte.js';
 	import { getMonacoLanguage } from '$lib/utils/language.js';

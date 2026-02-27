@@ -3,13 +3,19 @@
 	import Terminal from '$lib/components/ide/Terminal.svelte';
 	import Preview from '$lib/components/ide/Preview.svelte';
 
-	import { getIDEContext } from '$lib/utils/ide-context.js';
+	import { getIDEContext } from '$lib/context/ide-context.js';
+
+	let { data } = $props();
+	const ideContext = getIDEContext();
+
+	const ID = data.project._id || null;
+	const DATA = ideContext || null;
 </script>
 
 <section>
-	<div class="editor"><Editor /></div>
-	<div class="terminal"><Terminal /></div>
-	<div class="preview"><Preview /></div>
+	<div class="editor"><Editor {ID} /></div>
+	<div class="terminal"><Terminal {ID} /></div>
+	<div class="preview"><Preview {ID} /></div>
 </section>
 
 <style>

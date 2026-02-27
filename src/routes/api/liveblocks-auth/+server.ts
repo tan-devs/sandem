@@ -10,14 +10,13 @@ const liveblocks = new Liveblocks({
 	secret: LIVEBLOCKS_SECRET_KEY
 });
 
-// NOTE: create a new ConvexHttpClient for each request to avoid
-// concurrency issues.  A shared client would have its auth token
-// overwritten by concurrent requests, leading to possible data leaks.
-// We instantiate below inside POST.
-
 export async function POST({ locals, request }: RequestEvent): Promise<Response> {
 	try {
+		// create fresh client for each request to avoid shared-state race conditions
+		const convex = new ConvexHttpClient(PUBLIC_CONVEX_URL);
+
 		const { room } = await request.json();
+
 		if (room) {
 			if (typeof room !== 'string') {
 				return new Response('Invalid room ID type', { status: 400 });
@@ -31,9 +30,6 @@ export async function POST({ locals, request }: RequestEvent): Promise<Response>
 			return new Response('Unauthorized - No Token', { status: 401 });
 		}
 
-		// create fresh client for every POST invocation to prevent tokens
-		// from leaking between concurrent requests
-		const convex = new ConvexHttpClient(PUBLIC_CONVEX_URL);
 		convex.setAuth(locals.token);
 		const user = await convex.query(api.auth.getCurrentUser);
 
@@ -43,28 +39,28 @@ export async function POST({ locals, request }: RequestEvent): Promise<Response>
 
 		const session = liveblocks.prepareSession(user._id, {
 			userInfo: {
-				name: user.name || 'Anonymous',
-				email: user.email || '',
-				avatar: user.image || ''
+				name: user.name?.trim() || 'Anonymous User',
+				email: user.email?.trim() || '',
+				avatar: user.image?.trim() || ''
 			}
 		});
 
 		if (room) {
-			// look up project by collaboration room
-			const project = await convex.query(api.projects.openCollab, {
-				room,
-				owner: user._id
-			});
-			if (!project) {
-				// no such project or not accessible by this user
-				return new Response('Room not found or access denied', { status: 403 });
+			// FIX: Fetch the project from Convex using the Room ID
+			let project;
+			try {
+				project = await convex.query(api.projects.openCollab, { room, owner: user._id });
+			} catch (error) {
+				console.error('Failed to fetch project for room:', room, error);
+				return new Response('Failed to authorize room', { status: 500 });
 			}
-
-			const isOwner = project.owner === user._id;
-			const permissions = isOwner
-				? ['room:write', 'room:presence:write', 'room:comments:write']
-				: ['room:read', 'room:presence:write'];
-			session.allow(room, permissions);
+			if (project) {
+				const isOwner = project.owner === user._id;
+				session.allow(room, isOwner ? session.FULL_ACCESS : ['room:read', 'room:presence:write']);
+			} else {
+				// If project doesn't exist, you might want to deny access or allow read-only
+				session.allow(room, ['room:read']);
+			}
 		}
 
 		const { status, body } = await session.authorize();

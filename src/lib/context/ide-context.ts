@@ -14,12 +14,18 @@ export function setIDEContext(context: IDEContext) {
 	setContext(IDE_CONTEXT_KEY, context);
 }
 
-export function getIDEContext(): IDEContext {
-	const context = getContext<IDEContext>(IDE_CONTEXT_KEY);
+export function getIDEContext(): IDEContext | null {
+	try {
+		return getContext<IDEContext>(IDE_CONTEXT_KEY);
+	} catch {
+		return null;  // Safe fallback
+	}
+}
+
+export function requireIDEContext(): IDEContext {
+	const context = getIDEContext();
 	if (!context) {
-		throw new Error(
-			'getIDEContext must be called inside a component that has called setIDEContext'
-		);
+		throw new Error('IDE context required but not found');
 	}
 	return context;
 }
