@@ -1,6 +1,5 @@
 <script lang="ts">
 	import HeroContent from '$lib/components/ui/HeroContent.svelte';
-	import IdeWindow from '$lib/components/ui/IdeWindow.svelte';
 	import StackStrip from '$lib/components/ui/StackStrip.svelte';
 
 	import PageHeader from '$lib/components/layout/PageHeader.svelte';
@@ -10,10 +9,10 @@
 	import Card from '$lib/components/ui/Card.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 
-	import LayoutGrid from 'lucide-svelte/icons/layout-grid';
-	import ArrowRight from 'lucide-svelte/icons/arrow-right';
-	import GamePad from 'lucide-svelte/icons/gamepad';
-	import Terminal from 'lucide-svelte/icons/terminal';
+	import LayoutGrid from '@lucide/svelte/icons/layout-grid';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import GamePad from '@lucide/svelte/icons/gamepad';
+	import Terminal from '@lucide/svelte/icons/terminal';
 
 	// ── Feature cards ────────────────────────────────────────────────
 	const features: {
@@ -157,5 +156,3 @@
 		<span>sandem</span>
 	{/snippet}
 </PageFooter>
-
-

@@ -6,7 +6,7 @@
 	import { setIDEContext } from '$lib/context/ide-context.js';
 	import { createProjectMounter } from '$lib/hooks/createProjectMounter.svelte.js';
 
-	export const ssr = false;
+	
 
 	let { children, data } = $props();
 

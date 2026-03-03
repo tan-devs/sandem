@@ -7,8 +7,6 @@
 		disabled = false,
 		active,
 		href,
-		type = 'button',
-		onclick,
 		children,
 		...rest
 	}: {
@@ -35,11 +33,27 @@
 </script>
 
 {#if href}
-	<a class="btn" class:active data-variant={variant} data-size={size} {href} {...rest}>
+	<a
+		class="btn"
+		type="button"
+		class:active
+		data-variant={variant}
+		data-size={size}
+		{href}
+		{...rest}
+	>
 		{@render children?.()}
 	</a>
 {:else}
-	<button class="btn" class:active data-variant={variant} data-size={size} {disabled} {...rest}>
+	<button
+		class="btn"
+		type="button"
+		class:active
+		data-variant={variant}
+		data-size={size}
+		{disabled}
+		{...rest}
+	>
 		{@render children?.()}
 	</button>
 {/if}

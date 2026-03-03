@@ -10,11 +10,11 @@
 	import { requireIDEContext } from '$lib/context/ide-context.js';
 	import { createAutoSaver } from '$lib/hooks/createAutoSaver.svelte.js';
 	import { createFileWriter } from '$lib/hooks/createFileWriter.svelte.js';
-	import { getMonacoLanguage } from '$lib/utils/language.js';
+	import { getLanguage } from '$lib/utils/language.js';
 	import type { Awareness } from 'y-protocols/awareness.js';
 
-	interface FileBinding {
-		monacoModel: Monaco.editor.ITextModel;
+	interface MONACO {
+		model: Monaco.editor.ITextModel;
 		destroy: () => void;
 	}
 
@@ -22,11 +22,11 @@
 	// giving a clear error rather than a silent null-access crash.
 	const ide = requireIDEContext();
 	let project = $derived(ide.getProject());
-	let allFiles = $derived(project.files.map((f) => f.name));
+	let files = $derived(project.files.map((f) => f.name));
 
 	let element: HTMLDivElement;
 	let editor: Monaco.editor.IStandaloneCodeEditor;
-	let monacoInstance: typeof Monaco;
+	let instance: typeof Monaco;
 
 	let activeFile = $state(untrack(() => project.files[0].name));
 
@@ -35,30 +35,30 @@
 
 	let provider: LiveblocksYjsProvider;
 	let ydoc: Y.Doc;
-	let bindings: Map<string, FileBinding> = new Map();
+	let bindings: Map<string, MONACO> = new Map();
 	let leaveRoom: () => void;
 
 	// Track whether the Yjs provider has finished its initial sync so we
 	// don't trigger auto-saves from the initial hydration writes.
-	let yjsSynced = false;
+	let synced = false;
 
 	// Per-file flag: has this file been seeded into Yjs yet this session?
-	const seededFiles = new Set<string>();
+	const seeds = new Set<string>();
 
 	onMount(async () => {
 		const rawLoader = loader as unknown as { init: () => Promise<typeof Monaco> };
-		monacoInstance = await rawLoader.init();
+		instance = await rawLoader.init();
 
-		editor = monacoInstance.editor.create(element, {
+		editor = instance.editor.create(element, {
 			theme: 'vs-dark',
 			automaticLayout: true,
-			minimap: { enabled: false },
+			minimap: { enabled: true },
 			fontSize: 14,
 			padding: { top: 10 }
 		});
 
 		if (!project.room) {
-			setupOfflineModels();
+			offlineModel();
 			return;
 		}
 
@@ -71,30 +71,30 @@
 		provider = new LiveblocksYjsProvider(room, ydoc);
 
 		provider.on('sync', (isSynced: boolean) => {
-			if (!isSynced || yjsSynced) return;
-			yjsSynced = true;
-			seedYjsFromConvex();
+			if (!isSynced || synced) return;
+			synced = true;
+			semination();
 		});
 
 		for (const file of project.files) {
-			const yText = ydoc.getText(file.name);
-			const model = monacoInstance.editor.createModel('', getMonacoLanguage(file.name));
+			const ytext = ydoc.getText(file.name);
+			const model = instance.editor.createModel('', getLanguage(file.name));
 			const binding = new MonacoBinding(
-				yText,
+				ytext,
 				model,
 				new Set([editor]),
 				provider.awareness as unknown as Awareness
 			);
 			bindings.set(file.name, {
-				monacoModel: model,
+				model: model,
 				destroy: () => binding.destroy()
 			});
 		}
 
-		swapToFile(activeFile);
+		swap(activeFile);
 
 		ydoc.on('update', (_update: Uint8Array, origin: unknown) => {
-			if (!yjsSynced) return;
+			if (!synced) return;
 			if (origin !== null) return; // remote change — skip
 			const content = ydoc.getText(activeFile).toString();
 			autoSaver.triggerAutoSave(activeFile, content);
@@ -102,28 +102,28 @@
 		});
 	});
 
-	function seedYjsFromConvex() {
+	function semination() {
 		ydoc.transact(() => {
 			for (const file of project.files) {
-				if (seededFiles.has(file.name)) continue;
-				const yText = ydoc.getText(file.name);
-				if (yText.length === 0 && file.contents) {
-					yText.insert(0, file.contents);
+				if (seeds.has(file.name)) continue;
+				const ytext = ydoc.getText(file.name);
+				if (ytext.length === 0 && file.contents) {
+					ytext.insert(0, file.contents);
 				}
-				seededFiles.add(file.name);
+				seeds.add(file.name);
 			}
 		}, 'seed'); // 'seed' origin is ignored by the update listener
 	}
 
-	function setupOfflineModels() {
+	function offlineModel() {
 		for (const file of project.files) {
-			const model = monacoInstance.editor.createModel(
+			const model = instance.editor.createModel(
 				file.contents ?? '',
-				getMonacoLanguage(file.name)
+				getLanguage(file.name)
 			);
-			bindings.set(file.name, { monacoModel: model, destroy: () => model.dispose() });
+			bindings.set(file.name, { model: model, destroy: () => model.dispose() });
 		}
-		swapToFile(activeFile);
+		swap(activeFile);
 
 		editor.onDidChangeModelContent(() => {
 			const content = editor.getValue();
@@ -132,17 +132,17 @@
 		});
 	}
 
-	function swapToFile(fileName: string) {
+	function swap(fileName: string) {
 		if (!editor) return;
 		const binding = bindings.get(fileName);
 		if (!binding) return;
-		if (editor.getModel() !== binding.monacoModel) {
-			editor.setModel(binding.monacoModel);
+		if (editor.getModel() !== binding.model) {
+			editor.setModel(binding.model);
 		}
 	}
 
 	$effect(() => {
-		swapToFile(activeFile);
+		swap(activeFile);
 	});
 
 	onDestroy(() => {
@@ -157,7 +157,7 @@
 <div class="editor-layout">
 	<div class="tabs-header">
 		<div class="tabs">
-			{#each allFiles as file}
+			{#each files as file}
 				<button class="tab" class:active={activeFile === file} onclick={() => (activeFile = file)}>
 					{file}
 				</button>

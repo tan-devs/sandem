@@ -4,7 +4,15 @@ import { api } from '$convex/_generated/api.js';
 import type { Doc } from '$convex/_generated/dataModel.js';
 
 export function createAutoSaver(getProject: () => Doc<'projects'> | undefined) {
-	const convexClient = useConvexClient();
+	// Gracefully degrade when there is no ConvexProvider in the tree
+	// (e.g. the /shop demo route). In that case every call is a no-op and
+	// the status stays 'Saved' so the Editor UI looks clean.
+	let convexClient: ReturnType<typeof useConvexClient> | null = null;
+	try {
+		convexClient = useConvexClient();
+	} catch {
+		// No provider — demo / offline mode
+	}
 
 	let saveStatus = $state<'Saved' | 'Saving...' | 'Unsaved changes'>('Saved');
 	let saveTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -13,6 +21,12 @@ export function createAutoSaver(getProject: () => Doc<'projects'> | undefined) {
 	const pendingSaves = new Map<string, string>(); // fileName -> latest content to save
 
 	async function flushPendingSaves() {
+		// No-op in demo mode (no Convex client available)
+		if (!convexClient) {
+			saveStatus = 'Saved';
+			return;
+		}
+
 		const project = getProject();
 		if (!project || pendingSaves.size === 0) {
 			saveStatus = 'Saved';
@@ -48,6 +62,7 @@ export function createAutoSaver(getProject: () => Doc<'projects'> | undefined) {
 
 	/** Call only on local user input (not remote Yjs syncs). */
 	function triggerAutoSave(fileName: string, content: string) {
+		// In demo mode just track unsaved state locally — nothing reaches the backend
 		saveStatus = 'Unsaved changes';
 		pendingSaves.set(fileName, content);
 		clearTimeout(saveTimeout);

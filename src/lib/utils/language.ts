@@ -11,7 +11,7 @@ const EXT_TO_LANGUAGE: Record<string, string> = {
 	md: 'markdown'
 };
 
-export function getMonacoLanguage(fileName: string): string {
+export function getLanguage(fileName: string): string {
 	const ext = fileName.split('.').pop() ?? '';
 	return EXT_TO_LANGUAGE[ext] ?? 'plaintext';
 }

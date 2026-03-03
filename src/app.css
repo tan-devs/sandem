@@ -401,13 +401,14 @@ html {
 	scroll-behavior: smooth;
 }
 
-html,
-body {
+html {
 	height: 100%;
+	overflow: hidden; /* html is the scroll root — nothing escapes the viewport */
 }
 
 body {
-	min-height: 100vh;
+	height: 100%;
+	overflow: hidden; /* body clips at viewport; only designated scroll containers scroll */
 	background-color: var(--bg);
 	color: var(--text);
 	font-family: var(--fonts);
@@ -420,12 +421,9 @@ body {
 /* ── IDE route override ──────────────────────────────────────── */
 /*
  * The /projects/[projectId] layout renders a full-viewport IDE.
- * Kill scroll and background bleed.
+ * The height chain (html → body → .container → main) already clips
+ * overflow — this rule just kills the background glow pseudo-elements.
  */
-body:has(.ide-grid) {
-	overflow: hidden;
-	background: #0d0d0d;
-}
 body:has(.ide-grid)::before,
 body:has(.ide-grid)::after {
 	display: none;

@@ -9,7 +9,7 @@
 	import Avatar from '$lib/components/ui/Avatar.svelte';
 	import SearchBar from '$lib/components/ui/SearchBar.svelte';
 	import DropDown from '$lib/components/ui/DropDown.svelte';
-	import Search from 'lucide-svelte/icons/search';
+	import Search from '@lucide/svelte/icons/search';
 
 	setupConvex(PUBLIC_CONVEX_URL);
 
@@ -17,6 +17,7 @@
 		{ path: '/', label: 'home' },
 		{ path: '/projects', label: 'repo' },
 		{ path: '/dev', label: 'auth' },
+		{ path: '/workshop', label: 'shop' },
 		{ path: '/test/ssr', label: 'server test' },
 		{ path: '/test/client-only', label: 'client test' },
 		{ path: '/test/queries', label: 'query test' }
@@ -47,24 +48,7 @@
 		{/snippet}
 
 		{#snippet actions()}
-			<!-- User menu -->
-			<DropDown bind:open={userDropdownOpen}>
-				{#snippet trigger()}
-					<Avatar
-						src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"
-						alt="User avatar"
-						fallback="FX"
-						size="sm"
-					/>
-				{/snippet}
-				{#snippet content()}
-					<button onclick={() => (userDropdownOpen = false)}>Profile</button>
-					<button onclick={() => (userDropdownOpen = false)}>Settings</button>
-					<button onclick={() => (userDropdownOpen = false)}>Sign out</button>
-				{/snippet}
-			</DropDown>
-
-			<!-- Sign in button (if not authenticated) -->
+			<!-- Sign in button  -->
 			<Button variant="outline" size="sm">Sign in</Button>
 		{/snippet}
 	</NavigationBar>
@@ -76,8 +60,14 @@
 
 <style>
 	.container {
-		/* Navbar row + main content */
-		min-height: 100vh;
+		/*
+		 * height: 100% propagates the definite height from body.
+		 * grid-template-rows: auto 1fr gives the nav its natural height
+		 * and lets main take exactly the remaining space — no more, no less.
+		 * overflow: hidden clips anything that escapes (glow halos, etc.)
+		 */
+		height: 100%;
+		overflow: hidden;
 		display: grid;
 		grid-template-areas:
 			'navigation'
@@ -85,21 +75,23 @@
 		grid-template-rows: auto 1fr;
 	}
 
-	:global(.navbar) {
-		grid-area: navigation;
-	}
-
 	:global(main) {
 		/*
-		 * Sits in the second grid row of body (after navbar).
-		 * No explicit height — it stretches to fill remaining space.
-		 * overflow-x: hidden prevents horizontal scroll from
-		 * overflowing sections / hero glows.
+		 * Sits in the 1fr row — height is now definite (= 100% - navbar).
+		 * overflow-y: auto  → normal pages scroll their content here (not body).
+		 * overflow-x: hidden → prevents horizontal bleed from hero glows etc.
+		 * min-height: 0     → required for nested grids/flex to shrink correctly.
+		 * position: relative → stacking context for page-level z-index layers.
 		 */
 		grid-area: content;
-
+		min-height: 0;
 		position: relative;
+		overflow-y: auto;
 		overflow-x: hidden;
 		width: 100%;
+	}
+
+	:global(.navbar) {
+		grid-area: navigation;
 	}
 </style>

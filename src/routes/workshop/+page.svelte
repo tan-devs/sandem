@@ -1,4 +1,15 @@
 <script lang="ts">
+	import Preview from '$lib/components/ide/Preview.svelte';
+	import Terminal from '$lib/components/ide/Terminal.svelte';
+	import Editor from '$lib/components/ide/Editor.svelte';
+
+	import Button from '$lib/components/ui/Button.svelte';
+	import SearchBar from '$lib/components/ui/SearchBar.svelte';
+	import MenuBar from '$lib/components/ui/MenuBar.svelte';
+	import Form from '$lib/components/ui/Form.svelte';
+	import Accordion from '$lib/components/ui/Accordion.svelte';
+	import FileTree from '$lib/components/ui/FileTree.svelte';
+
 	import {
 		File,
 		Search,
@@ -10,157 +21,166 @@
 		Container,
 		Settings
 	} from '@lucide/svelte';
-	import Editor from '$lib/components/ide/Editor.svelte';
 
 	const menus: string[] = [
 		'file',
-		' edit',
-		' selection ',
+		'edit',
+		'selection',
 		'view',
-		' go',
-		' run',
-		' terminal',
-		' help',
-		' docs'
+		'go',
+		'run',
+		'terminal',
+		'help',
+		'docs'
 	];
+
+	let searchValue = $state('');
 </script>
 
-<div class="header">
-	<menu>
+<!-- ── Header ── -->
+<MenuBar ariaLabel="application menu" padding="0" gap="0">
+	{#snippet children()}
 		{#each menus as menu}
-			<li>{menu}</li>
+			<Button variant="ghost">{menu}</Button>
 		{/each}
-	</menu>
-	<div class="search">
-		<input placeholder="search" type="search" name="search bar" />
-	</div>
-	<div class="actions">
-		<button>😊</button>
-		<button>😣</button>
-		<button>😅</button>
-	</div>
-</div>
+	{/snippet}
 
-<div class="sidebar">
-	<nav>
-		<button><File /></button>
-		<button><Search /></button>
-		<button><GitBranch /></button>
-		<button><Bug /></button>
-		<button><Monitor /></button>
-		<button><Boxes /></button>
-		<button><FlaskConical /></button>
-		<button><Container /></button>
-		<a href="/home"><Settings /></a>
-	</nav>
-	<form>
-		<header>________explorer________</header>
-		<div>________project________</div>
-	</form>
-</div>
+	{#snippet actions()}
+		<SearchBar bind:value={searchValue} placeholder="search">
+			{#snippet icon()}<Search size={14} />{/snippet}
+		</SearchBar>
+		<Button variant="ghost" size="icon">😊</Button>
+		<Button variant="ghost" size="icon">😣</Button>
+		<Button variant="ghost" size="icon">😅</Button>
+	{/snippet}
+</MenuBar>
 
-<div class="main">
-	<article class="editor">
-		<Editor />
-	</article>
-	<article class="terminal">
-		<header></header>
-	</article>
-	<aside class="preview">
-		<header><input placeholder="./project/index.html" type="search" name="search bar" /></header>
-		<footer></footer>
-	</aside>
+<!-- ── Body ── -->
+<div class="body">
+	<!-- ── Sidebar ── -->
+	<div class="sidebar">
+		<nav class="activity-bar">
+			<Button variant="ghost" size="icon"><File /></Button>
+			<Button variant="ghost" size="icon"><Search /></Button>
+			<Button variant="ghost" size="icon"><GitBranch /></Button>
+			<Button variant="ghost" size="icon"><Bug /></Button>
+			<Button variant="ghost" size="icon"><Monitor /></Button>
+			<Button variant="ghost" size="icon"><Boxes /></Button>
+			<Button variant="ghost" size="icon"><FlaskConical /></Button>
+			<Button variant="ghost" size="icon"><Container /></Button>
+			<Button variant="ghost" size="icon" href="/home"><Settings /></Button>
+		</nav>
+
+		<Form ariaLabel="explorer" preset="plain">
+			<Accordion title="explorer">
+				<FileTree />
+			</Accordion>
+		</Form>
+	</div>
+
+	<!-- ── Main ── -->
+	<div class="main">
+		<article class="editor">
+			<Editor />
+		</article>
+
+		<article class="terminal">
+			<Terminal />
+		</article>
+
+		<aside class="preview">
+			<Preview />
+		</aside>
+	</div>
 </div>
 
 <div class="footer">footer</div>
 
 <style>
 	:global(main) {
-		--nav-width: 2rem;
-		--menu-items: 9;
-
+		/*
+		 * main is the 1fr row inside .container which already has a definite
+		 * height (100% of the viewport minus the navbar). We use height: 100%
+		 * here — NOT 100dvh — so we don't break out of that constraint.
+		 * overflow: hidden prevents any IDE child from triggering scroll.
+		 */
+		height: 100%;
+		overflow: hidden;
 		display: grid;
-		grid-template-columns: auto 1fr; /* 2 cols */
-		grid-template-rows: auto 1fr auto; /* 3 rows */
-		grid-template-areas:
-			'header header'
-			'sidebar main'
-			'footer footer';
-	}
-
-	.header {
-		grid-area: header;
-		height: var(--nav-width);
-		display: grid;
-		grid-template-columns: 1fr 1fr 1fr;
+		grid-template-rows: auto 1fr auto;
 	}
 
-	menu {
+	.body {
 		display: grid;
-		grid-template-columns: repeat(var(--menu-items), 4rem);
-		grid-row: var(--nav-width);
-		gap: 1rem;
+		grid-template-columns: auto 1fr;
+		min-height: 0;
 	}
-	li {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-	.search {
-		display: flex;
-		padding: 0 4rem;
-		justify-content: center;
-	}
-	.actions {
-		display: flex;
-		flex-direction: row-reverse;
-	}
+
+	/* ── Sidebar ── */
 	.sidebar {
 		display: flex;
-		grid-area: sidebar;
 		width: 16rem;
-
-		border-right: 1px solid white;
+		border-right: 1px solid var(--border, white);
 	}
-	.sidebar nav {
+
+	.activity-bar {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		gap: 1rem;
 		padding: 1rem 0;
 		width: 4rem;
-
-		border-right: 1px solid white;
+		border-right: 1px solid var(--border, white);
 	}
-	.sidebar a {
+
+	/* Settings button pushed to bottom */
+	.activity-bar :global(.btn:last-child) {
 		margin-top: auto;
 	}
-	.main {
-		grid-area: main;
 
+	/* ── Main ── */
+	.main {
 		display: grid;
 		grid-template-areas:
-			'editor editor preview'
+			'editor   editor   preview'
 			'terminal terminal preview';
+		min-height: 0;
 	}
 
 	.editor {
 		grid-area: editor;
-		border: 1px solid white;
-		background: red;
+		border: 1px solid var(--border, white);
+		min-height: 0;
+		overflow: hidden;
 	}
+
 	.terminal {
 		grid-area: terminal;
-		border: 1px solid white;
-		background: blue;
+		display: flex;
+		flex-direction: column;
+		border: 1px solid var(--border, white);
+		min-height: 0;
+		overflow: hidden;
 	}
+
 	.preview {
 		grid-area: preview;
-		border: 1px solid white;
-		background: green;
+		display: flex;
+		flex-direction: column;
+		border: 1px solid var(--border, white);
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	/* Let the URL SearchBar fill the preview toolbar */
+	.preview :global(.search-container) {
+		flex: 1;
 	}
 
 	.footer {
-		grid-area: footer;
+		border-top: 1px solid var(--border, white);
+		padding: 0.25rem 1rem;
+		font-size: 0.75rem;
+		color: var(--muted);
 	}
 </style>

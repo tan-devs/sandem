@@ -34,7 +34,7 @@
 		pill?: string;
 		class?: string;
 		children?: Snippet;
-		[key: string]: any;
+		[key: string]: unknown;
 	} = $props();
 </script>
 
