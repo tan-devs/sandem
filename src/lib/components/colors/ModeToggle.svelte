@@ -6,21 +6,15 @@
 	let mode = $state<'light' | 'dark'>('dark');
 
 	onMount(() => {
-		// Look for the saved mode, or default to dark
 		const savedMode = localStorage.getItem('mode') as 'light' | 'dark';
-		if (savedMode) {
-			mode = savedMode;
-		}
+		if (savedMode) mode = savedMode;
 	});
 
 	$effect(() => {
 		const root = document.documentElement;
-		// CHANGE: Use data-mode instead of data-theme
 		root.setAttribute('data-mode', mode);
 		root.classList.toggle('dark', mode === 'dark');
 		root.style.colorScheme = mode;
-
-		// CHANGE: Save as 'mode' instead of 'theme'
 		localStorage.setItem('mode', mode);
 	});
 
@@ -31,31 +25,21 @@
 
 <Button
 	onclick={toggle}
-	variant="outline"
+	variant="ghost"
 	aria-label="Toggle {mode === 'light' ? 'Dark' : 'Light'} Mode"
 	class="mode-toggle"
-	style="display: inline-flex; place-items: center; padding: 0.5rem; width: 100%; height: 100%"
 >
 	{#if mode === 'light'}
-		<Sun id="mode-toggle-icon" />
+		<Sun size={18} />
 	{:else}
-		<Moon id="mode-toggle-icon" />
+		<Moon size={18} />
 	{/if}
 </Button>
 
 <style>
-	:global(#mode-toggle-icon) {
-		animation: fade-in var(--time) ease-out;
-	}
-
-	@keyframes fade-in {
-		from {
-			opacity: 0;
-			transform: scale(0.8);
-		}
-		to {
-			opacity: 1;
-			transform: scale(1);
-		}
+	:global(.mode-toggle) {
+		width: auto;
+		height: auto;
+		padding: 0.25rem;
 	}
 </style>

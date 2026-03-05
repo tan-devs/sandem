@@ -117,10 +117,7 @@
 
 	function offlineModel() {
 		for (const file of project.files) {
-			const model = instance.editor.createModel(
-				file.contents ?? '',
-				getLanguage(file.name)
-			);
+			const model = instance.editor.createModel(file.contents ?? '', getLanguage(file.name));
 			bindings.set(file.name, { model: model, destroy: () => model.dispose() });
 		}
 		swap(activeFile);

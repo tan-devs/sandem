@@ -6,8 +6,6 @@
 	import { setIDEContext } from '$lib/context/ide-context.js';
 	import { createProjectMounter } from '$lib/hooks/createProjectMounter.svelte.js';
 
-	
-
 	let { children, data } = $props();
 
 	// Auth handshake between SSR state and client state

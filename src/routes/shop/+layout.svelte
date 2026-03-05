@@ -5,6 +5,8 @@
 	import { VITE_REACT_TEMPLATE } from '$lib/utils/template.js';
 	import { projectFilesToTree } from '$lib/utils/filesystem.js';
 
+	// import SideBar from '$lib/components/sidebar/SideBar.svelte';
+
 	let { children } = $props();
 
 	let webcontainer = $state<WebContainer | null>(null);
@@ -36,17 +38,20 @@
 	});
 </script>
 
-<!--
-	Gate rendering until the WebContainer is booted and files are mounted.
-	This means Editor / Terminal / Preview never call getWebcontainer() too early.
--->
 {#if ready}
-	{@render children()}
+	<div class="sandbox">
+		<!-- Gate rendering until the WebContainer is booted and files are mounted.
+		 This means Editor / Terminal / Preview never call getWebcontainer() too early. -->
+
+		{@render children()}
+	</div>
 {:else}
 	<div class="boot-splash">
 		<div class="spinner"></div>
 		<p>Spinning up your sandbox…</p>
 	</div>
+
+	<div class="footer">footer</div>
 {/if}
 
 <style>
@@ -76,5 +81,29 @@
 		to {
 			transform: rotate(360deg);
 		}
+	}
+
+	:global(.container) {
+		max-height: 100dvh;
+	}
+
+	:global(main) {
+		display: grid;
+		grid-template-areas:
+			'SANDBOX '
+			'STATUS';
+		grid-template-rows: 1fr auto;
+	}
+
+	.sandbox {
+		grid-area: SANDBOX;
+
+		display: grid;
+		grid-template-columns: 4rem 1fr;
+	}
+
+	.footer {
+		grid-area: STATUS;
+		background: blue;
 	}
 </style>

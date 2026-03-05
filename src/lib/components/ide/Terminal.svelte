@@ -59,7 +59,6 @@
 	.terminal-layout {
 		display: flex;
 		flex-direction: column;
-		height: 100%;
 		background: var(--bg);
 	}
 	.terminal-header {
