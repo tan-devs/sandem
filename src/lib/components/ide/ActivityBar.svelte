@@ -1,14 +1,5 @@
 <script lang="ts">
-	import { Files, Search, GitBranch, Settings, Play } from '@lucide/svelte';
-
-	let activeTab = $state('explorer');
-
-	const tools = [
-		{ id: 'explorer', icon: Files, label: 'Explorer' },
-		{ id: 'search', icon: Search, label: 'Search' },
-		{ id: 'git', icon: GitBranch, label: 'Source Control' },
-		{ id: 'run', icon: Play, label: 'Run & Debug' }
-	];
+	import { tools, activity } from '$lib/stores/activityStore.svelte';
 </script>
 
 <div class="activity-bar-container">
@@ -16,19 +7,17 @@
 		{#each tools as tool}
 			<button
 				class="icon-button"
-				class:active={activeTab === tool.id}
-				onclick={() => (activeTab = tool.id)}
+				class:active={activity.tab === tool.id}
+				onclick={() => (activity.tab = tool.id)}
 				title={tool.label}
 			>
-				<tool.icon size={24} strokeWidth={1.5} />
+				<tool.icon size={24} />
 			</button>
 		{/each}
 	</div>
 
 	<div class="bottom-items">
-		<button class="icon-button" title="Settings">
-			<Settings size={24} strokeWidth={1.5} />
-		</button>
+		<button class="icon-button" title="Settings"> S </button>
 	</div>
 </div>
 
@@ -39,7 +28,7 @@
 		justify-content: space-between;
 		height: 100%;
 		width: 48px;
-		background: var(--fg); /* Darkest VSCode tier */
+		background: var(--fg);
 		border-right: 1px solid var(--border);
 	}
 

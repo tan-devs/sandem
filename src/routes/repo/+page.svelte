@@ -5,6 +5,8 @@
 	import Preview from '$lib/components/ide/Preview.svelte';
 	import ActivityBar from '$lib/components/ide/ActivityBar.svelte';
 
+	import '../../app.css';
+
 	import { PaneGroup, Pane, PaneResizer } from 'paneforge';
 </script>
 
@@ -33,40 +35,21 @@
 	</Pane>
 </PaneGroup>
 
-<footer>status bar</footer>
-
 <style>
 	:global(.sidebar) {
 		grid-area: SIDEBAR;
-		background: blue;
-		border: 1px solid white;
 	}
 	:global(.editor) {
 		grid-area: EDITOR;
-		background: blue;
-		border: 1px solid white;
 	}
 	:global(.terminal) {
 		grid-area: TERMINAL;
-		background: blue;
-		border: 1px solid white;
 	}
 	:global(.preview) {
 		grid-area: PREVIEW;
-		background: blue;
-		border: 1px solid white;
-	}
-
-	footer {
-		grid-area: STATUS;
-		background: blue;
-		border: 1px solid white;
-		width: 100%;
-
-		height: var(--status-height);
 	}
 
 	:global(.sidebar-ide-preview) {
-		max-height: calc(100% - var(--status-height));
+		height: 100%;
 	}
 </style>
