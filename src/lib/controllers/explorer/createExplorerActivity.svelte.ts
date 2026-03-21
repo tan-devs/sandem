@@ -204,10 +204,32 @@ export function createExplorerActivity(deps: ExplorerActivityDeps) {
 		actionMessage = 'Explorer synced';
 	}
 
+	function delay(ms: number) {
+		return new Promise<void>((resolve) => {
+			setTimeout(resolve, ms);
+		});
+	}
+
+	async function bootstrapInitialTreeSync() {
+		// Some sessions race runtime/project mount; retry a few times so
+		// folders appear without requiring a manual refresh click.
+		const attempts = 8;
+		for (let i = 0; i < attempts; i += 1) {
+			await deps.fileTree.refresh({ silent: true });
+			if (deps.fileTree.tree.length > 0) return;
+			await delay(300);
+		}
+	}
+
 	function start() {
-		deps.projectSync.start();
-		void deps.fileTree.refresh();
+		try {
+			deps.projectSync.start();
+		} catch (error) {
+			actionError = `Could not start project sync: ${String(error)}`;
+		}
+
 		deps.fileTree.startAutoRefresh(850);
+		void bootstrapInitialTreeSync();
 	}
 
 	function stop() {

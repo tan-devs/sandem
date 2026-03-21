@@ -89,7 +89,7 @@ export default function App() {
 
   return (
   <main>
-    <h1 contenteditable="true">Hello {data}</h1>
+		<h1>Hello {data}</h1>
     <p>You clicked {count} times</p>
       <button onClick={increment}>
         Click me

@@ -27,9 +27,7 @@ export function createFileTree(
 	let refreshTimer = $state<ReturnType<typeof setInterval> | null>(null);
 	let lastSignature = $state('');
 	let refreshInFlight: Promise<void> | null = null;
-	let wcReady = $state(false);
-	let retryCount = $state(0);
-	const maxRetries = 30; // ~30 seconds with 1s intervals
+	let refreshInFlightSilent = false;
 
 	let expanded = $state<Record<string, true>>({});
 
@@ -48,11 +46,21 @@ export function createFileTree(
 	}
 
 	async function refresh(options?: { silent?: boolean }) {
-		if (refreshInFlight) return refreshInFlight;
+		const isSilent = !!options?.silent;
+
+		if (refreshInFlight) {
+			if (!isSilent && refreshInFlightSilent) {
+				await refreshInFlight;
+			} else {
+				return refreshInFlight;
+			}
+		}
 
 		const run = (async () => {
-			if (!options?.silent) loading = true;
-			error = null;
+			if (!isSilent) loading = true;
+			if (!isSilent) {
+				error = null;
+			}
 
 			try {
 				const wc = getWebcontainer();
@@ -61,9 +69,6 @@ export function createFileTree(
 				if (!wc) {
 					throw new Error('WebContainer not initialized');
 				}
-
-				wcReady = true;
-				retryCount = 0;
 
 				const nextTree = await readDirRecursive(wc, '.', getWorkspaceRootFolders());
 				const nextSignature = createSignature(nextTree);
@@ -74,25 +79,23 @@ export function createFileTree(
 					expanded = pruneExpandedStatePure(expanded, nextTree);
 				}
 			} catch (err) {
-				// If WebContainer isn't ready yet, schedule a retry
-				if (!wcReady && retryCount < maxRetries) {
-					retryCount++;
-					if (!options?.silent) {
-						error = `WebContainer not ready (${retryCount}/${maxRetries})`;
-					}
-					// Silently retry in 1 second
-					setTimeout(() => {
-						void refresh({ silent: true });
-					}, 1000);
-				} else {
-					error = toErrorMessage(err);
+				const message = toErrorMessage(err);
+				const isNotReady = message.includes('WebContainer not ready');
+
+				if (isNotReady && isSilent) {
+					// Keep background polling quiet until runtime is available.
+					return;
 				}
+
+				error = isNotReady ? 'WebContainer not ready. Waiting for runtime…' : message;
 			} finally {
 				refreshInFlight = null;
-				if (!options?.silent) loading = false;
+				refreshInFlightSilent = false;
+				if (!isSilent) loading = false;
 			}
 		})();
 
+		refreshInFlightSilent = isSilent;
 		refreshInFlight = run;
 		return run;
 	}

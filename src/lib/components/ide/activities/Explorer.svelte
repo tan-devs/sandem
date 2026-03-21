@@ -190,13 +190,7 @@
 				</Accordion.Header>
 
 				<Accordion.Content>
-					{#if fileTree.loading}
-						<div class="status-msg">Loading…</div>
-					{:else if fileTree.error}
-						<div class="status-msg">{fileTree.error}</div>
-					{:else if fileTree.tree.length === 0}
-						<div class="status-msg">No files found.</div>
-					{:else}
+					{#if fileTree.tree.length > 0}
 						<FileTreeView
 							nodes={fileTree.tree}
 							selectedPath={explorerPanel.selectedTreePath}
@@ -205,6 +199,12 @@
 							onDirClick={explorerPanel.handleDirRowClick}
 							onFileClick={explorerPanel.handleFileRowClick}
 						/>
+					{:else if fileTree.loading}
+						<div class="status-msg">Loading…</div>
+					{:else if fileTree.error}
+						<div class="status-msg">{fileTree.error}</div>
+					{:else}
+						<div class="status-msg">No files found.</div>
 					{/if}
 				</Accordion.Content>
 			</Accordion.Item>
@@ -248,7 +248,6 @@
 						<span class="section-title">NPM SCRIPTS</span>
 					</Accordion.Trigger>
 				</Accordion.Header>
-
 				<Accordion.Content>
 					<div class="section-placeholder">No scripts are currently detected.</div>
 				</Accordion.Content>
@@ -263,7 +262,6 @@
 						<span class="section-title">TESTING</span>
 					</Accordion.Trigger>
 				</Accordion.Header>
-
 				<Accordion.Content>
 					<div class="section-placeholder">No test tasks have been configured yet.</div>
 				</Accordion.Content>
@@ -278,7 +276,6 @@
 						<span class="section-title">PORTS</span>
 					</Accordion.Trigger>
 				</Accordion.Header>
-
 				<Accordion.Content>
 					<div class="section-placeholder">No forwarded ports are currently active.</div>
 				</Accordion.Content>

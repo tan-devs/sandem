@@ -1,6 +1,6 @@
 You are able to use the Svelte MCP server, where you have access to comprehensive Svelte 5 and SvelteKit documentation. Here's how to use the available tools effectively:
 
-> Last updated: 2026-03-21
+> Last updated: 2026-03-22
 
 ## Available MCP Tools:
 
@@ -82,7 +82,7 @@ Use this checklist when picking up the project in a new session to get productiv
 - Theme switcher: `src/lib/components/ui/theme/ThemeSwitcher.svelte`
 - IDE route shell: `src/routes/repo/+layout.svelte`, `src/routes/repo/+layout.server.ts`
 - Repo workspace controller (runtime + project orchestration): `src/lib/controllers/workspace/createRepoController.svelte.ts`
-- Explorer tree controller (with readiness retry): `src/lib/controllers/explorer/createFileTreeController.svelte.ts`
+- Explorer tree controller (polling until runtime available): `src/lib/controllers/explorer/createFileTreeController.svelte.ts`
 - Explorer pure tree ops: `src/lib/utils/editor/fileTreeOps.ts`
 - Explorer/Convex sync scaffolding: `src/lib/hooks/explorer/createProjectSyncController.svelte.ts`, `src/lib/controllers/explorer/createExplorerActionsController.svelte.ts`
 - Project folder sync helpers: `src/lib/utils/editor/projectFolderSync.ts`
@@ -125,7 +125,7 @@ Use this checklist when picking up the project in a new session to get productiv
 - If banner image 404s in dev, verify root assets `banner.webp` / `bannerDark.webp` exist and README references them correctly.
 - If `docker compose up --build` fails, check `README.md` Docker section: the compose file references a root Dockerfile that is not currently present.
 - If lint fails for formatting, run `pnpm run format` and re-run `pnpm run lint`.
-- If explorer shows "WebContainer not ready", verify the retry path in `createFileTreeController` and ensure runtime boot starts via repo controller mount.
+- If explorer shows "WebContainer not ready", verify runtime boot via repo controller mount; the file tree now keeps polling and clears once the runtime is available.
 - If auth endpoints intermittently fail with aborted fetches, verify `PUBLIC_CONVEX_SITE_URL` and current timeout behavior in `src/lib/sveltekit/index.ts`.
 - If `setup:test-user` appears skipped, ensure frontend server is running at `SITE_URL` or set `SKIP_SETUP_TEST_USER_IF_SITE_UNREACHABLE=0` to enforce failure.
 
