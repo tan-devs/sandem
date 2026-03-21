@@ -1,55 +1,41 @@
 <script lang="ts">
-	import SideBar from '$lib/components/ide/SideBar.svelte';
-	import Editor from '$lib/components/ide/Editor.svelte';
-	import Terminal from '$lib/components/ide/Terminal.svelte';
-	import Preview from '$lib/components/ide/Preview.svelte';
-	import ActivityBar from '$lib/components/ide/ActivityBar.svelte';
+	import RepoPaneLayout from '$lib/components/ui/workspace/RepoPaneLayout.svelte';
 
-	import '../../app.css';
-
-	import { PaneGroup, Pane, PaneResizer } from 'paneforge';
+	import Editor from '$lib/components/ide/panes/Editor.svelte';
+	import Terminal from '$lib/components/ide/panes/Terminal.svelte';
+	import RightSidebar from '$lib/components/ide/workspace/RightSidebar.svelte';
 </script>
 
-<PaneGroup direction="horizontal" class="sidebar-ide-preview">
-	<ActivityBar />
-	<Pane defaultSize={20} class="sidebar">
-		<SideBar />
-	</Pane>
-	<PaneResizer>|</PaneResizer>
+<RepoPaneLayout>
+	{#snippet editor()}
+		<section aria-label="leftpane pane">
+			<Editor />
+		</section>
+	{/snippet}
 
-	<Pane defaultSize={60}>
-		<PaneGroup direction="vertical" class="editor-terminal">
-			<Pane defaultSize={50} class="editor">
-				<Editor />
-			</Pane>
-			<PaneResizer>-</PaneResizer>
-			<Pane defaultSize={50} class="terminal">
-				<Terminal />
-			</Pane>
-		</PaneGroup>
-	</Pane>
+	{#snippet terminal()}
+		<section class="downpane" aria-label="downpane pane">
+			<Terminal />
+		</section>
+	{/snippet}
 
-	<PaneResizer>|</PaneResizer>
-	<Pane defaultSize={20} class="preview">
-		<Preview />
-	</Pane>
-</PaneGroup>
+	{#snippet preview()}
+		<aside aria-label="rightpane pane">
+			<RightSidebar />
+		</aside>
+	{/snippet}
+</RepoPaneLayout>
 
 <style>
-	:global(.sidebar) {
-		grid-area: SIDEBAR;
-	}
-	:global(.editor) {
-		grid-area: EDITOR;
-	}
-	:global(.terminal) {
-		grid-area: TERMINAL;
-	}
-	:global(.preview) {
-		grid-area: PREVIEW;
+	section,
+	aside {
+		width: 100%;
+		height: 100%;
+		overflow: hidden;
+		background: var(--bg);
 	}
 
-	:global(.sidebar-ide-preview) {
-		height: 100%;
+	.downpane {
+		border-top: 1px solid var(--border);
 	}
 </style>

@@ -32,6 +32,6 @@ export default [
 		}
 	},
 	{
-		ignores: ['dist/**', '.svelte-kit/**', 'src/convex/_generated/**']
+		ignores: ['dist/**', '.svelte-kit/**', 'src/convex/_generated/**', 'src/convex/*.d.ts']
 	}
 ];

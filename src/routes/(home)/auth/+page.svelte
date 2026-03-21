@@ -1,10 +1,15 @@
 <script lang="ts">
-	import { authClient } from '$lib/context/auth-client.js';
+	import { authClient } from '$lib/context/auth/auth-client.js';
 	import { api } from '$convex/_generated/api.js';
 	import { useQuery } from 'convex-svelte';
 	import { useAuth } from '$lib/svelte/index.js';
+	import Button from '$lib/components/ui/primitives/Button.svelte';
+	import Form from '$lib/components/ui/primitives/Form.svelte';
+	import Grid from '$lib/components/ui/primitives/Grid.svelte';
+	import Tabs from '$lib/components/ui/primitives/Tabs.svelte';
+	import type { AuthLayoutData } from '../../../types/routes.js';
 
-	let { data } = $props();
+	let { data }: { data: AuthLayoutData } = $props();
 
 	const auth = useAuth();
 	const isLoading = $derived(auth.isLoading);
@@ -70,203 +75,233 @@
 		password = '';
 		errorMsg = '';
 	}
+
+	const authTabs = $derived([
+		{ id: 'signin', label: 'Sign in', active: showSignIn },
+		{ id: 'signup', label: 'Sign up', active: !showSignIn }
+	]);
+
+	function setAuthTab(id: string) {
+		showSignIn = id === 'signin';
+		errorMsg = '';
+	}
 </script>
 
 <div class="shell">
 	{#if isLoading}
-		<div class="boot-screen">
-			<p class="boot-label">initialising<span class="blink">_</span></p>
+		<div class="center-screen">
+			<p class="muted">initialising<span class="blink">_</span></p>
 		</div>
 	{:else if isAuthenticated && user}
-		<!-- Already signed in — shows briefly before redirect -->
-		<div class="boot-screen">
+		<div class="center-screen">
 			<div class="session-card">
-				<div class="session-info">
+				<div>
 					<p class="session-name">{user.name ?? 'User'}</p>
-					<p class="session-email">{user.email}</p>
+					<p class="muted">{user.email}</p>
 				</div>
-				<button class="btn-signout" onclick={signOut}>sign out</button>
+				<Button variant="outline" tone="warning" onclick={signOut}>Sign out</Button>
 			</div>
-			<p class="redirect-hint">redirecting to projects<span class="blink">_</span></p>
+			<p class="muted">redirecting to projects<span class="blink">_</span></p>
 		</div>
 	{:else}
 		<div class="stage">
-			<!-- Left: brand column -->
 			<aside class="brand-col">
-				<div class="brand-wrap">
-					<div class="brand-logo">
-						<svg
-							width="22"
-							height="22"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="1.5"
-						>
-							<rect x="3" y="3" width="7" height="7" rx="1" />
-							<rect x="14" y="3" width="7" height="7" rx="1" />
-							<rect x="3" y="14" width="7" height="7" rx="1" />
-							<rect x="14" y="14" width="7" height="7" rx="1" />
-						</svg>
-					</div>
-					<h1 class="brand-name">sandem<span class="brand-dot">.</span></h1>
-					<p class="brand-tagline">in-browser dev environments,<br />built for the web.</p>
-
-					<div class="brand-features">
-						<div class="feature-item">
-							<div class="feature-pip"></div>
-							<span>instant WebContainer boot</span>
-						</div>
-						<div class="feature-item">
-							<div class="feature-pip"></div>
-							<span>real-time collaboration</span>
-						</div>
-						<div class="feature-item">
-							<div class="feature-pip"></div>
-							<span>persistent cloud projects</span>
-						</div>
-					</div>
-				</div>
-
-				<!-- Terminal decoration -->
-				<div class="deco-terminal">
-					<div class="deco-chrome">
-						<span></span><span></span><span></span>
-					</div>
-					<div class="deco-body">
-						<p><span class="p">$</span> npm run dev</p>
-						<p class="dim">Booting WebContainer…</p>
-						<p class="ok">✓ Ready on localhost:5173</p>
-						<p><span class="p">$</span> <span class="blink">_</span></p>
-					</div>
-				</div>
+				<h1>sandem<span class="dot">.</span></h1>
+				<p class="muted">in-browser dev environments, built for the web.</p>
+				<Grid minWidth="12rem" gap="0.5rem" variant="compact">
+					<div class="feature">instant WebContainer boot</div>
+					<div class="feature">real-time collaboration</div>
+					<div class="feature">persistent cloud projects</div>
+				</Grid>
 			</aside>
 
-			<!-- Right: auth form -->
 			<main class="form-col">
-				<div class="form-card">
-					<!-- Tab switcher -->
-					<div class="form-tabs">
-						<button
-							class="form-tab"
-							class:active={showSignIn}
-							onclick={() => {
-								showSignIn = true;
-								errorMsg = '';
-							}}>sign in</button
-						>
-						<button
-							class="form-tab"
-							class:active={!showSignIn}
-							onclick={() => {
-								showSignIn = false;
-								errorMsg = '';
-							}}>sign up</button
-						>
-					</div>
+				<div class="auth-card">
+					<Tabs variant="pills" tone="accent" tabs={authTabs} onSelect={setAuthTab} />
 
-					<form onsubmit={handleSubmit} class="form-body">
+					<Form
+						preset="card"
+						variant="accent"
+						ariaLabel="Authentication form"
+						onsubmit={handleSubmit}
+					>
 						{#if !showSignIn}
-							<div class="field" style="animation-delay: 0ms">
-								<label class="field-label" for="name">name</label>
+							<label class="field" for="name">
+								<span>Name</span>
 								<input
 									id="name"
-									class="field-input"
 									type="text"
 									bind:value={name}
 									placeholder="Ada Lovelace"
 									required
 									autocomplete="name"
 								/>
-							</div>
+							</label>
 						{/if}
 
-						<div class="field" style="animation-delay: {showSignIn ? 0 : 60}ms">
-							<label class="field-label" for="email">email</label>
+						<label class="field" for="email">
+							<span>Email</span>
 							<input
 								id="email"
-								class="field-input"
 								type="email"
 								bind:value={email}
 								placeholder="ada@example.com"
 								required
 								autocomplete="email"
 							/>
-						</div>
+						</label>
 
-						<div class="field" style="animation-delay: {showSignIn ? 60 : 120}ms">
-							<label class="field-label" for="password">password</label>
+						<label class="field" for="password">
+							<span>Password</span>
 							<input
 								id="password"
-								class="field-input"
 								type="password"
 								bind:value={password}
 								placeholder="••••••••"
 								required
 								autocomplete={showSignIn ? 'current-password' : 'new-password'}
 							/>
-						</div>
+						</label>
 
 						{#if errorMsg}
-							<div class="error-msg">
-								<svg
-									width="12"
-									height="12"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-								>
-									<circle cx="12" cy="12" r="10" />
-									<line x1="12" y1="8" x2="12" y2="12" />
-									<line x1="12" y1="16" x2="12.01" y2="16" />
-								</svg>
-								{errorMsg}
-							</div>
+							<p class="error-msg">{errorMsg}</p>
 						{/if}
 
-						<button class="btn-submit" type="submit" disabled={submitting}>
-							{#if submitting}
-								<div class="btn-spinner"></div>
-								{showSignIn ? 'signing in…' : 'creating account…'}
-							{:else}
-								{showSignIn ? 'sign in' : 'create account'}
-								<svg
-									width="13"
-									height="13"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-								>
-									<line x1="5" y1="12" x2="19" y2="12" />
-									<polyline points="12 5 19 12 12 19" />
-								</svg>
-							{/if}
-						</button>
-					</form>
+						<Button type="submit" tone="accent" disabled={submitting}>
+							{submitting
+								? showSignIn
+									? 'Signing in…'
+									: 'Creating account…'
+								: showSignIn
+									? 'Sign in'
+									: 'Create account'}
+						</Button>
+					</Form>
 
-					<div class="divider">
-						<span>or continue with</span>
+					<div class="auth-actions">
+						<Button variant="outline" tone="neutral" onclick={handleGithub}
+							>Continue with GitHub</Button
+						>
+						<Button variant="link" tone="info" onclick={toggle}>
+							{showSignIn ? 'Need an account? Sign up' : 'Already have an account? Sign in'}
+						</Button>
 					</div>
-
-					<button class="btn-github" onclick={handleGithub}>
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-							<path
-								d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"
-							/>
-						</svg>
-						GitHub
-					</button>
-
-					<p class="form-switch">
-						{showSignIn ? 'no account?' : 'already have one?'}
-						<button type="button" class="switch-link" onclick={toggle}>
-							{showSignIn ? 'sign up' : 'sign in'}
-						</button>
-					</p>
 				</div>
 			</main>
 		</div>
 	{/if}
 </div>
+
+<style>
+	.shell {
+		min-height: calc(100dvh - 4rem);
+		display: grid;
+		place-items: center;
+		padding: 1rem;
+	}
+
+	.center-screen {
+		display: grid;
+		gap: 0.8rem;
+		width: min(32rem, 100%);
+	}
+
+	.session-card {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 1rem;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-md);
+		background: var(--fg);
+	}
+
+	.session-name {
+		font-weight: 600;
+		margin: 0;
+	}
+
+	.stage {
+		width: min(68rem, 100%);
+		display: grid;
+		grid-template-columns: 1fr minmax(20rem, 28rem);
+		gap: 1rem;
+	}
+
+	.brand-col {
+		padding: 1rem;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-md);
+		background: var(--fg);
+		display: grid;
+		align-content: start;
+		gap: 0.75rem;
+	}
+
+	h1 {
+		margin: 0;
+		font-size: 1.5rem;
+	}
+
+	.dot {
+		color: var(--accent);
+	}
+
+	.feature {
+		padding: 0.5rem 0.6rem;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		font-size: 0.86rem;
+		color: var(--muted);
+	}
+
+	.form-col,
+	.auth-card {
+		display: grid;
+		gap: 0.75rem;
+	}
+
+	.field {
+		display: grid;
+		gap: 0.35rem;
+		font-size: 0.86rem;
+		color: var(--muted);
+	}
+
+	.error-msg {
+		margin: 0;
+		padding: 0.5rem 0.6rem;
+		border: 1px solid color-mix(in srgb, var(--error) 45%, var(--border));
+		border-radius: var(--radius-sm);
+		background: color-mix(in srgb, var(--error) 8%, transparent);
+		color: var(--error);
+		font-size: 0.85rem;
+	}
+
+	.auth-actions {
+		display: grid;
+		gap: 0.45rem;
+	}
+
+	.muted {
+		margin: 0;
+		color: var(--muted);
+	}
+
+	.blink {
+		animation: blink 1s step-end infinite;
+	}
+
+	@keyframes blink {
+		50% {
+			opacity: 0;
+		}
+	}
+
+	@media (max-width: 860px) {
+		.stage {
+			grid-template-columns: 1fr;
+		}
+	}
+</style>

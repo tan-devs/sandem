@@ -1,5 +1,17 @@
 # Changelog
 
+> Last updated: 2026-03-20
+
+## Unreleased
+
+### Patch Changes
+
+- docs: refreshed project docs (`README`, `CONTRIBUTING`, `README.Docker`, `TO-DO`, bug report status, and agent notes)
+- ui: improved reusable token-driven component APIs for auth + showcase routes
+- showcase: tabs now render different accordion datasets in `/shop`
+- repo: demo mode is now guest-only on `/repo` (authenticated users no longer fall back to demo based on project count)
+- repo: first-time authenticated users are auto-seeded with a starter project through `ensureStarterProjectForOwner`
+
 ## 0.5.1
 
 ### Patch Changes

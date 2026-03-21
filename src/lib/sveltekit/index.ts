@@ -19,7 +19,15 @@ export const getToken = async <DataModel extends GenericDataModel>(
 	createAuth: CreateAuth<DataModel>,
 	cookies: Cookies
 ) => {
-	const options = createAuth({} as GenericCtx<DataModel>).options;
+	const rawOptions = createAuth({} as GenericCtx<DataModel>).options;
+
+	// @convex-dev/better-auth's TrustedOriginsOption allows (string | null | undefined)[]
+	// but better-auth's BetterAuthOptions.trustedOrigins requires string[]. The spread
+	// approach doesn't help because TypeScript infers the result type from rawOptions and
+	// carries TrustedOriginsOption through. Cast to the exact type createCookieGetter
+	// expects — targeted and honest about what we're asserting.
+	const options = rawOptions as unknown as Parameters<typeof createCookieGetter>[0];
+
 	const createCookie = createCookieGetter(options);
 	const cookie = createCookie(JWT_COOKIE_NAME);
 	const token = cookies.get(cookie.name);

@@ -1,0 +1,280 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "run-check",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"run",
+				"check"
+			]
+		},
+		{
+			"label": "run-prepare",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"run",
+				"prepare"
+			]
+		},
+		{
+			"label": "run-lint",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"run",
+				"lint"
+			]
+		},
+		{
+			"label": "run-lint-now",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"run",
+				"lint"
+			]
+		},
+		{
+			"label": "run-test",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"run",
+				"test"
+			]
+		},
+		{
+			"label": "run-install-browsers",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"run",
+				"test:e2e:install-browsers"
+			]
+		},
+		{
+			"label": "install-playwright-chromium",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"exec",
+				"playwright",
+				"install",
+				"chromium"
+			]
+		},
+		{
+			"label": "run-format",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"run",
+				"format"
+			]
+		},
+		{
+			"label": "lint-projects-file",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"exec",
+				"eslint",
+				"src/convex/projects.ts"
+			]
+		},
+		{
+			"label": "eslint-all-json",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"pnpm exec eslint . -f json > /tmp/eslint-all.json || true && node -e \"const fs=require('fs');const r=JSON.parse(fs.readFileSync('/tmp/eslint-all.json','utf8'));const issues=r.flatMap(f=>f.messages.map(m=>({file:f.filePath, line:m.line, rule:m.ruleId, msg:m.message, sev:m.severity})));console.log('issues',issues.length);console.log(issues.slice(0,40).map(i=>`${i.file}:${i.line} ${i.rule} ${i.msg}`).join('\\n'));\""
+			]
+		},
+		{
+			"label": "eslint-all-json-workspace",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"exec",
+				"eslint",
+				".",
+				"-f",
+				"json",
+				"-o",
+				"eslint-all.json"
+			]
+		},
+		{
+			"label": "prettier-eslint-config",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"exec",
+				"prettier",
+				"--write",
+				"eslint.config.js"
+			]
+		},
+		{
+			"label": "eslint-activity-store",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"exec",
+				"eslint",
+				"src/lib/stores/activity/activityStore.svelte.ts"
+			]
+		},
+		{
+			"label": "eslint-activity-json",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"exec",
+				"eslint",
+				"src/lib/stores/activity/activityStore.svelte.ts",
+				"-f",
+				"json",
+				"-o",
+				"activity-eslint.json"
+			]
+		},
+		{
+			"label": "prettier-check-activity-store",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"exec",
+				"prettier",
+				"--check",
+				"src/lib/stores/activity/activityStore.svelte.ts"
+			]
+		},
+		{
+			"label": "prettier-app-menu-controller",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"exec",
+				"prettier",
+				"--write",
+				"src/lib/hooks/workspace/createAppMenuController.svelte.ts"
+			]
+		},
+		{
+			"label": "run-build",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"run",
+				"build"
+			]
+		},
+		{
+			"label": "run-prepack",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"run",
+				"prepack"
+			]
+		},
+		{
+			"label": "run-e2e",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"run",
+				"test:e2e"
+			]
+		},
+		{
+			"label": "run-build-log",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"pnpm run build > build.log 2>&1; echo EXIT:$?"
+			]
+		},
+		{
+			"label": "run-build-verify",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"run",
+				"build"
+			]
+		},
+		{
+			"label": "build-with-sentinel",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"pnpm run build && echo BUILD_OK"
+			]
+		},
+		{
+			"label": "build-log2",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"pnpm run build > build2.log 2>&1; echo EXIT:$?"
+			]
+		},
+		{
+			"label": "build-debug-log",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"pnpm exec vite build --debug > vite-debug.log 2>&1; echo EXIT:$?"
+			]
+		},
+		{
+			"label": "build-debug-log-after-fix",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"pnpm exec vite build --debug > vite-debug-after.log 2>&1; echo EXIT:$?"
+			]
+		},
+		{
+			"label": "run-e2e-auth-ssr",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"exec",
+				"playwright",
+				"test",
+				"e2e/auth-ssr.spec.ts"
+			]
+		},
+		{
+			"label": "run-e2e-auth-ssr-ci",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"PLAYWRIGHT_HTML_OPEN=never pnpm exec playwright test e2e/auth-ssr.spec.ts --reporter=line --workers=1"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run-e2e-auth-ssr-ci-2",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"PLAYWRIGHT_HTML_OPEN=never pnpm exec playwright test e2e/auth-ssr.spec.ts --reporter=line --workers=1"
+			]
+		}
+	]
+}

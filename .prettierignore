@@ -9,3 +9,7 @@ bun.lockb
 /static/
 
 _generated
+src/convex/*.d.ts
+.vscode/tasks.json
+eslint-all.json
+*-eslint.json

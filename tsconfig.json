@@ -12,5 +12,11 @@
 		"module": "NodeNext",
 		"moduleResolution": "NodeNext"
 	},
-	"include": ["src/**/*", "src/types/**/*", "G", "G"]
+	"include": ["src/**/*", "src/types/**/*", "src/app.d.ts"],
+	"exclude": [
+		"src/convex/auth.ts",
+		"src/convex/http.ts",
+		"src/convex/projects.ts",
+		"src/convex/schema.ts"
+	]
 }

@@ -1,0 +1,160 @@
+<script lang="ts">
+	import { DropdownMenu, type WithoutChild } from 'bits-ui';
+	import type { Snippet } from 'svelte';
+	import type { Tone, Variant } from '$types/ui.js';
+
+	type ChromeVariant = Extract<Variant, 'default' | 'outline' | 'ghost'>;
+
+	type MenuItem = { label: string; value: string };
+	type MenuGroup = {
+		heading?: string;
+		ariaLabel?: string;
+		items: MenuItem[];
+	};
+
+	type Props = DropdownMenu.RootProps & {
+		label: string;
+
+		items?: MenuItem[];
+		groups?: MenuGroup[];
+		variant?: ChromeVariant;
+		tone?: Tone;
+		onSelect?: (value: string) => void;
+		contentProps?: WithoutChild<DropdownMenu.ContentProps>;
+		children: Snippet;
+	};
+
+	let {
+		open = $bindable(false),
+		label,
+		children,
+		items = [],
+		groups,
+		variant = 'default',
+		tone = 'neutral',
+		onSelect,
+		contentProps,
+		...rest
+	}: Props = $props();
+
+	const toneMap: Record<Tone, string> = {
+		neutral: 'var(--muted)',
+		accent: 'var(--accent)',
+		success: 'var(--success)',
+		warning: 'var(--warning)',
+		info: 'var(--info)',
+		danger: 'var(--error)'
+	};
+
+	let resolvedGroups = $derived(
+		groups && groups.length > 0
+			? groups
+			: items.length > 0
+				? [{ heading: label, ariaLabel: label.toLowerCase(), items }]
+				: []
+	);
+</script>
+
+<div class="dropdown-shell">
+	<DropdownMenu.Root bind:open {...rest}>
+		<DropdownMenu.Trigger class="dropdown-trigger" data-variant={variant} aria-label={label}>
+			{@render children()}
+		</DropdownMenu.Trigger>
+
+		<DropdownMenu.Portal>
+			<DropdownMenu.Content
+				{...contentProps}
+				class="dropdown-content"
+				data-variant={variant}
+				style={`--dropdown-tone: ${toneMap[tone]};`}
+			>
+				{#each resolvedGroups as group}
+					<DropdownMenu.Group aria-label={group.ariaLabel}>
+						{#if group.heading}
+							<DropdownMenu.GroupHeading class="group-heading"
+								>{group.heading}</DropdownMenu.GroupHeading
+							>
+						{/if}
+						{#each group.items as item}
+							<DropdownMenu.Item
+								textValue={item.value}
+								onSelect={() => {
+									onSelect?.(item.value);
+									open = false;
+								}}
+								class="item"
+							>
+								{item.label}
+							</DropdownMenu.Item>
+						{/each}
+					</DropdownMenu.Group>
+				{/each}
+			</DropdownMenu.Content>
+		</DropdownMenu.Portal>
+	</DropdownMenu.Root>
+</div>
+
+<style>
+	.dropdown-shell :global(.dropdown-trigger) {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 0.5rem;
+		border: 1px solid transparent;
+	}
+
+	.dropdown-shell :global(.dropdown-trigger[data-variant='default']) {
+		background: var(--fg);
+		border-color: var(--border);
+		color: var(--text);
+	}
+
+	.dropdown-shell :global(.dropdown-trigger[data-variant='outline']) {
+		background: transparent;
+		border-color: var(--border);
+		color: var(--text);
+	}
+
+	.dropdown-shell :global(.dropdown-trigger[data-variant='ghost']) {
+		background: transparent;
+		color: var(--muted);
+	}
+
+	.dropdown-shell :global(.dropdown-trigger:hover) {
+		background: var(--mg);
+	}
+
+	.dropdown-shell :global(.dropdown-content) {
+		min-width: 170px;
+		padding: 0.3rem;
+		background: var(--fg);
+		border: 1px solid var(--border);
+		border-radius: 0.65rem;
+		box-shadow: var(--shadow);
+		z-index: 300;
+	}
+
+	.dropdown-shell :global(.item) {
+		display: flex;
+		align-items: center;
+		padding: 0.45rem 0.6rem;
+		border-radius: 0.45rem;
+		font-size: 0.82rem;
+		cursor: pointer;
+		color: var(--muted);
+	}
+
+	.dropdown-shell :global(.item[data-highlighted]) {
+		background: color-mix(in srgb, var(--dropdown-tone) 10%, var(--mg));
+		color: color-mix(in srgb, var(--dropdown-tone) 70%, var(--text));
+	}
+
+	.dropdown-shell :global(.group-heading) {
+		padding: 0.2rem 0.6rem 0.35rem;
+		font-size: 0.64rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--muted);
+		font-weight: 700;
+	}
+</style>

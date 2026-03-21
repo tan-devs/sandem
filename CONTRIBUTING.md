@@ -1,4 +1,6 @@
-# Contributing to convex-better-auth-svelte
+# Contributing to Sandem
+
+> Last updated: 2026-03-21
 
 Thank you for your interest in contributing! This guide will help you get set up for development and testing.
 
@@ -7,16 +9,20 @@ Thank you for your interest in contributing! This guide will help you get set up
 - Node.js 22+
 - pnpm
 - A Convex account (free tier works)
+- Playwright browsers (for E2E only)
 
 ## Development Setup
 
 ### 1. Clone and Install
 
 ```bash
-git clone https://github.com/mmailaender/convex-better-auth-svelte.git
-cd convex-better-auth-svelte
+git clone https://github.com/tan-devs/sandem.git
+cd sandem
 pnpm install
+cp .env.example .env.local
 ```
+
+Then fill `.env.local` with your Convex / Liveblocks / OAuth values.
 
 ### 2. Set Up Convex
 
@@ -27,6 +33,8 @@ npx convex dev
 ```
 
 This will prompt you to create a new project or link to an existing one.
+
+> Tip: `pnpm run dev` also starts Convex (`dev:server`) for you.
 
 ### 3. Run Development Server
 
@@ -41,12 +49,16 @@ This starts both the Vite dev server and Convex in watch mode.
 ### Unit Tests
 
 ```bash
-pnpm run test:unit
+pnpm run test       # one-shot CI mode
+pnpm run test:unit  # watch/interactive mode
 ```
 
 ### E2E Tests
 
-E2E tests require a test user in your Convex database.
+E2E tests require:
+
+- a running app (`SITE_URL` in `.env.test`, default `http://localhost:5173`)
+- a test user in your Convex-backed auth store
 
 #### 1. Create Test User
 
@@ -63,7 +75,7 @@ This creates a user with the credentials from `.env.test` in your Convex databas
 First time only:
 
 ```bash
-pnpm exec playwright install
+pnpm run test:e2e:install-browsers
 ```
 
 #### 3. Run E2E Tests
@@ -89,57 +101,84 @@ The E2E tests cover these authentication scenarios:
 | Client-only Auth  | User signs in without SSR state                         |
 | Protected Queries | Queries that require authentication                     |
 
-## Project Structure
+## Project Structure (high-level)
 
 ```
 ├── src/
 │   ├── lib/
-│   │   ├── svelte/           # Client-side auth integration
-│   │   │   ├── client.svelte.ts
-│   │   │   └── index.ts
+│   │   ├── components/       # Reusable UI + IDE components
+│   │   ├── hooks/            # File tree, autosave, preview, etc.
+│   │   ├── context/          # Shared app contexts
+│   │   ├── stores/           # Shared state
+│   │   ├── svelte/           # Auth bridges/helpers
 │   │   └── sveltekit/        # Server-side helpers
-│   │       └── index.ts
 │   └── routes/
 │       ├── +layout.svelte    # Root layout (CSS, nav)
-│       ├── +page.svelte      # Landing page
-│       ├── dev/              # Development playground
-│       │   ├── +layout.svelte
-│       │   └── +page.svelte  # Full auth demo
-│       └── test/             # E2E test routes
-│           ├── ssr/          # SSR auth tests
-│           ├── client-only/  # Client-only auth tests
-│           └── queries/      # Query behavior tests
+│       ├── (home)/           # Home, auth, shop, test pages
+│       ├── repo/             # IDE shell route
+│       └── api/              # Auth and Liveblocks server endpoints
 ├── e2e/                      # E2E tests (Playwright)
 ├── scripts/                  # Development scripts
-└── convex/                   # Convex backend
+└── src/convex/               # Convex backend
+
 ```
 
-### Route Overview
+## Useful scripts
 
-| Route               | Purpose                                    |
-| ------------------- | ------------------------------------------ |
-| `/`                 | Landing page with links                    |
-| `/dev`              | Development playground with full auth demo |
-| `/test/ssr`         | SSR authentication test page               |
-| `/test/client-only` | Client-only authentication test page       |
-| `/test/queries`     | Public/protected query behavior test page  |
+```bash
+pnpm dev
+pnpm build
+pnpm lint
+pnpm check
+pnpm test
+pnpm test:unit
+pnpm test:e2e:install-browsers
+pnpm test:e2e
+```
 
-## Code Style
+## Docker status
 
-- We use Prettier for formatting
-- Run `pnpm run format` before committing
-- Run `pnpm run lint` to check for issues
+- `compose.yaml` exists.
+- It references a root `Dockerfile`, but the repository currently has no root Dockerfile.
+- So `docker compose up --build` is expected to fail until Dockerfile is added.
+
+Use the Node/pnpm path above for local contribution work.
+
+## Route Overview
+
+| Route               | Purpose                                                         |
+| ------------------- | --------------------------------------------------------------- |
+| `/`                 | Landing page                                                    |
+| `/auth`             | Sign in / sign up                                               |
+| `/shop`             | Reusable component showcase                                     |
+| `/repo`             | IDE workspace shell (guest demo / authenticated repo workspace) |
+| `/test/ssr`         | SSR auth behavior tests                                         |
+| `/test/client-only` | Client-only auth behavior tests                                 |
+| `/test/queries`     | Public/protected query behavior test                            |
+
+### `/repo` first-visit behavior
+
+- Guests (`currentUser = null`) see the demo workspace template.
+- Authenticated users always enter their own repo workspace flow.
+- On first authenticated visit, backend seeding (`ensureStarterProjectForOwner`) creates a starter project if the owner has no projects yet.
+
+## Code style
+
+- We use Prettier + ESLint.
+- Run `pnpm run format` before committing.
+- Run `pnpm run lint` and `pnpm run check` before opening a PR.
 
 ## Pull Request Process
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
-4. Run tests (`pnpm test:e2e`)
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
+4. Run checks (`pnpm run lint && pnpm run check`)
+5. Run tests (`pnpm run test && pnpm run test:e2e` when relevant)
+6. Commit your changes (`git commit -m 'Add amazing feature'`)
+7. Push to the branch (`git push origin feature/amazing-feature`)
+8. Open a Pull Request
 
 ## Questions?
 
-Feel free to open an issue if you have questions or run into problems!
+Feel free to open an issue if you have questions or run into problems.

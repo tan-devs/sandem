@@ -10,7 +10,9 @@ const siteUrl = process.env.SITE_URL!;
 
 // The component client has methods needed for integrating Convex with Better Auth,
 // as well as helper methods for general use.
-export const authComponent = createClient<DataModel>(components.betterAuth);
+export const authComponent: ReturnType<typeof createClient<DataModel>> = createClient<DataModel>(
+	components.betterAuth
+);
 
 export const createAuth = (ctx: GenericCtx<DataModel>) => {
 	return betterAuth({
@@ -40,7 +42,7 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 
 // Example function for getting the current user
 // Feel free to edit, omit, etc.
-export const getCurrentUser = query({
+export const getCurrentUser: ReturnType<typeof query> = query({
 	args: {},
 	handler: async (ctx) => {
 		return authComponent.safeGetAuthUser(ctx);
@@ -48,7 +50,7 @@ export const getCurrentUser = query({
 });
 
 // Public query for testing - no auth required
-export const getPublicData = query({
+export const getPublicData: ReturnType<typeof query> = query({
 	args: {},
 	handler: async () => {
 		return {

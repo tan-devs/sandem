@@ -31,31 +31,42 @@ export async function POST({ locals, request }: RequestEvent): Promise<Response>
 		}
 
 		convex.setAuth(locals.token);
-		const user = await convex.query(api.auth.getCurrentUser);
+		const user = await convex.query(api.auth.getCurrentUser, {});
 
 		if (!user) {
 			return new Response('Unauthorized - User not found', { status: 401 });
 		}
 
-		const session = liveblocks.prepareSession(user._id, {
-			userInfo: {
-				name: user.name?.trim() || 'Anonymous User',
-				email: user.email?.trim() || '',
-				avatar: user.image?.trim() || ''
-			}
-		});
+		let role: 'owner' | 'viewer' = 'viewer';
+		let isOwner = false;
+		let project: Awaited<ReturnType<typeof convex.query<typeof api.projects.openCollab>>> | null =
+			null;
 
 		if (room) {
-			// FIX: Fetch the project from Convex using the Room ID
-			let project;
 			try {
 				project = await convex.query(api.projects.openCollab, { room, owner: user._id });
 			} catch (error) {
 				console.error('Failed to fetch project for room:', room, error);
 				return new Response('Failed to authorize room', { status: 500 });
 			}
+
 			if (project) {
-				const isOwner = project.owner === user._id;
+				isOwner = project.owner === user._id;
+				role = isOwner ? 'owner' : 'viewer';
+			}
+		}
+
+		const session = liveblocks.prepareSession(user._id, {
+			userInfo: {
+				name: user.name?.trim() || 'Anonymous User',
+				email: user.email?.trim() || '',
+				avatar: user.image?.trim() || '',
+				role
+			}
+		});
+
+		if (room) {
+			if (project) {
 				session.allow(room, isOwner ? session.FULL_ACCESS : ['room:read', 'room:presence:write']);
 			} else {
 				// If project doesn't exist, you might want to deny access or allow read-only

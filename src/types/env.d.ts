@@ -23,8 +23,22 @@ declare module '$env/dynamic/public' {
 
 declare module '$env/static/private' {
 	export const LIVEBLOCKS_SECRET_KEY: string;
+	export const SITE_URL: string;
+	export const GITHUB_CLIENT_ID: string;
+	export const GITHUB_CLIENT_SECRET: string;
 }
 
 declare module '$env/dynamic/private' {
 	export const LIVEBLOCKS_SECRET_KEY: string;
+	export const SITE_URL: string;
+	export const GITHUB_CLIENT_ID: string;
+	export const GITHUB_CLIENT_SECRET: string;
+}
+
+declare namespace NodeJS {
+	interface ProcessEnv {
+		SITE_URL: string;
+		GITHUB_CLIENT_ID: string;
+		GITHUB_CLIENT_SECRET: string;
+	}
 }

@@ -4,6 +4,30 @@
 		<meta charset="utf-8" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.svg" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+		<script>
+			(function () {
+				const colors = ['default', 'abyss', 'forest', 'solar'];
+				const theme = localStorage.getItem('theme');
+				const mode = localStorage.getItem('mode');
+
+				const root = document.documentElement;
+
+				root.setAttribute('data-theme', colors.includes(theme) ? theme : 'default');
+
+				const resolvedMode =
+					mode === 'light' || mode === 'dark'
+						? mode
+						: window.matchMedia('(prefers-color-scheme: dark)').matches
+							? 'dark'
+							: 'light';
+
+				root.setAttribute('data-mode', resolvedMode);
+				root.classList.toggle('dark', resolvedMode === 'dark');
+				root.style.colorScheme = resolvedMode;
+			})();
+		</script>
+
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

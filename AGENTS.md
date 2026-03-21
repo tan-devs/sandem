@@ -1,5 +1,7 @@
 You are able to use the Svelte MCP server, where you have access to comprehensive Svelte 5 and SvelteKit documentation. Here's how to use the available tools effectively:
 
+> Last updated: 2026-03-21
+
 ## Available MCP Tools:
 
 ### 1. list-sections
@@ -29,6 +31,9 @@ After completing the code, ask the user if they want a playground link. Only cal
 1. **Svelte 5 First**: Always prefer Runes ($state, $props, $derived) over Svelte 4 store/export syntax.
 2. **Event Attributes**: Use `onclick`, `oninput`, etc., instead of `on:click` or `on:input`.
 3. **Data Injection**: Pass configuration data (like nav links) from layouts to components using props to keep components pure and reusable.
+4. **`/repo` Auth Gating**: Demo mode is guest-only. If authenticated, always run repo workspace flow; do not gate by project count.
+5. **Starter Seed on First Visit**: For authenticated owners with zero projects, rely on `ensureStarterProjectForOwner` to create starter content.
+6. **Keep this file current**: Whenever `AGENTS.md` is read during work, update it as needed so it accurately reflects the app’s current behavior, architecture, scripts, and known status.
 
 ## Styling Architecture (The "Svelte.dev" Way)
 
@@ -48,7 +53,7 @@ After completing the code, ask the user if they want a playground link. Only cal
 
 Use this checklist when picking up the project in a new session to get productive quickly.
 
-- Workspace root: `c:\projects\svelte5-demo`
+- Workspace root: `c:\projects\capstone\sandem`
 - Dev server URL: `http://localhost:5173/` (start with `pnpm run dev`)
 
 ### Helpful scripts
@@ -59,15 +64,21 @@ Use this checklist when picking up the project in a new session to get productiv
 - `pnpm run format` — run Prettier
 - `pnpm run lint` — run ESLint
 - `pnpm run build` — produce a production build
+- `pnpm run test` — run unit tests in one-shot mode
+- `pnpm run test:unit` — run Vitest in watch/interactive mode
+- `pnpm run test:e2e:install-browsers` — one-time Playwright browser install
+- `pnpm run test:e2e` — run E2E tests
 
 ### Key files & areas
 
 - Global tokens & interactive states: `src/app.css`
-- Header component / layout shell: `src/lib/components/Header.svelte`
-- Card component shell: `src/lib/components/Card.svelte`
-- Theme switcher: `src/lib/components/ThemeSwitcher.svelte`
-- Layout and pages: `src/routes/+layout.svelte`, `src/routes/+page.svelte`
-- Static assets: `static/` (drop images here to avoid external CDN 404s)
+- Header/layout shell: `src/lib/components/ui/navigation/AppHeader.svelte`
+- Card component shell: `src/lib/components/ui/primitives/Card.svelte`
+- Theme switcher: `src/lib/components/ui/theme/ThemeSwitcher.svelte`
+- IDE route shell: `src/routes/repo/+layout.svelte`, `src/routes/repo/+layout.server.ts`
+- Layout and pages: `src/routes/+layout.svelte`, `src/routes/(home)/*`, `src/routes/repo/*`
+- Project file-tree conversion utility: `src/lib/utils/project/filesystem.ts`
+- Docker status reference: `README.md` (compose exists, root Dockerfile currently missing)
 
 ### Conventions & best practices
 
@@ -80,11 +91,14 @@ Use this checklist when picking up the project in a new session to get productiv
 
 - Run `pnpm run format` before `pnpm run lint` if formatting fails in CI
 - Run `pnpm run check` to catch Svelte/TypeScript diagnostics
+- Run `pnpm run test` after non-trivial logic changes
+- For E2E on a fresh machine, run `pnpm run test:e2e:install-browsers` once first
 - When adding components, run the `svelte-autofixer` on generated code
 
 ### Quick troubleshooting
 
-- If hero image 404s in dev, add the image to `static/` and update `src/app.css` to reference `/your-image.avif`.
+- If banner image 404s in dev, verify root assets `banner.webp` / `bannerDark.webp` exist and README references them correctly.
+- If `docker compose up --build` fails, check `README.md` Docker section: the compose file references a root Dockerfile that is not currently present.
 - If lint fails for formatting, run `pnpm run format` and re-run `pnpm run lint`.
 
 ---

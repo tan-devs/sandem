@@ -1,9 +1,8 @@
 import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
-import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-	plugins: [tailwindcss(), sveltekit()],
+	plugins: [sveltekit()],
 	test: {
 		// Unit tests
 		include: ['src/**/*.{test,spec}.{js,ts}'],
@@ -13,6 +12,6 @@ export default defineConfig({
 		environment: 'jsdom',
 
 		// Setup files
-		setupFiles: ['./vitest-setup-client.ts']
+		setupFiles: ['./scripts/setup-test-client.ts']
 	}
 });

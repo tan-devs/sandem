@@ -1,317 +1,147 @@
-/* ============================================================
-   DESIGN TOKENS — SEMANTIC LAYER
-   ============================================================ */
+/* --- Semantic Tokens --- */
 :root {
-	/* ── Layout ──────────────────────────────────────────────── */
-	--navbar-height: 4rem;
-	--status-height: 2rem;
-
-	/* ── Motion ──────────────────────────────────────────────── */
-	--time: 200ms;
-	--ease: cubic-bezier(0.4, 0, 0.2, 1);
-
-	/* ── Shape ───────────────────────────────────────────────── */
 	--radius: 2rem;
 	--radius-sm: 0.5rem;
-	--radius-md: 1rem;
-	--radius-xl: 3rem;
+	--radius-md: 0.65rem;
+	--radius-lg: 0.85rem;
+	--time: 180ms;
+	--ease: cubic-bezier(0.4, 0, 0.2, 1);
+	--ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+	--fonts: 'Helvetica Neue', Arial, sans-serif;
+	--fonts-mono: 'Cascadia Mono', 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
 
-	/* ── Typography ──────────────────────────────────────────── */
-	--fonts: 'DM Sans', 'Helvetica Neue', Arial, sans-serif;
-	--fonts-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
-	--icon-size: 1.25rem;
+	--engrave: linear-gradient(0deg, var(--fg) 5%, var(--mg));
+	--push: linear-gradient(0deg, var(--fg), var(--mg));
 
-	/* ── Gradients (surface-relative) ────────────────────────── */
-	/*
-	 * These reference --fg and --mg so they automatically
-	 * adapt to whichever theme + mode is active.
-	 */
-	--gradient-engrave: linear-gradient(180deg, var(--fg) 5%, var(--mg));
-	--gradient-push: linear-gradient(180deg, var(--fg), var(--mg));
-	--gradient-emboss: linear-gradient(180deg, var(--mg) 95%, var(--fg));
-	--gradient-pull: linear-gradient(180deg, var(--mg), var(--fg));
+	--embose: linear-gradient(0deg, var(--mg) 95%, var(--fg));
+	--pull: linear-gradient(0deg, var(--mg), var(--fg));
 
-	/* ── Semantic colors ─────────────────────────────────────── */
 	--success: hsl(142 70% 45%);
 	--warning: hsl(48 95% 50%);
 	--error: hsl(0 84% 60%);
 	--info: hsl(200 80% 45%);
 
-	/* ── Backdrop / glass ────────────────────────────────────── */
-	--blur: blur(16px);
-	--glass-bg: hsla(0, 0%, 50%, 0.08);
-	--glass-border: hsla(0, 0%, 50%, 0.12);
+	--accent: hsl(0, 100%, 50%);
+	--shade: hsl(0, 50%, 50%);
+	--shadow-card: 0 8px 24px color-mix(in srgb, var(--text) 10%, transparent);
 }
 
 /* ============================================================
-   THEME: default
+   THEME: default  (black / white)
    ============================================================ */
+
+/* --- Light Mode (Default) --- */
+
 :root[data-theme='default'][data-mode='light'] {
 	--bg: hsl(0 0% 85%);
 	--mg: hsl(0 0% 90%);
 	--fg: hsl(0 0% 95%);
 	--highlight: hsl(0 0% 100%);
 	--text: hsl(0 0% 5%);
-	--muted: hsl(0 0% 35%);
-	--border: hsl(0 0% 72%);
-	--glint: hsl(0 0% 82%);
-	--shadow: 0 1px 3px hsla(0, 0%, 0%, 0.12), 0 1px 2px hsla(0, 0%, 0%, 0.08);
-	--ring: hsl(0 0% 40%);
-	--shade: hsl(0 0% 60%);
-	--accent: hsl(23, 100%, 50%);
-	/* Background effects */
-
-	--glow-color: hsl(0 0% 88%);
+	--muted: hsl(0 0% 30%);
+	--border: hsl(0 0% 70%);
+	--glint: hsl(0 0% 80%);
+	--shadow: 0px 2px 2px hsla(0, 0%, 0%, 0.15);
 }
-:root[data-theme='default'][data-mode='dark'] {
-	--bg: hsl(0 0% 4%);
-	--mg: hsl(0 0% 8%);
-	--fg: hsl(0 0% 12%);
-	--highlight: hsl(0 0% 55%);
-	--text: hsl(0 0% 94%);
-	--muted: hsl(0 0% 60%);
-	--border: hsl(0 0% 22%);
-	--glint: hsl(0 0% 32%);
-	--shadow: 0 1px 3px hsla(0, 0%, 0%, 0.4), 0 1px 2px hsla(0, 0%, 0%, 0.3);
-	--ring: hsl(0 0% 60%);
-	--shade: hsl(0 0% 30%);
-	--accent: hsl(23, 100%, 50%);
-	/* Background effects */
 
-	--glow-color: hsl(0 0% 10%);
+/* --- Dark Mode Overrides --- */
+
+:root[data-theme='default'][data-mode='dark'] {
+	--bg: hsl(0 0% 0%);
+	--mg: hsl(0 0% 5%);
+	--fg: hsl(0 0% 10%);
+	--highlight: hsl(0 0% 60%);
+	--text: hsl(0 0% 95%);
+	--muted: hsl(0 0% 70%);
+	--border: hsl(0 0% 30%);
+	--glint: hsl(0 0% 40%);
+	--shadow: 0px 2px 2px hsla(0, 0%, 100%, 0.2);
 }
 
 /* ============================================================
    THEME: abyss  (deep blue-black / steel blue)
    ============================================================ */
+
+/* --- Light Mode (Abyss) --- */
+
 :root[data-theme='abyss'][data-mode='light'] {
-	--bg: hsl(215 30% 90%);
-	--mg: hsl(215 28% 94%);
-	--fg: hsl(215 25% 98%);
+	--bg: hsl(215 0% 85%);
+	--mg: hsl(215 0% 90%);
+	--fg: hsl(215 0% 95%);
 	--highlight: hsl(215 20% 100%);
-	--text: hsl(220 40% 10%);
-	--muted: hsl(215 20% 42%);
-	--border: hsl(215 20% 78%);
-	--glint: hsl(215 20% 86%);
-	--shadow: 0 1px 3px hsla(220, 40%, 0%, 0.1), 0 1px 2px hsla(220, 40%, 0%, 0.07);
-	--ring: hsl(215 60% 50%);
-	--shade: hsl(215 20% 65%);
-	--accent: hsl(215 90% 52%);
-
-	--glow-color: hsl(215 30% 92%);
+	--text: hsl(220 0% 5%);
+	--muted: hsl(215 0% 30%);
+	--border: hsl(215 0% 70%);
+	--glint: hsl(215 0% 80%);
+	--shadow: 0px 2px 2px hsla(0, 0%, 0%, 0.15);
 }
+
+/* --- Dark Mode Overrides --- */
+
 :root[data-theme='abyss'][data-mode='dark'] {
-	--bg: hsl(222 47% 3%);
-	--mg: hsl(222 42% 7%);
-	--fg: hsl(222 38% 11%);
-	--highlight: hsl(215 40% 45%);
-	--text: hsl(210 30% 96%);
-	--muted: hsl(215 20% 58%);
-	--border: hsl(222 30% 18%);
-	--glint: hsl(215 25% 28%);
-	--shadow: 0 1px 4px hsla(222, 50%, 0%, 0.5), 0 1px 2px hsla(222, 50%, 0%, 0.4);
-	--ring: hsl(215 80% 60%);
-	--shade: hsl(215 30% 22%);
-	--accent: hsl(215 85% 60%);
-
-	--glow-color: hsl(222 50% 6%);
+	--bg: hsl(222 0% 0%);
+	--mg: hsl(222 0% 5%);
+	--fg: hsl(222 0% 10%);
+	--highlight: hsl(215 40% 60%);
+	--text: hsl(210 0% 95%);
+	--muted: hsl(215 0% 70%);
+	--border: hsl(222 0% 30%);
+	--glint: hsl(215 0% 40%);
+	--shadow: 0px 2px 2px hsla(0, 0%, 100%, 0.2);
 }
 
-/* ============================================================
-   THEME: forest  (deep green / sage)
-   ============================================================ */
-:root[data-theme='forest'][data-mode='light'] {
-	--bg: hsl(130 30% 86%);
-	--mg: hsl(130 28% 91%);
-	--fg: hsl(130 22% 96%);
-	--highlight: hsl(130 18% 100%);
-	--text: hsl(130 40% 8%);
-	--muted: hsl(130 18% 35%);
-	--border: hsl(130 25% 68%);
-	--glint: hsl(130 25% 78%);
-	--shadow: 0 1px 3px hsla(130, 50%, 0%, 0.12), 0 1px 2px hsla(130, 50%, 0%, 0.08);
-	--ring: hsl(130 50% 38%);
-	--shade: hsl(130 22% 60%);
-	--accent: hsl(145 65% 36%);
+/* --- Reset Globals (User Agent Stylesheets) --- */
 
-	--glow-color: hsl(130 28% 90%);
-}
-:root[data-theme='forest'][data-mode='dark'] {
-	--bg: hsl(130 40% 4%);
-	--mg: hsl(130 38% 8%);
-	--fg: hsl(130 35% 12%);
-	--highlight: hsl(130 25% 38%);
-	--text: hsl(130 25% 93%);
-	--muted: hsl(130 15% 55%);
-	--border: hsl(130 30% 20%);
-	--glint: hsl(130 28% 30%);
-	--shadow: 0 1px 4px hsla(130, 50%, 0%, 0.45), 0 1px 2px hsla(130, 50%, 0%, 0.35);
-	--ring: hsl(130 55% 45%);
-	--shade: hsl(130 28% 20%);
-	--accent: hsl(145 60% 50%);
-
-	--glow-color: hsl(130 45% 5%);
-}
-
-/* ============================================================
-   THEME: solar  (amber / warm desert)
-   ============================================================ */
-:root[data-theme='solar'][data-mode='light'] {
-	--bg: hsl(38 55% 86%);
-	--mg: hsl(38 50% 91%);
-	--fg: hsl(38 42% 96%);
-	--highlight: hsl(38 35% 100%);
-	--text: hsl(22 55% 12%);
-	--muted: hsl(28 28% 40%);
-	--border: hsl(35 38% 68%);
-	--glint: hsl(35 38% 78%);
-	--shadow: 0 1px 3px hsla(22, 60%, 0%, 0.12), 0 1px 2px hsla(22, 60%, 0%, 0.08);
-	--ring: hsl(35 80% 45%);
-	--shade: hsl(32 35% 60%);
-	--accent: hsl(30 90% 48%);
-	--glow-color: hsl(38 50% 90%);
-}
-:root[data-theme='solar'][data-mode='dark'] {
-	--bg: hsl(22 55% 5%);
-	--mg: hsl(22 52% 10%);
-	--fg: hsl(22 48% 14%);
-	--highlight: hsl(35 45% 48%);
-	--text: hsl(40 65% 90%);
-	--muted: hsl(30 30% 58%);
-	--border: hsl(22 42% 22%);
-	--glint: hsl(22 42% 32%);
-	--shadow: 0 1px 4px hsla(22, 60%, 0%, 0.45), 0 1px 2px hsla(22, 60%, 0%, 0.35);
-	--ring: hsl(35 80% 55%);
-	--shade: hsl(25 35% 22%);
-	--accent: hsl(38 85% 55%);
-	--glow-color: hsl(22 55% 7%);
-}
-
-/* ============================================================
-   RESET & BASE
-   ============================================================ */
 *,
 *::before,
 *::after {
 	margin: 0;
 	padding: 0;
 	box-sizing: border-box;
-	/*
-	 * NO global transition — it breaks Monaco, xterm, WebContainer.
-	 * Apply transitions per-component only where they make sense.
-	 */
+	/* Scoped to color/opacity/visibility only — intentionally excludes layout
+	   properties (width, height, flex-basis, transform) so PaneForge resize
+	   handles feel instant rather than fighting an animation. */
+	transition:
+		color var(--time) var(--ease),
+		background-color var(--time) var(--ease),
+		border-color var(--time) var(--ease),
+		opacity var(--time) var(--ease),
+		box-shadow var(--time) var(--ease);
 }
-
-.no-transition,
-.no-transition * {
+/* Pane elements must never animate layout — PaneForge sets flex-basis inline */
+:global([data-pane]),
+:global([data-pane-group]),
+:global([data-resize-handle]) {
+	transition: none !important;
+}
+.no-transition {
 	transition: none !important;
 }
 
-/* ── Themed transitions on interactive elements only ─────────── */
-button,
-a,
-input,
-select,
-textarea,
-[role='button'] {
-	transition:
-		background-color var(--time) var(--ease),
-		border-color var(--time) var(--ease),
-		color var(--time) var(--ease),
-		box-shadow var(--time) var(--ease),
-		opacity var(--time) var(--ease);
-}
-
-/* ── Focus visible system ────────────────────────────────────── */
-/*
- * Keyboard-only focus ring using the --ring token.
- * :focus-visible fires for keyboard, not mouse clicks.
- */
-:focus {
-	outline: none;
-}
-
-:focus-visible {
-	outline: 2px solid var(--ring);
-	outline-offset: 2px;
-	border-radius: var(--radius-sm);
-}
-
-/* ── Text selection ──────────────────────────────────────────── */
-::selection {
-	background: var(--accent);
-	color: var(--bg);
-}
-
-/* ── Scrollbar ───────────────────────────────────────────────── */
-::-webkit-scrollbar {
-	width: 6px;
-	height: 6px;
-}
-
-::-webkit-scrollbar-track {
-	background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-	background: var(--border);
-	border-radius: 999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-	background: var(--glint);
-}
-
-/* Firefox */
-* {
-	scrollbar-width: thin;
-	scrollbar-color: var(--border) transparent;
-}
-
-/* ── HTML / Body ─────────────────────────────────────────────── */
 html {
 	color-scheme: light dark;
 	-webkit-text-size-adjust: none;
 	text-size-adjust: none;
-	scroll-behavior: smooth;
 }
 
-html {
+html,
+body {
 	height: 100%;
-	overflow: hidden; /* html is the scroll root — nothing escapes the viewport */
 }
 
 body {
-	height: 100%;
-	overflow: hidden; /* body clips at viewport; only designated scroll containers scroll */
-	background-color: var(--bg);
+	min-height: 100vh;
+	background: var(--bg);
 	color: var(--text);
 	font-family: var(--fonts);
-	font-size: 1rem;
 	line-height: 1.5;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
+
+	overflow: hidden;
 }
 
-/* ── IDE route override ──────────────────────────────────────── */
-/*
- * The /projects/[projectId] layout renders a full-viewport IDE.
- * The height chain (html → body → .container → main) already clips
- * overflow — this rule just kills the background glow pseudo-elements.
- */
-body:has(.ide-grid)::before,
-body:has(.ide-grid)::after {
-	display: none;
-}
-
-/* ── Main content z-index ────────────────────────────────────── */
-/* Ensure page content renders above the body pseudo-elements */
-body > * {
-	position: relative;
-	z-index: 1;
-}
-
-/* ── Media & graphics ────────────────────────────────────────── */
+/* Media and graphics */
 img,
 picture,
 video,
@@ -319,9 +149,10 @@ canvas,
 svg {
 	display: block;
 	max-width: 100%;
+	height: auto;
 }
 
-/* ── Form elements ───────────────────────────────────────────── */
+/* Form elements inherit font styles */
 input,
 button,
 textarea,
@@ -330,53 +161,34 @@ select {
 	color: inherit;
 	background: transparent;
 	line-height: inherit;
+}
+
+/* Basic element resets */
+button {
+	cursor: pointer;
 	border: none;
 }
 
-button {
-	cursor: pointer;
-	user-select: none;
-}
-
-/* ── Links ───────────────────────────────────────────────────── */
 a {
 	color: inherit;
 	text-decoration: none;
 }
 
-/* ── Lists ───────────────────────────────────────────────────── */
 ul,
-ol,
-menu {
+ol {
 	list-style: none;
 }
 
-/* ── Tables ──────────────────────────────────────────────────── */
 table {
 	border-collapse: collapse;
 	border-spacing: 0;
 }
 
-/* ── Textarea ────────────────────────────────────────────────── */
 textarea {
 	resize: vertical;
 }
 
-/* ── Code / pre ──────────────────────────────────────────────── */
-code,
-kbd,
-samp,
-pre {
-	font-family: var(--fonts-mono);
-	font-size: 0.875em;
-}
-
-pre {
-	overflow-x: auto;
-	tab-size: 2;
-}
-
-/* ── Reduced motion ──────────────────────────────────────────── */
+/* --- Remove animations ( reduced motion ) --- */
 @media (prefers-reduced-motion: reduce) {
 	*,
 	::before,

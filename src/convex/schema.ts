@@ -15,5 +15,11 @@ export default defineSchema({
 		entry: v.optional(v.string())
 	})
 		// This index is crucial for performance and privacy
-		.index('by_owner', ['owner'])
+		.index('by_owner', ['owner']),
+
+	projectSeedState: defineTable({
+		owner: v.string(),
+		starterProjectSeeded: v.boolean(),
+		seededAt: v.number()
+	}).index('by_owner', ['owner'])
 });

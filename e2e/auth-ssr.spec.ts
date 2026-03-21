@@ -1,5 +1,32 @@
 import { test, expect } from '@playwright/test';
 
+async function ensureAuthenticated(page: import('@playwright/test').Page) {
+	const email = process.env.TEST_USER_EMAIL;
+	const password = process.env.TEST_USER_PASSWORD;
+
+	if (!email || !password) {
+		test.skip();
+		return false;
+	}
+
+	await page.goto('/test/client-only');
+	await expect(page.locator('[data-testid="is-loading"]')).toContainText('false', {
+		timeout: 15000
+	});
+
+	const signInForm = page.locator('[data-testid="sign-in-form"]');
+	if (await signInForm.isVisible().catch(() => false)) {
+		await page.fill('[data-testid="email-input"]', email);
+		await page.fill('[data-testid="password-input"]', password);
+		await page.click('[data-testid="sign-in-button"]');
+	}
+
+	await expect(page.locator('[data-testid="is-authenticated"]')).toContainText('true', {
+		timeout: 15000
+	});
+	return true;
+}
+
 /**
  * Test Scenarios:
  * 1. SSR Authenticated - Server provides auth state, client hydrates
@@ -208,6 +235,8 @@ test.describe('Client-only Authentication', () => {
 
 test.describe('Query Behavior - Authenticated', () => {
 	test('public query runs and shows data', async ({ page }) => {
+		if (!(await ensureAuthenticated(page))) return;
+
 		await page.goto('/test/queries');
 
 		// Public query should show data
@@ -217,6 +246,8 @@ test.describe('Query Behavior - Authenticated', () => {
 	});
 
 	test('protected query runs when authenticated', async ({ page }) => {
+		if (!(await ensureAuthenticated(page))) return;
+
 		await page.goto('/test/queries');
 
 		// Should be authenticated
@@ -227,6 +258,8 @@ test.describe('Query Behavior - Authenticated', () => {
 	});
 
 	test('SSR provides initial data for both queries', async ({ page }) => {
+		if (!(await ensureAuthenticated(page))) return;
+
 		await page.goto('/test/queries');
 
 		// SSR public data should be present

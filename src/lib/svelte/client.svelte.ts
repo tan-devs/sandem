@@ -153,7 +153,7 @@ type CreateSvelteAuthClientExternalArgs = CreateSvelteAuthClientBaseArgs & {
  *
  * ```ts
  * const authClient = createAuthClient({
- *   baseURL: import.meta.env.VITE_SITE_URL,
+ *   baseURL: SITE_URL,
  *   plugins: [convexClient()],
  * });
  *

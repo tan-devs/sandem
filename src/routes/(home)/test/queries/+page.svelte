@@ -2,6 +2,8 @@
 	import { api } from '$convex/_generated/api.js';
 	import { useQuery } from 'convex-svelte';
 	import { useAuth } from '$lib/svelte/index.js';
+	import PageSection from '$lib/components/ui/layout/PageSection.svelte';
+	import Card from '$lib/components/ui/primitives/Card.svelte';
 
 	let { data } = $props();
 
@@ -27,40 +29,32 @@
 	);
 </script>
 
-<div class="mx-auto max-w-2xl p-8">
-	<h1 class="mb-6 text-2xl font-bold">Query Behavior Test</h1>
-
-	<div class="space-y-4">
-		<div class="rounded bg-gray-100 p-4" data-testid="auth-state">
-			<h2 class="mb-2 font-semibold">Auth State</h2>
-			<ul class="space-y-1 text-sm">
-				<li data-testid="is-loading">
-					<strong>isLoading:</strong>
-					{auth.isLoading}
-				</li>
+<PageSection heading="Query Behavior Test" label="Convex query behavior diagnostics">
+	<div class="stack">
+		<Card data-testid="auth-state" title="Auth State" variant="outline">
+			<ul class="state-list">
+				<li data-testid="is-loading"><strong>isLoading:</strong> {auth.isLoading}</li>
 				<li data-testid="is-authenticated">
 					<strong>isAuthenticated:</strong>
 					{auth.isAuthenticated}
 				</li>
 			</ul>
-		</div>
+		</Card>
 
-		<div class="rounded bg-blue-50 p-4" data-testid="public-query">
-			<h2 class="mb-2 font-semibold">Public Query (always runs)</h2>
+		<Card data-testid="public-query" title="Public Query (always runs)" tone="info">
 			{#if publicQueryResponse.isLoading}
 				<p data-testid="public-loading">Loading...</p>
 			{:else if publicQueryResponse.data}
 				<p data-testid="public-message">{publicQueryResponse.data.message}</p>
-				<p class="text-xs text-gray-500" data-testid="public-timestamp">
+				<p class="meta" data-testid="public-timestamp">
 					Timestamp: {publicQueryResponse.data.timestamp}
 				</p>
 			{:else}
 				<p data-testid="public-error">Error loading public data</p>
 			{/if}
-		</div>
+		</Card>
 
-		<div class="rounded bg-purple-50 p-4" data-testid="protected-query">
-			<h2 class="mb-2 font-semibold">Protected Query (auth required)</h2>
+		<Card data-testid="protected-query" title="Protected Query (auth required)" tone="accent">
 			{#if auth.isLoading}
 				<p data-testid="protected-auth-loading">Checking auth...</p>
 			{:else if !auth.isAuthenticated}
@@ -72,10 +66,9 @@
 			{:else}
 				<p data-testid="protected-none">No user data</p>
 			{/if}
-		</div>
+		</Card>
 
-		<div class="rounded bg-gray-50 p-4" data-testid="ssr-data">
-			<h2 class="mb-2 font-semibold">SSR Initial Data</h2>
+		<Card data-testid="ssr-data" title="SSR Initial Data" variant="outline">
 			<p data-testid="ssr-public">
 				<strong>publicData:</strong>
 				{data.publicData?.message ?? 'null'}
@@ -84,6 +77,23 @@
 				<strong>protectedData:</strong>
 				{data.protectedData?.email ?? 'null'}
 			</p>
-		</div>
+		</Card>
 	</div>
-</div>
+</PageSection>
+
+<style>
+	.stack {
+		display: grid;
+		gap: 0.9rem;
+	}
+
+	.state-list {
+		display: grid;
+		gap: 0.3rem;
+	}
+
+	.meta {
+		font-size: 0.75rem;
+		color: var(--muted);
+	}
+</style>
