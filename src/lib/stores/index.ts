@@ -1,11 +1,4 @@
-// Activity
-export * from './activity/activityStore.svelte.js';
-
-// Collaboration
-export * from './collaboration/collaborationStore.svelte.js';
-
-// Editor
-export * from './editor/editorStore.svelte.js';
-
-// Panel
-export * from './panel/panelStore.svelte.js';
+export * from './activity/index.js';
+export * from './collaboration/index.js';
+export * from './editor/index.js';
+export * from './panel/index.js';

@@ -1,5 +1,2 @@
-// Auth
-export * from './auth/auth-client.js';
-
-// IDE
-export * from './ide/ide-context.js';
+export * from './auth/index.js';
+export * from './ide/index.js';
