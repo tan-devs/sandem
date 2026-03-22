@@ -180,23 +180,31 @@ Project Root/
 
 ## 🆘 Troubleshooting
 
-**Where do I start?**
-→ Open [`EXPLORER_SYNC_README.md`](EXPLORER_SYNC_README.md)
+### Where do I start?
 
-**I don't understand the architecture**
-→ Read [`ARCHITECTURE_EXPLORER.md`](ARCHITECTURE_EXPLORER.md) + [`VISUAL_REFERENCE.md`](VISUAL_REFERENCE.md)
+- Open [`EXPLORER_SYNC_README.md`](EXPLORER_SYNC_README.md).
 
-**I don't know how to integrate**
-→ Follow [`LAYOUT_INTEGRATION.md`](LAYOUT_INTEGRATION.md)
+### I do not understand the architecture
 
-**I'm lost in implementation**
-→ Check [`IMPLEMENTATION_CHECKLIST.md`](IMPLEMENTATION_CHECKLIST.md) for current phase
+- Read [`ARCHITECTURE_EXPLORER.md`](ARCHITECTURE_EXPLORER.md)
+  and [`VISUAL_REFERENCE.md`](VISUAL_REFERENCE.md).
 
-**I need specific code**
-→ See [`LAYOUT_INTEGRATION.md`](LAYOUT_INTEGRATION.md) examples
+### I do not know how to integrate
 
-**Something's broken**
-→ See troubleshooting in [`IMPLEMENTATION_GUIDE.md`](IMPLEMENTATION_GUIDE.md)
+- Follow [`LAYOUT_INTEGRATION.md`](LAYOUT_INTEGRATION.md).
+
+### I am lost in implementation
+
+- Check [`IMPLEMENTATION_CHECKLIST.md`](IMPLEMENTATION_CHECKLIST.md)
+  for the current phase.
+
+### I need specific code
+
+- Review examples in [`LAYOUT_INTEGRATION.md`](LAYOUT_INTEGRATION.md).
+
+### Something is broken
+
+- See troubleshooting in [`IMPLEMENTATION_GUIDE.md`](IMPLEMENTATION_GUIDE.md).
 
 ## 📊 Documentation Stats
 

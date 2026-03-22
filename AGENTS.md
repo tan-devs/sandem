@@ -36,6 +36,8 @@ After completing the code, ask the user if they want a playground link. Only cal
 6. **Keep this file current**: Whenever `AGENTS.md` is read during work, update it as needed so it accurately reflects the app’s current behavior, architecture, scripts, and known status.
 7. **Explorer Multi-root Contract**: In authenticated `/repo`, the WebContainer root is a multi-project workspace (`project-*` folders from Convex). Explorer tree should treat those folders as the canonical top-level roots.
 8. **Explorer Sync Status**: Treat Convex ↔ Explorer sync as foundational/in-progress unless explicitly wired in the active `/repo` shell. Avoid documenting it as fully shipped if delete/rename root actions are still scaffolded.
+9. **Explorer Startup Sync**: Explorer must not require manual refresh to reveal project root folders; keep silent polling + bootstrap retries active so post-boot mount races self-heal.
+10. **Project Selection Sync**: Selecting a root project folder should re-target sync context immediately (room/subscription and tree refresh behavior should follow selected project).
 
 ## Styling Architecture (The "Svelte.dev" Way)
 
@@ -118,6 +120,7 @@ Use this checklist when picking up the project in a new session to get productiv
 - Run `pnpm run check` to catch Svelte/TypeScript diagnostics
 - Run `pnpm run test` after non-trivial logic changes
 - For E2E on a fresh machine, run `pnpm run test:e2e:install-browsers` once first
+- E2E specs should fail fast for missing auth credentials and runtime readiness; avoid silent early returns/reload-based retries when validating benchmark reliability
 - When adding components, run the `svelte-autofixer` on generated code
 
 ### Quick troubleshooting

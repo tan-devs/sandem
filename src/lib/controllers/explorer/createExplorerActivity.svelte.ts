@@ -211,9 +211,9 @@ export function createExplorerActivity(deps: ExplorerActivityDeps) {
 	}
 
 	async function bootstrapInitialTreeSync() {
-		// Some sessions race runtime/project mount; retry a few times so
-		// folders appear without requiring a manual refresh click.
-		const attempts = 8;
+		// Some sessions race runtime/project mount; retry until tree is populated
+		// so folders appear without requiring a manual refresh click.
+		const attempts = 80; // 24 seconds at 300ms intervals
 		for (let i = 0; i < attempts; i += 1) {
 			await deps.fileTree.refresh({ silent: true });
 			if (deps.fileTree.tree.length > 0) return;
@@ -229,6 +229,7 @@ export function createExplorerActivity(deps: ExplorerActivityDeps) {
 		}
 
 		deps.fileTree.startAutoRefresh(850);
+		void deps.fileTree.refresh({ silent: true });
 		void bootstrapInitialTreeSync();
 	}
 

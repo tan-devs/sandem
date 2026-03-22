@@ -2,14 +2,22 @@ import { test, expect } from '@playwright/test';
 
 test.describe.configure({ mode: 'serial' });
 
-async function ensureAuthenticated(page: import('@playwright/test').Page) {
+function requireTestCredentials() {
 	const email = process.env.TEST_USER_EMAIL;
 	const password = process.env.TEST_USER_PASSWORD;
 
 	if (!email || !password) {
-		test.skip();
-		return false;
+		throw new Error(
+			'TEST_USER_EMAIL and TEST_USER_PASSWORD must be set. ' +
+				'Copy .env.test.example to .env.test and run: pnpm run setup:test-user'
+		);
 	}
+
+	return { email, password };
+}
+
+async function ensureAuthenticated(page: import('@playwright/test').Page) {
+	const { email, password } = requireTestCredentials();
 
 	await page.goto('/test/client-only');
 	await expect(page.locator('[data-testid="is-loading"]')).toContainText('false', {
@@ -34,8 +42,6 @@ async function ensureAuthenticated(page: import('@playwright/test').Page) {
 	await expect(page.locator('[data-testid="ssr-auth-state"]')).toContainText('true', {
 		timeout: 15000
 	});
-
-	return true;
 }
 
 /**
@@ -213,13 +219,7 @@ test.describe('Client-only Authentication', () => {
 	});
 
 	test('can sign in from unauthenticated state', async ({ page }) => {
-		const email = process.env.TEST_USER_EMAIL;
-		const password = process.env.TEST_USER_PASSWORD;
-
-		if (!email || !password) {
-			test.skip();
-			return;
-		}
+		const { email, password } = requireTestCredentials();
 
 		await page.goto('/test/client-only');
 
@@ -246,7 +246,7 @@ test.describe('Client-only Authentication', () => {
 
 test.describe('Query Behavior - Authenticated', () => {
 	test('public query runs and shows data', async ({ page }) => {
-		if (!(await ensureAuthenticated(page))) return;
+		await ensureAuthenticated(page);
 
 		await page.goto('/test/queries');
 
@@ -257,30 +257,20 @@ test.describe('Query Behavior - Authenticated', () => {
 	});
 
 	test('protected query runs when authenticated', async ({ page }) => {
-		if (!(await ensureAuthenticated(page))) return;
+		await ensureAuthenticated(page);
 
 		await page.goto('/test/queries');
 
 		// Should be authenticated
 		await expect(page.locator('[data-testid="is-authenticated"]')).toContainText('true');
 
-		// Protected query should show user email.
-		// In slower environments auth/query hydration can lag after sign-in,
-		// so retry once with a full reload before failing.
 		const protectedEmail = page.locator('[data-testid="protected-email"]');
-		try {
-			await expect(protectedEmail).toBeVisible({ timeout: 8000 });
-		} catch {
-			await page.reload();
-			await expect(page.locator('[data-testid="is-authenticated"]')).toContainText('true', {
-				timeout: 15000
-			});
-			await expect(protectedEmail).toBeVisible({ timeout: 8000 });
-		}
+		await expect(protectedEmail).toBeVisible({ timeout: 8000 });
+		await expect(protectedEmail).not.toContainText('null');
 	});
 
 	test('SSR provides initial data for both queries', async ({ page }) => {
-		if (!(await ensureAuthenticated(page))) return;
+		await ensureAuthenticated(page);
 
 		await page.goto('/test/queries');
 

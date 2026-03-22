@@ -20,6 +20,18 @@ export async function readDirRecursive(
 		return entry.isDirectory() && rootFolders.has(entry.name);
 	});
 
+	if (dirPath === '.' && depth === 0) {
+		console.debug(
+			'[readDirRecursive] At root: found',
+			entries.length,
+			'entries, keeping',
+			relevantEntries.length,
+			'relevant (rootFolders.size:',
+			rootFolders.size,
+			')'
+		);
+	}
+
 	const nodes = await Promise.all(
 		relevantEntries.map(async (entry) => {
 			const fullPath = dirPath === '.' ? entry.name : `${dirPath}/${entry.name}`;
@@ -81,4 +93,18 @@ export function pruneExpandedState(
 	return Object.fromEntries(
 		Object.entries(expanded).filter(([path]) => existingDirectories.has(path))
 	) as Record<string, true>;
+}
+
+/**
+ * Find a node by path in the tree (breadth-first search)
+ */
+export function findNodeByPath(nodes: FileNode[], targetPath: string): FileNode | undefined {
+	const queue = [...nodes];
+	while (queue.length > 0) {
+		const node = queue.shift();
+		if (!node) continue;
+		if (node.path === targetPath) return node;
+		if (node.children?.length) queue.push(...node.children);
+	}
+	return undefined;
 }

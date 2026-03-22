@@ -70,13 +70,15 @@ export function createFileTree(
 					throw new Error('WebContainer not initialized');
 				}
 
-				const nextTree = await readDirRecursive(wc, '.', getWorkspaceRootFolders());
+				const rootFolders = getWorkspaceRootFolders();
+				const nextTree = await readDirRecursive(wc, '.', rootFolders);
 				const nextSignature = createSignature(nextTree);
 
 				if (nextSignature !== lastSignature) {
 					tree = nextTree;
 					lastSignature = nextSignature;
 					expanded = pruneExpandedStatePure(expanded, nextTree);
+					if (!isSilent) console.log('[FileTree] Loaded', nextTree.length, 'root nodes');
 				}
 
 				// Clear stale errors after any successful refresh, including silent polling.
@@ -87,12 +89,12 @@ export function createFileTree(
 					message.includes('WebContainer not ready') ||
 					message.includes('WebContainer not initialized');
 
-				if (isNotReady && isSilent) {
-					// Keep background polling quiet until runtime is available.
-					return;
+				// For "not ready" errors, don't display them - just silently retry
+				// This prevents the UI from showing transient WebContainer initialization errors
+				if (!isNotReady) {
+					error = message;
 				}
-
-				error = isNotReady ? 'WebContainer not ready. Waiting for runtime…' : message;
+				console.warn('[FileTree.refresh]', { isSilent, message, isNotReady });
 			} finally {
 				refreshInFlight = null;
 				refreshInFlightSilent = false;
@@ -121,6 +123,7 @@ export function createFileTree(
 
 	function startAutoRefresh(intervalMs = 1000) {
 		if (refreshTimer) return;
+		console.log('[FileTree] Starting auto-refresh with interval', intervalMs);
 		refreshTimer = setInterval(() => {
 			void refresh({ silent: true });
 		}, intervalMs);

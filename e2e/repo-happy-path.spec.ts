@@ -2,13 +2,29 @@ import { test, expect } from '@playwright/test';
 
 const RUN_MULTI_USER_E2E = process.env.RUN_MULTI_USER_E2E === '1';
 
+function requireTestCredentials() {
+	const email = process.env.TEST_USER_EMAIL;
+	const password = process.env.TEST_USER_PASSWORD;
+
+	if (!email || !password) {
+		throw new Error(
+			'TEST_USER_EMAIL and TEST_USER_PASSWORD must be set. ' +
+				'Copy .env.test.example to .env.test and run: pnpm run setup:test-user'
+		);
+	}
+
+	return { email, password };
+}
+
 async function signInIfNeeded(page: import('@playwright/test').Page) {
 	const email = process.env.TEST_USER_EMAIL;
 	const password = process.env.TEST_USER_PASSWORD;
 
 	if (!email || !password) {
-		test.skip();
-		return false;
+		throw new Error(
+			'TEST_USER_EMAIL and TEST_USER_PASSWORD must be set. ' +
+				'Copy .env.test.example to .env.test and run: pnpm run setup:test-user'
+		);
 	}
 
 	await page.goto('/test/client-only');
@@ -26,16 +42,15 @@ async function signInIfNeeded(page: import('@playwright/test').Page) {
 
 	await expect(authenticatedCard).toBeVisible({ timeout: 15000 });
 	await expect(page.locator('[data-testid="is-authenticated"]')).toContainText('true');
-	return true;
 }
 
 async function openRepoProject(page: import('@playwright/test').Page, projectTitle?: string) {
 	await page.goto('/repo');
 	const editorReady = await waitForMonacoWithRecovery(page, 20000);
-	if (!editorReady) return null;
+	expect(editorReady, 'Monaco editor should be visible in /repo').toBe(true);
 	// Current /repo UX auto-mounts a workspace and may not expose a project-card selector.
 	// Return a stable token so multi-page flows can continue using the default workspace.
-	return projectTitle ?? 'workspace-default';
+	return projectTitle || 'workspace-default';
 }
 
 async function clickExplorerAction(page: import('@playwright/test').Page, ariaLabel: string) {
@@ -83,7 +98,7 @@ async function waitForMonacoWithRecovery(page: import('@playwright/test').Page, 
 
 async function typeAtEditorEnd(page: import('@playwright/test').Page, text: string) {
 	const editorReady = await waitForMonacoWithRecovery(page, 20000);
-	if (!editorReady) return false;
+	expect(editorReady, 'Monaco editor should be ready before typing').toBe(true);
 
 	const appendedWithMonacoApi = await page.evaluate((marker) => {
 		const globalAny = window as unknown as {
@@ -136,7 +151,9 @@ async function typeAtEditorEnd(page: import('@playwright/test').Page, text: stri
 		await page.keyboard.type(`\n${text}\n`, { delay: 10 });
 	}
 
-	return true;
+	await expect
+		.poll(async () => getAllMonacoContent(page), { timeout: 15000 })
+		.toContain(text);
 }
 
 async function getAllMonacoContent(page: import('@playwright/test').Page) {
@@ -161,13 +178,7 @@ test.describe('Repo happy path', () => {
 	test('sign in, create project, edit, autosave, refresh persists', async ({ page }) => {
 		test.setTimeout(120000);
 
-		const email = process.env.TEST_USER_EMAIL;
-		const password = process.env.TEST_USER_PASSWORD;
-
-		if (!email || !password) {
-			test.skip();
-			return;
-		}
+		const { email, password } = requireTestCredentials();
 
 		await page.goto('/test/client-only');
 		await expect(page.locator('[data-testid="is-loading"]')).toContainText('false', {
@@ -189,26 +200,24 @@ test.describe('Repo happy path', () => {
 
 		await page.goto('/repo');
 		const editorReady = await waitForMonacoWithRecovery(page, 20000);
-		if (!editorReady) return;
-		const openedTitle = 'workspace-default';
+		expect(editorReady, 'Monaco editor should load after sign-in').toBe(true);
 
 		const marker = `// e2e-persist-${Date.now()}`;
-		if (!(await typeAtEditorEnd(page, marker))) return;
+		await typeAtEditorEnd(page, marker);
 
 		await expect(page.locator('[data-testid="editor-save-status"]')).toContainText('Saved', {
 			timeout: 20000
 		});
 
 		await page.reload();
-		if (!(await waitForMonacoWithRecovery(page, 20000))) return;
-
-		if (openedTitle) {
-			await expect(page.locator('.status-bar')).toBeVisible({ timeout: 15000 });
-		}
+		expect(await waitForMonacoWithRecovery(page, 20000), 'Monaco should recover after reload').toBe(
+			true
+		);
+		await expect(page.locator('.status-bar')).toBeVisible({ timeout: 15000 });
 
 		await expect
-			.poll(async () => (await getAllMonacoContent(page)).length, { timeout: 45000 })
-			.toBeGreaterThan(10);
+			.poll(async () => getAllMonacoContent(page), { timeout: 45000 })
+			.toContain(marker);
 	});
 
 	test('multi-user same-file typing sync', async ({ browser }) => {
@@ -223,22 +232,21 @@ test.describe('Repo happy path', () => {
 		const page1 = await ctx1.newPage();
 		const page2 = await ctx2.newPage();
 
-		if (!(await signInIfNeeded(page1))) return;
-		if (!(await signInIfNeeded(page2))) return;
+		await signInIfNeeded(page1);
+		await signInIfNeeded(page2);
 
 		const projectTitle = await openRepoProject(page1);
-		if (!projectTitle) return;
-		if (!(await openRepoProject(page2, projectTitle))) return;
+		await openRepoProject(page2, projectTitle);
 
 		const sharedFile = `src/e2e-shared-${Date.now()}.ts`;
 		await createAndOpenSharedFile(page1, page2, sharedFile);
 
 		const seed = `// e2e-shared-seed-${Date.now()}`;
-		if (!(await typeAtEditorEnd(page1, seed))) return;
+		await typeAtEditorEnd(page1, seed);
 		await expect.poll(async () => getAllMonacoContent(page2), { timeout: 45000 }).toContain(seed);
 
 		const marker = `// e2e-multi-sync-${Date.now()}`;
-		if (!(await typeAtEditorEnd(page1, marker))) return;
+		await typeAtEditorEnd(page1, marker);
 
 		await expect.poll(async () => getAllMonacoContent(page2), { timeout: 45000 }).toContain(marker);
 
@@ -258,18 +266,17 @@ test.describe('Repo happy path', () => {
 		const page1 = await ctx1.newPage();
 		const page2 = await ctx2.newPage();
 
-		if (!(await signInIfNeeded(page1))) return;
-		if (!(await signInIfNeeded(page2))) return;
+		await signInIfNeeded(page1);
+		await signInIfNeeded(page2);
 
 		const projectTitle = await openRepoProject(page1);
-		if (!projectTitle) return;
-		if (!(await openRepoProject(page2, projectTitle))) return;
+		await openRepoProject(page2, projectTitle);
 
 		const sharedFile = `src/e2e-concurrent-${Date.now()}.ts`;
 		await createAndOpenSharedFile(page1, page2, sharedFile);
 
 		const seed = `// e2e-concurrent-seed-${Date.now()}`;
-		if (!(await typeAtEditorEnd(page1, seed))) return;
+		await typeAtEditorEnd(page1, seed);
 		await expect.poll(async () => getAllMonacoContent(page2), { timeout: 45000 }).toContain(seed);
 
 		const markerA = `// e2e-concurrent-a-${Date.now()}`;
@@ -279,7 +286,7 @@ test.describe('Repo happy path', () => {
 			typeAtEditorEnd(page1, markerA),
 			typeAtEditorEnd(page2, markerB)
 		]);
-		if (!typed[0] || !typed[1]) return;
+		expect(typed[0] && typed[1], 'Both concurrent edits should be applied').toBe(true);
 
 		const markerAToken = markerA.split('-').at(-1) ?? markerA;
 		const markerBToken = markerB.split('-').at(-1) ?? markerB;
@@ -313,12 +320,11 @@ test.describe('Repo happy path', () => {
 		const page1 = await ctx1.newPage();
 		let page2 = await ctx2.newPage();
 
-		if (!(await signInIfNeeded(page1))) return;
-		if (!(await signInIfNeeded(page2))) return;
+		await signInIfNeeded(page1);
+		await signInIfNeeded(page2);
 
 		const projectTitle = await openRepoProject(page1);
-		if (!projectTitle) return;
-		if (!(await openRepoProject(page2, projectTitle))) return;
+		await openRepoProject(page2, projectTitle);
 
 		const fileName = `src/e2e-collab-${Date.now()}.ts`;
 
@@ -328,11 +334,11 @@ test.describe('Repo happy path', () => {
 		await clickExplorerAction(page1, 'New file');
 
 		const marker = `// e2e-reconnect-${Date.now()}`;
-		if (!(await typeAtEditorEnd(page1, marker))) return;
+		await typeAtEditorEnd(page1, marker);
 
 		await page2.close();
 		page2 = await ctx2.newPage();
-		if (!(await openRepoProject(page2, projectTitle))) return;
+		await openRepoProject(page2, projectTitle);
 
 		// Ensure the created file is visible/opened in the reconnected client
 		// before asserting cross-client content sync.
