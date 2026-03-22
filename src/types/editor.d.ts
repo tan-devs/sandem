@@ -29,6 +29,7 @@ export type ChangeKind = 'modified' | 'new' | 'deleted';
 export type ChangeItem = {
 	path: string;
 	type: ChangeKind;
+	staged?: boolean;
 };
 
 export type EditorStatusSnapshot = {

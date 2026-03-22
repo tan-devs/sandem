@@ -64,7 +64,7 @@ export function createRepoController(options: Options) {
 		new Map<string, string>(
 			options.isDemo()
 				? []
-				: projects.map((project) => [project._id, projectFolderName(project._id)])
+				: projects.map((project) => [project._id, projectFolderName(project._id, project.title)])
 		)
 	);
 
@@ -133,7 +133,7 @@ export function createRepoController(options: Options) {
 		const project = activeProject ?? projects[0];
 		if (!project) return `${DEMO_FOLDER}/${VITE_REACT_TEMPLATE.entry}`;
 
-		const folder = folderMap.get(project._id) ?? projectFolderName(project._id);
+		const folder = folderMap.get(project._id) ?? projectFolderName(project._id, project.title);
 		const entryFile = project.entry ?? project.files[0]?.name ?? VITE_REACT_TEMPLATE.entry;
 		return `${folder}/${entryFile}`;
 	}

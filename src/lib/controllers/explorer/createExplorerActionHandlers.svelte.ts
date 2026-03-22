@@ -7,7 +7,11 @@ import type { FileTreeController, ProjectSyncController } from '$types/hooks';
 import type { IDEProject } from '$types/projects';
 import type { FileNode } from '$types/editor';
 import { projectFolderName } from '$lib/utils/project/projects.js';
-import { findNode, getAllDirectoryPaths } from '$lib/utils/editor/explorerTreeOps.js';
+import {
+	findNode,
+	getAllDirectoryPaths,
+	validateProjectRelativePath
+} from '$lib/utils/editor/explorerTreeOps.js';
 
 export type ExplorerActionContext = {
 	fileTree: FileTreeController;
@@ -21,23 +25,28 @@ export type ExplorerActionContext = {
 	onError: (msg: string) => void;
 };
 
+function validateRequiredPathInput(value: string, label: string): string {
+	const normalized = value.trim();
+	if (!normalized) {
+		throw new Error(`${label} is required`);
+	}
+	return normalized;
+}
+
 /**
  * Create file action handler
  */
-export async function handleCreateFile(ctx: ExplorerActionContext) {
+export async function handleCreateFile(ctx: ExplorerActionContext, requestedPath: string) {
 	if (!ctx.projectSync.canWrite()) {
 		ctx.onError('You have viewer access. File changes are disabled.');
-		return;
+		return false;
 	}
 
-	const selectedDirectory = getSelectedDirectory(ctx.tree, ctx.selectedPath);
-	const suggestedPath = selectedDirectory ? `${selectedDirectory}/new-file.ts` : 'src/new-file.ts';
-	const path = window.prompt('New file path', suggestedPath);
-	if (!path) return;
-
 	try {
-		const fullPath = normalizeToProjectPath(path, ctx.tree, ctx.getActiveProject?.());
-		const segments = fullPath.split('/');
+		const input = validateRequiredPathInput(requestedPath, 'File path');
+		const fullPath = normalizeToProjectPath(input, ctx.tree, ctx.getActiveProject?.());
+		const validatedPath = validateProjectRelativePath(fullPath);
+		const segments = validatedPath.split('/');
 		const fileName = segments.pop();
 
 		if (!fileName) throw new Error('Invalid file name');
@@ -47,68 +56,77 @@ export async function handleCreateFile(ctx: ExplorerActionContext) {
 			await ctx.getWebcontainer().fs.mkdir(directory, { recursive: true });
 		}
 
-		await ctx.getWebcontainer().fs.writeFile(fullPath, '', 'utf-8');
-		await ctx.projectSync.createFile(fullPath, '');
-		ctx.editorOpenFile(fullPath);
+		await ctx.getWebcontainer().fs.writeFile(validatedPath, '', 'utf-8');
+		await ctx.projectSync.createFile(validatedPath, '');
+		ctx.editorOpenFile(validatedPath);
 		await ctx.fileTree.refresh();
-		ctx.onMessage(`Created ${fullPath}`);
+		ctx.onMessage(`Created ${validatedPath}`);
+		return true;
 	} catch (error) {
 		ctx.onError(`Could not create file: ${String(error)}`);
+		return false;
 	}
 }
 
 /**
  * Create folder action handler
  */
-export async function handleCreateFolder(ctx: ExplorerActionContext) {
+export async function handleCreateFolder(ctx: ExplorerActionContext, requestedPath: string) {
 	if (!ctx.projectSync.canWrite()) {
 		ctx.onError('You have viewer access. Folder changes are disabled.');
-		return;
+		return false;
 	}
 
-	const selectedDirectory = getSelectedDirectory(ctx.tree, ctx.selectedPath);
-	const suggestedPath = selectedDirectory ? `${selectedDirectory}/new-folder` : 'src/new-folder';
-	const path = window.prompt('New folder path', suggestedPath);
-	if (!path) return;
-
 	try {
-		const fullPath = normalizeToProjectPath(path, ctx.tree, ctx.getActiveProject?.());
-		await ctx.getWebcontainer().fs.mkdir(fullPath, { recursive: true });
-		await ctx.projectSync.createDirectory(fullPath);
+		const input = validateRequiredPathInput(requestedPath, 'Folder path');
+		const fullPath = normalizeToProjectPath(input, ctx.tree, ctx.getActiveProject?.());
+		const validatedPath = validateProjectRelativePath(fullPath);
+		await ctx.getWebcontainer().fs.mkdir(validatedPath, { recursive: true });
+		await ctx.projectSync.createDirectory(validatedPath);
 		await ctx.fileTree.refresh();
-		ctx.onMessage(`Created folder ${fullPath}`);
+		ctx.onMessage(`Created folder ${validatedPath}`);
+		return true;
 	} catch (error) {
 		ctx.onError(`Could not create folder: ${String(error)}`);
+		return false;
 	}
 }
 
 /**
  * Rename node action handler
  */
-export async function handleRenameNode(ctx: ExplorerActionContext) {
+export async function handleRenameNode(ctx: ExplorerActionContext, requestedPath: string) {
 	if (!ctx.selectedPath) {
 		ctx.onError('Please select a file or folder first.');
-		return;
+		return false;
 	}
 
 	if (!ctx.projectSync.canWrite()) {
 		ctx.onError('You have viewer access. Rename is disabled.');
-		return;
+		return false;
 	}
 
 	const node = findNode(ctx.tree, ctx.selectedPath);
-	if (!node) return;
-
-	const newPath = window.prompt('New path', ctx.selectedPath);
-	if (!newPath || newPath === ctx.selectedPath) return;
+	if (!node) return false;
 
 	try {
-		const fullNewPath = normalizeToProjectPath(newPath, ctx.tree, ctx.getActiveProject?.());
-		await ctx.projectSync.renamePath(ctx.selectedPath, fullNewPath);
+		const input = validateRequiredPathInput(requestedPath, 'New path');
+		const currentPath = validateProjectRelativePath(ctx.selectedPath);
+		const fullNewPath = normalizeToProjectPath(input, ctx.tree, ctx.getActiveProject?.());
+		const validatedNewPath = validateProjectRelativePath(fullNewPath);
+
+		if (validatedNewPath === currentPath) {
+			ctx.onError('New path must be different from the current path.');
+			return false;
+		}
+
+		await ctx.projectSync.renamePath(currentPath, validatedNewPath);
 		await ctx.fileTree.refresh();
-		ctx.onMessage(`Renamed to ${fullNewPath}`);
+		ctx.onMessage(`Renamed to ${validatedNewPath}`);
+		return true;
 	} catch (error) {
 		ctx.onError(`Could not rename: ${String(error)}`);
+		return false;
 	}
 }
 
@@ -118,29 +136,29 @@ export async function handleRenameNode(ctx: ExplorerActionContext) {
 export async function handleDeleteNode(ctx: ExplorerActionContext) {
 	if (!ctx.selectedPath) {
 		ctx.onError('Please select a file or folder first.');
-		return;
+		return false;
 	}
 
 	if (!ctx.projectSync.canWrite()) {
 		ctx.onError('You have viewer access. Delete is disabled.');
-		return;
+		return false;
 	}
-
-	const confirmed = window.confirm(`Delete ${ctx.selectedPath}? This cannot be undone.`);
-	if (!confirmed) return;
 
 	const node = findNode(ctx.tree, ctx.selectedPath);
 	if (node?.type === 'directory' && node.depth === 0) {
 		ctx.onError('Deleting a project root folder is not supported from this action.');
-		return;
+		return false;
 	}
 
 	try {
-		await ctx.projectSync.deletePath(ctx.selectedPath);
+		const targetPath = validateProjectRelativePath(ctx.selectedPath);
+		await ctx.projectSync.deletePath(targetPath);
 		await ctx.fileTree.refresh();
-		ctx.onMessage(`Deleted ${ctx.selectedPath}`);
+		ctx.onMessage(`Deleted ${targetPath}`);
+		return true;
 	} catch (error) {
 		ctx.onError(`Could not delete: ${String(error)}`);
+		return false;
 	}
 }
 
@@ -207,8 +225,7 @@ export function normalizeToProjectPath(
 	tree: FileNode[],
 	activeProject?: IDEProject
 ): string {
-	const value = input.trim().replace(/^\/+/, '');
-	if (!value) return '';
+	const value = validateProjectRelativePath(input);
 
 	// If path starts with a known root, use it as-is
 	const firstSegment = value.split('/')[0] ?? '';
@@ -220,13 +237,13 @@ export function normalizeToProjectPath(
 
 	// Otherwise, prepend the active project root
 	if (activeProject && '_id' in activeProject) {
-		const rootFolder = projectFolderName(activeProject._id);
+		const rootFolder = projectFolderName(activeProject._id, activeProject.title);
 		if (!value.startsWith(`${rootFolder}/`)) {
-			return `${rootFolder}/${value}`;
+			return validateProjectRelativePath(`${rootFolder}/${value}`);
 		}
 	}
 
-	return value;
+	return validateProjectRelativePath(value);
 }
 
 function getSelectedDirectory(tree: FileNode[], selectedPath: string | null): string | null {

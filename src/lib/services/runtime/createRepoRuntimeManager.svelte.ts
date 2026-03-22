@@ -22,7 +22,7 @@ function getRootWorkspaceTree() {
 						name: 'sandem-workspace',
 						private: true,
 						version: '0.0.0',
-						workspaces: ['project-*', 'demo']
+						workspaces: ['*']
 					},
 					null,
 					2
@@ -102,7 +102,7 @@ export function createRepoRuntimeManager(options: Options) {
 				// Demo mode mounting handled by caller
 			} else {
 				for (const project of options.getProjects()) {
-					const folder = projectFolderName(project._id);
+					const folder = projectFolderName(project._id, project.title);
 					await wc.mount({
 						[folder]: { directory: projectFilesToTree(project.files) }
 					});

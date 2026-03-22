@@ -47,7 +47,7 @@
 
 	const fileTree = createFileTree(ide.getWebcontainer, {
 		getWorkspaceRootFolders: () =>
-			(ide.getWorkspaceProjects?.() ?? []).map((p) => projectFolderName(p.id))
+			(ide.getWorkspaceProjects?.() ?? []).map((p) => projectFolderName(p.id, p.title))
 	});
 
 	const projectSync = createProjectFilesSync({
@@ -78,7 +78,7 @@
 		workspaceProjects.find((p) => p.id === ide.getActiveProjectId?.())
 	);
 
-	type ExplorerTimelineEvent = {
+	type TimelineEvent = {
 		id: string;
 		at: number;
 		kind: 'action' | 'error' | 'file-open' | 'folder-toggle';
@@ -86,8 +86,23 @@
 		path?: string;
 	};
 
-	let timelineEvents = $state<ExplorerTimelineEvent[]>([]);
+	type ExplorerDialogIntent = 'create-file' | 'create-folder' | 'rename' | 'delete';
+
+	type ExplorerDialogState = {
+		open: boolean;
+		intent: ExplorerDialogIntent | null;
+		value: string;
+		targetPath: string | null;
+	};
+
+	let timelineEvents = $state<TimelineEvent[]>([]);
 	let contextMenu = $state({ open: false, x: 0, y: 0, path: null as string | null });
+	let dialogState = $state<ExplorerDialogState>({
+		open: false,
+		intent: null,
+		value: '',
+		targetPath: null
+	});
 
 	function closeContextMenu() {
 		contextMenu = { ...contextMenu, open: false };
@@ -97,14 +112,14 @@
 		action: 'new-file' | 'new-folder' | 'rename' | 'delete' | 'refresh'
 	) {
 		closeContextMenu();
-		if (action === 'new-file') return void handleCreateFile(getActionContext());
-		if (action === 'new-folder') return void handleCreateFolder(getActionContext());
-		if (action === 'rename') return void handleRenameNode(getActionContext());
-		if (action === 'delete') return void handleDeleteNode(getActionContext());
+		if (action === 'new-file') return void openCreateDialog('file');
+		if (action === 'new-folder') return void openCreateDialog('folder');
+		if (action === 'rename') return void openRenameDialog();
+		if (action === 'delete') return void openDeleteDialog();
 		return void handleRefreshTree(getActionContext());
 	}
 
-	function addTimelineEvent(kind: ExplorerTimelineEvent['kind'], label: string, path?: string) {
+	function addTimelineEvent(kind: TimelineEvent['kind'], label: string, path?: string) {
 		timelineEvents = [
 			{
 				id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
@@ -151,6 +166,111 @@
 		}, 5000);
 	}
 
+	function getSelectedDirectory(): string | null {
+		const selectedPath = explorerState.selectedPath;
+		if (!selectedPath) return null;
+
+		const selectedNode = findNodeByPath(tree, selectedPath);
+		if (!selectedNode) return null;
+
+		if (selectedNode.type === 'directory') {
+			return selectedNode.path;
+		}
+
+		const segments = selectedNode.path.split('/');
+		segments.pop();
+		const parentPath = segments.join('/');
+		return parentPath || null;
+	}
+
+	function getSuggestedCreatePath(kind: 'file' | 'folder'): string {
+		const selectedDirectory = getSelectedDirectory();
+
+		if (kind === 'file') {
+			return selectedDirectory ? `${selectedDirectory}/new-file.ts` : 'src/new-file.ts';
+		}
+
+		return selectedDirectory ? `${selectedDirectory}/new-folder` : 'src/new-folder';
+	}
+
+	function openCreateDialog(kind: 'file' | 'folder') {
+		dialogState = {
+			open: true,
+			intent: kind === 'file' ? 'create-file' : 'create-folder',
+			value: getSuggestedCreatePath(kind),
+			targetPath: explorerState.selectedPath
+		};
+	}
+
+	function openRenameDialog() {
+		if (!explorerState.selectedPath) {
+			setActionError('Please select a file or folder first.');
+			return;
+		}
+
+		dialogState = {
+			open: true,
+			intent: 'rename',
+			value: explorerState.selectedPath,
+			targetPath: explorerState.selectedPath
+		};
+	}
+
+	function openDeleteDialog() {
+		if (!explorerState.selectedPath) {
+			setActionError('Please select a file or folder first.');
+			return;
+		}
+
+		dialogState = {
+			open: true,
+			intent: 'delete',
+			value: '',
+			targetPath: explorerState.selectedPath
+		};
+	}
+
+	function closeDialog() {
+		dialogState = {
+			open: false,
+			intent: null,
+			value: '',
+			targetPath: null
+		};
+	}
+
+	function setDialogValue(value: string) {
+		dialogState = {
+			...dialogState,
+			value
+		};
+	}
+
+	async function confirmDialog() {
+		if (!dialogState.open || !dialogState.intent) return;
+
+		const baseCtx = getActionContext();
+		const ctx: ExplorerActionContext = {
+			...baseCtx,
+			selectedPath: dialogState.targetPath ?? baseCtx.selectedPath
+		};
+		let success = false;
+
+		if (dialogState.intent === 'create-file') {
+			success = await handleCreateFile(ctx, dialogState.value);
+		} else if (dialogState.intent === 'create-folder') {
+			success = await handleCreateFolder(ctx, dialogState.value);
+		} else if (dialogState.intent === 'rename') {
+			success = await handleRenameNode(ctx, dialogState.value);
+		} else if (dialogState.intent === 'delete') {
+			success = await handleDeleteNode(ctx);
+		}
+
+		if (success) {
+			closeDialog();
+		}
+	}
+
 	// Create the action context for pure handlers
 	function getActionContext(): ExplorerActionContext {
 		return {
@@ -181,7 +301,9 @@
 
 		if (node.depth === 0) {
 			const rootFolder = node.path.split('/')[0] ?? '';
-			const project = workspaceProjects.find((p) => projectFolderName(p.id) === rootFolder);
+			const project = workspaceProjects.find(
+				(p) => projectFolderName(p.id, p.title) === rootFolder
+			);
 			if (project) {
 				ide.selectProject?.(project.id);
 			}
@@ -223,34 +345,37 @@
 				return;
 			}
 
-			const ctx = getActionContext();
 			const cmdOrCtrl = event.metaKey || event.ctrlKey;
 
 			if (cmdOrCtrl && !event.shiftKey && event.key.toLowerCase() === 'n') {
 				event.preventDefault();
-				void handleCreateFile(ctx);
+				openCreateDialog('file');
 				return;
 			}
 
 			if (cmdOrCtrl && event.shiftKey && event.key.toLowerCase() === 'n') {
 				event.preventDefault();
-				void handleCreateFolder(ctx);
+				openCreateDialog('folder');
 				return;
 			}
 
 			if (event.key === 'F2') {
 				event.preventDefault();
-				void handleRenameNode(ctx);
+				openRenameDialog();
 				return;
 			}
 
 			if (event.key === 'Delete') {
 				event.preventDefault();
-				void handleDeleteNode(ctx);
+				openDeleteDialog();
 				return;
 			}
 
 			if (event.key === 'Escape') {
+				if (dialogState.open) {
+					closeDialog();
+					return;
+				}
 				closeContextMenu();
 			}
 		};
@@ -354,28 +479,28 @@
 			id: 'new-file',
 			title: 'New File',
 			icon: FilePlus,
-			handler: () => handleCreateFile(getActionContext()),
+			handler: () => openCreateDialog('file'),
 			disabled: false
 		},
 		{
 			id: 'new-folder',
 			title: 'New Folder',
 			icon: FolderPlus,
-			handler: () => handleCreateFolder(getActionContext()),
+			handler: () => openCreateDialog('folder'),
 			disabled: false
 		},
 		{
 			id: 'rename',
 			title: 'Rename path',
 			icon: FilePenLine,
-			handler: () => handleRenameNode(getActionContext()),
+			handler: () => openRenameDialog(),
 			disabled: () => !explorerState.selectedPath
 		},
 		{
 			id: 'delete',
 			title: 'Delete path',
 			icon: Trash2,
-			handler: () => handleDeleteNode(getActionContext()),
+			handler: () => openDeleteDialog(),
 			disabled: () => !explorerState.selectedPath
 		},
 		{
@@ -436,11 +561,12 @@
 		{contextMenu}
 		onContextMenuAction={handleContextMenuAction}
 		onCloseContextMenu={closeContextMenu}
+		{dialogState}
+		onDialogValueChange={setDialogValue}
+		onDialogCancel={closeDialog}
+		onDialogConfirm={confirmDialog}
 		onTimelineOpenPath={(path: string) => editorStore.openFile(path)}
 		onSearchChange={(query: string) => explorerState.setSearchQuery(query)}
 		onSearchClear={() => explorerState.clearSearch()}
 	/>
 </ActivityPanel>
-
-<style>
-</style>

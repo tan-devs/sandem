@@ -1,5 +1,15 @@
 type ProjectSummary = { _id: string };
 
+function slugifyProjectTitle(title?: string): string {
+	const value = title?.trim().toLowerCase() ?? '';
+	const slug = value
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-+|-+$/g, '')
+		.slice(0, 64);
+
+	return slug || 'untitled-project';
+}
+
 export function uniqueProjects<T extends ProjectSummary>(items: ReadonlyArray<T>): T[] {
 	const seen = new Set<string>();
 	const next: T[] = [];
@@ -22,7 +32,7 @@ export function areProjectsEqual<T extends ProjectSummary>(
 	return true;
 }
 
-export function projectFolderName(projectId: string): string {
-	const safe = projectId.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase() || 'project';
-	return `project-${safe}`;
+export function projectFolderName(projectId: string, title?: string): string {
+	void projectId;
+	return slugifyProjectTitle(title);
 }

@@ -20,6 +20,7 @@ export function createShellProcess(
 	let onWindowResize: (() => void) | undefined;
 	let ready = $state(false);
 	let commandBuffer = '';
+	let gitShimInitialized = false;
 
 	function isAllowed() {
 		return options.canExecute ? options.canExecute() : true;
@@ -38,6 +39,22 @@ export function createShellProcess(
 		for (const line of lines) {
 			audit(line, allowed);
 		}
+	}
+
+	async function setupGitCommandShim() {
+		if (!shellInput || gitShimInitialized) return;
+		gitShimInitialized = true;
+
+		await shellInput.write(
+			'mkdir -p .sandem/bin; ' +
+				'if ! command -v git >/dev/null 2>&1; then ' +
+				"if command -v isogit >/dev/null 2>&1; then echo '#!/bin/sh' > .sandem/bin/git; echo 'isogit \"$@\"' >> .sandem/bin/git; " +
+				"elif command -v pnpm >/dev/null 2>&1; then echo '#!/bin/sh' > .sandem/bin/git; echo 'pnpm exec isogit \"$@\"' >> .sandem/bin/git; " +
+				"elif command -v npx >/dev/null 2>&1; then echo '#!/bin/sh' > .sandem/bin/git; echo 'npx isogit \"$@\"' >> .sandem/bin/git; " +
+				'fi; ' +
+				'if [ -f .sandem/bin/git ]; then chmod +x .sandem/bin/git; export PATH="$PWD/.sandem/bin:$PATH"; fi; ' +
+				'fi\n'
+		);
 	}
 
 	async function initShell(terminal: Terminal) {
@@ -63,6 +80,7 @@ export function createShellProcess(
 		});
 
 		shellInput = shellProcess.input.getWriter();
+		await setupGitCommandShim();
 
 		shellProcess.output.pipeTo(
 			new WritableStream({
@@ -122,6 +140,7 @@ export function createShellProcess(
 		shellInput = undefined;
 		ready = false;
 		commandBuffer = '';
+		gitShimInitialized = false;
 	}
 
 	return {

@@ -630,23 +630,29 @@ function configureAuthSessionAutoRefresh(authClient: AuthClient) {
 	}
 
 	if (client.signIn?.email) {
-		const originalEmail = client.signIn.email.bind(client.signIn);
-		client.signIn.email = (...args: unknown[]) => proxyAsync(originalEmail, ...args);
+		const signIn = client.signIn;
+		const originalEmail = signIn.email!;
+		signIn.email = (...args: unknown[]) =>
+			proxyAsync((...innerArgs: unknown[]) => originalEmail(...innerArgs), ...args);
 	}
 
 	if (client.signIn?.social) {
-		const originalSocial = client.signIn.social.bind(client.signIn);
-		client.signIn.social = (...args: unknown[]) => proxyAsync(originalSocial, ...args);
+		const signIn = client.signIn;
+		const originalSocial = signIn.social!;
+		signIn.social = (...args: unknown[]) =>
+			proxyAsync((...innerArgs: unknown[]) => originalSocial(...innerArgs), ...args);
 	}
 
 	if (client.signUp?.email) {
-		const originalSignUp = client.signUp.email.bind(client.signUp);
-		client.signUp.email = (...args: unknown[]) => proxyAsync(originalSignUp, ...args);
+		const signUp = client.signUp;
+		const originalSignUp = signUp.email!;
+		signUp.email = (...args: unknown[]) =>
+			proxyAsync((...innerArgs: unknown[]) => originalSignUp(...innerArgs), ...args);
 	}
 
 	if (client.signOut) {
-		const originalSignOut = client.signOut.bind(client);
-		client.signOut = () => proxyAsync(originalSignOut);
+		const originalSignOut = client.signOut;
+		client.signOut = () => proxyAsync(() => originalSignOut());
 	}
 }
 

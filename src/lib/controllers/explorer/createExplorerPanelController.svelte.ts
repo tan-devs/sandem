@@ -4,7 +4,7 @@ type WorkspaceProject = { id: string; title: string };
 
 type CreateExplorerPanelControllerOptions = {
 	getWorkspaceProjects: () => WorkspaceProject[];
-	projectFolderName: (projectId: string) => string;
+	projectFolderName: (projectId: string, title?: string) => string;
 	selectProject?: (projectId: string) => void;
 	onProjectSelected?: (projectId: string) => void;
 	createProject?: () => Promise<void>;
@@ -31,7 +31,7 @@ export function createExplorerPanelController(options: CreateExplorerPanelContro
 		new Map(
 			options
 				.getWorkspaceProjects()
-				.map((project) => [options.projectFolderName(project.id), project.id])
+				.map((project) => [options.projectFolderName(project.id, project.title), project.id])
 		)
 	);
 

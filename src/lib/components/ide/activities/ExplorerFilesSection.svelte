@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { ChevronRight, Search, X } from '@lucide/svelte';
 	import { Accordion } from 'bits-ui';
 
@@ -33,6 +34,23 @@
 		onSearchClear: () => void;
 	}
 
+	type ContextMenuAction = 'new-file' | 'new-folder' | 'rename' | 'delete' | 'refresh';
+
+	type ContextMenuEntry =
+		| {
+				id: string;
+				type: 'item';
+				label: string;
+				action?: ContextMenuAction;
+				danger?: boolean;
+				disabled?: boolean;
+				close?: boolean;
+		  }
+		| {
+				id: string;
+				type: 'separator';
+		  };
+
 	let {
 		tree,
 		filteredTree,
@@ -52,6 +70,162 @@
 		onSearchChange,
 		onSearchClear
 	}: Props = $props();
+
+	let menuElement: HTMLDivElement | null = $state(null);
+	let activeMenuItemIndex = $state(-1);
+	let wasContextMenuOpen = false;
+	let lastContextMenuPath = $state<string | null>(null);
+
+	const contextMenuEntries = $derived<ContextMenuEntry[]>([
+		{ id: 'new-file', type: 'item', label: 'New File', action: 'new-file' },
+		{ id: 'new-folder', type: 'item', label: 'New Folder', action: 'new-folder' },
+		{ id: 'sep-1', type: 'separator' },
+		{ id: 'rename', type: 'item', label: 'Rename', action: 'rename', disabled: !selectedPath },
+		{
+			id: 'delete',
+			type: 'item',
+			label: 'Delete',
+			action: 'delete',
+			danger: true,
+			disabled: !selectedPath
+		},
+		{ id: 'sep-2', type: 'separator' },
+		{ id: 'refresh', type: 'item', label: 'Refresh Explorer', action: 'refresh' },
+		{ id: 'close', type: 'item', label: 'Close', close: true }
+	]);
+
+	const contextMenuItems = $derived(contextMenuEntries.filter((entry) => entry.type === 'item'));
+
+	function getEnabledMenuItemIndexes(): number[] {
+		return contextMenuItems
+			.map((item, index) => (item.disabled ? -1 : index))
+			.filter((index) => index >= 0);
+	}
+
+	function getMenuItemIndexById(id: string): number {
+		return contextMenuItems.findIndex((item) => item.id === id);
+	}
+
+	function getMenuItemElements(): HTMLButtonElement[] {
+		if (!menuElement) return [];
+		return Array.from(menuElement.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'));
+	}
+
+	async function focusActiveMenuItem() {
+		await tick();
+		const items = getMenuItemElements();
+		if (activeMenuItemIndex >= 0 && activeMenuItemIndex < items.length) {
+			items[activeMenuItemIndex]?.focus();
+		}
+	}
+
+	function moveActiveMenuItem(step: 1 | -1) {
+		const enabledIndexes = getEnabledMenuItemIndexes();
+		if (enabledIndexes.length === 0) return;
+
+		const currentIndex = enabledIndexes.indexOf(activeMenuItemIndex);
+		const nextEnabledIndex =
+			currentIndex === -1
+				? 0
+				: (currentIndex + step + enabledIndexes.length) % enabledIndexes.length;
+
+		activeMenuItemIndex = enabledIndexes[nextEnabledIndex] ?? enabledIndexes[0] ?? -1;
+		void focusActiveMenuItem();
+	}
+
+	function setFirstEnabledMenuItemActive() {
+		const enabledIndexes = getEnabledMenuItemIndexes();
+		activeMenuItemIndex = enabledIndexes[0] ?? -1;
+	}
+
+	function restoreFocusToTreeItem(path: string | null) {
+		if (!path) return;
+
+		const treeRows = document.querySelectorAll<HTMLElement>('[data-tree-path]');
+		for (const row of treeRows) {
+			if (row.dataset.treePath === path) {
+				row.focus();
+				return;
+			}
+		}
+	}
+
+	function activateMenuItemById(id: string) {
+		const item = contextMenuItems.find((entry) => entry.id === id);
+		if (!item || item.disabled) return;
+
+		if (item.close) {
+			onCloseContextMenu();
+			return;
+		}
+
+		if (item.action) {
+			onContextMenuAction(item.action);
+		}
+	}
+
+	function handleContextMenuKeydown(event: KeyboardEvent) {
+		if (!contextMenu.open) return;
+
+		if (event.key === 'ArrowDown') {
+			event.preventDefault();
+			moveActiveMenuItem(1);
+			return;
+		}
+
+		if (event.key === 'ArrowUp') {
+			event.preventDefault();
+			moveActiveMenuItem(-1);
+			return;
+		}
+
+		if (event.key === 'Home') {
+			event.preventDefault();
+			setFirstEnabledMenuItemActive();
+			void focusActiveMenuItem();
+			return;
+		}
+
+		if (event.key === 'End') {
+			event.preventDefault();
+			const enabledIndexes = getEnabledMenuItemIndexes();
+			activeMenuItemIndex = enabledIndexes[enabledIndexes.length - 1] ?? -1;
+			void focusActiveMenuItem();
+			return;
+		}
+
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			const item = contextMenuItems[activeMenuItemIndex];
+			if (item) {
+				activateMenuItemById(item.id);
+			}
+			return;
+		}
+
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			onCloseContextMenu();
+		}
+	}
+
+	$effect(() => {
+		if (contextMenu.open && contextMenu.path) {
+			lastContextMenuPath = contextMenu.path;
+		}
+
+		if (contextMenu.open && !wasContextMenuOpen) {
+			setFirstEnabledMenuItemActive();
+			void focusActiveMenuItem();
+		}
+
+		if (!contextMenu.open && wasContextMenuOpen) {
+			restoreFocusToTreeItem(lastContextMenuPath);
+			activeMenuItemIndex = -1;
+		}
+
+		wasContextMenuOpen = contextMenu.open;
+	});
 </script>
 
 <Accordion.Item value="files" class="explorer-section">
@@ -104,41 +278,43 @@
 
 		{#if contextMenu.open}
 			<div
+				bind:this={menuElement}
+				id="explorer-context-menu"
 				class="context-menu"
 				style={`left: ${contextMenu.x}px; top: ${contextMenu.y}px;`}
 				role="menu"
 				aria-label="Explorer context menu"
 				tabindex="-1"
 				onpointerdown={(event) => event.stopPropagation()}
+				onkeydown={handleContextMenuKeydown}
 			>
-				<button type="button" class="menu-item" onclick={() => onContextMenuAction('new-file')}>
-					New File
-				</button>
-				<button type="button" class="menu-item" onclick={() => onContextMenuAction('new-folder')}>
-					New Folder
-				</button>
-				<div class="menu-divider"></div>
-				<button
-					type="button"
-					class="menu-item"
-					disabled={!selectedPath}
-					onclick={() => onContextMenuAction('rename')}
-				>
-					Rename
-				</button>
-				<button
-					type="button"
-					class="menu-item danger"
-					disabled={!selectedPath}
-					onclick={() => onContextMenuAction('delete')}
-				>
-					Delete
-				</button>
-				<div class="menu-divider"></div>
-				<button type="button" class="menu-item" onclick={() => onContextMenuAction('refresh')}>
-					Refresh Explorer
-				</button>
-				<button type="button" class="menu-item" onclick={onCloseContextMenu}>Close</button>
+				{#each contextMenuEntries as entry (entry.id)}
+					{#if entry.type === 'separator'}
+						<div class="menu-divider" role="separator"></div>
+					{:else}
+						{@const itemIndex = getMenuItemIndexById(entry.id)}
+						<button
+							type="button"
+							class="menu-item"
+							class:danger={entry.danger}
+							role="menuitem"
+							aria-disabled={entry.disabled ? 'true' : undefined}
+							tabindex={activeMenuItemIndex === itemIndex ? 0 : -1}
+							disabled={entry.disabled}
+							onfocus={() => {
+								activeMenuItemIndex = itemIndex;
+							}}
+							onpointerenter={() => {
+								if (!entry.disabled) {
+									activeMenuItemIndex = itemIndex;
+								}
+							}}
+							onclick={() => activateMenuItemById(entry.id)}
+						>
+							{entry.label}
+						</button>
+					{/if}
+				{/each}
 			</div>
 		{/if}
 	</Accordion.Content>

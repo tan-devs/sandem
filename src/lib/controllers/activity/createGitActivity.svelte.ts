@@ -1,6 +1,6 @@
 import type { WebContainer } from '@webcontainer/api';
+import * as git from 'isomorphic-git';
 import { getRootFolder } from '$lib/utils/project/filesystem.js';
-import type { IDEProject, ProjectFile } from '$types/projects.js';
 import type { GitActivityDeps } from '$types/hooks.js';
 import type { ChangeItem } from '$types/editor.js';
 
@@ -11,79 +11,82 @@ export function createGitActivity(deps: GitActivityDeps) {
 	let scanning = $state(false);
 	let changes = $state<ChangeItem[]>([]);
 	let lastCommitSummary = $state('');
-	let baseline = new Map<string, string>();
+	let stagedPaths = $state<Set<string>>(new Set());
+	let hasManualStageSelection = $state(false);
 
-	const canCommit = $derived(message.trim().length > 0);
+	const stagedCount = $derived(changes.filter((item) => item.staged).length);
+	const canCommit = $derived(message.trim().length > 0 && stagedCount > 0);
 
 	function getWebcontainer(): WebContainer {
 		return deps.getWebcontainer();
-	}
-
-	function getProject(path?: string): IDEProject {
-		return deps.getProject(path);
 	}
 
 	function getProjectRootPath() {
 		return getRootFolder(deps.getActiveTabPath() ?? deps.getEntryPath());
 	}
 
-	async function collectFiles(dirPath: string, acc: string[]) {
-		const entries = await getWebcontainer().fs.readdir(dirPath, { withFileTypes: true });
+	function getGitFs() {
+		return getWebcontainer().fs as unknown as Parameters<typeof git.statusMatrix>[0]['fs'];
+	}
 
-		for (const entry of entries) {
-			if (IGNORE.has(entry.name)) continue;
-			const fullPath = dirPath === '.' ? entry.name : `${dirPath}/${entry.name}`;
-
-			if (entry.isDirectory()) {
-				await collectFiles(fullPath, acc);
-				continue;
-			}
-
-			acc.push(fullPath);
+	async function ensureRepoInitialized(dir: string) {
+		try {
+			await getWebcontainer().fs.readFile(`${dir}/.git/HEAD`, 'utf-8');
+		} catch {
+			await git.init({ fs: getGitFs(), dir, defaultBranch: 'main' });
 		}
 	}
 
-	async function snapshotCurrentFiles() {
-		const files: string[] = [];
-		await collectFiles(getProjectRootPath(), files);
-
-		const map = new Map<string, string>();
-		for (const path of files) {
-			const content = await getWebcontainer().fs.readFile(path, 'utf-8');
-			map.set(path, content);
-		}
-
-		return map;
-	}
-
-	function detectChanges(current: Map<string, string>) {
+	function detectChanges(matrix: Awaited<ReturnType<typeof git.statusMatrix>>) {
 		const next: ChangeItem[] = [];
+		const root = getProjectRootPath();
 
-		for (const [path, previous] of baseline) {
-			if (!current.has(path)) {
-				next.push({ path, type: 'deleted' });
+		for (const [filepath, head, workdir] of matrix) {
+			if (IGNORE.has(filepath.split('/')[0] ?? '')) continue;
+
+			if (head === 0 && workdir !== 0) {
+				next.push({ path: `${root}/${filepath}`, type: 'new' });
 				continue;
 			}
 
-			if (current.get(path) !== previous) {
-				next.push({ path, type: 'modified' });
+			if (workdir === 0) {
+				next.push({ path: `${root}/${filepath}`, type: 'deleted' });
+				continue;
 			}
-		}
 
-		for (const [path] of current) {
-			if (!baseline.has(path)) {
-				next.push({ path, type: 'new' });
+			if (head !== workdir) {
+				next.push({ path: `${root}/${filepath}`, type: 'modified' });
 			}
 		}
 
 		return next.sort((a, b) => a.path.localeCompare(b.path));
 	}
 
+	function applyStaging(nextChanges: ChangeItem[]) {
+		if (!hasManualStageSelection) {
+			stagedPaths = new Set(nextChanges.map((item) => item.path));
+		} else {
+			const available = new Set(nextChanges.map((item) => item.path));
+			stagedPaths = new Set(Array.from(stagedPaths).filter((path) => available.has(path)));
+		}
+
+		changes = nextChanges.map((item) => ({
+			...item,
+			staged: stagedPaths.has(item.path)
+		}));
+	}
+
 	async function refreshChanges() {
 		scanning = true;
 		try {
-			const current = await snapshotCurrentFiles();
-			changes = detectChanges(current);
+			const dir = getProjectRootPath();
+			await ensureRepoInitialized(dir);
+			const matrix = await git.statusMatrix({ fs: getGitFs(), dir });
+			applyStaging(detectChanges(matrix));
+		} catch (error) {
+			console.error('Failed to refresh git changes', error);
+			changes = [];
+			stagedPaths = new Set();
 		} finally {
 			scanning = false;
 		}
@@ -91,11 +94,68 @@ export function createGitActivity(deps: GitActivityDeps) {
 
 	async function commitAll() {
 		if (!canCommit) return;
-		const current = await snapshotCurrentFiles();
-		baseline = current;
-		changes = [];
-		lastCommitSummary = `${message.trim()} · ${new Date().toLocaleTimeString()}`;
+
+		const dir = getProjectRootPath();
+		await ensureRepoInitialized(dir);
+
+		const matrix = await git.statusMatrix({ fs: getGitFs(), dir });
+		let stagedFiles = 0;
+		for (const [filepath, , workdir] of matrix) {
+			if (IGNORE.has(filepath.split('/')[0] ?? '')) continue;
+			const fullPath = `${dir}/${filepath}`;
+			if (!stagedPaths.has(fullPath)) continue;
+
+			stagedFiles += 1;
+			if (workdir === 0) {
+				await git.remove({ fs: getGitFs(), dir, filepath });
+				continue;
+			}
+			await git.add({ fs: getGitFs(), dir, filepath });
+		}
+
+		if (stagedFiles === 0) return;
+
+		const subject = message.trim();
+		const oid = await git.commit({
+			fs: getGitFs(),
+			dir,
+			message: subject,
+			author: {
+				name: 'Tandem User',
+				email: 'user@tandem.local'
+			}
+		});
+
+		lastCommitSummary = `${subject} · ${oid.slice(0, 7)}`;
 		message = '';
+		hasManualStageSelection = false;
+		stagedPaths = new Set();
+		await refreshChanges();
+	}
+
+	function toggleStage(path: string) {
+		hasManualStageSelection = true;
+		const next = new Set(stagedPaths);
+		if (next.has(path)) {
+			next.delete(path);
+		} else {
+			next.add(path);
+		}
+		stagedPaths = next;
+		changes = changes.map((item) => ({ ...item, staged: next.has(item.path) }));
+	}
+
+	function stageAll() {
+		hasManualStageSelection = true;
+		const next = new Set(changes.map((item) => item.path));
+		stagedPaths = next;
+		changes = changes.map((item) => ({ ...item, staged: true }));
+	}
+
+	function unstageAll() {
+		hasManualStageSelection = true;
+		stagedPaths = new Set();
+		changes = changes.map((item) => ({ ...item, staged: false }));
 	}
 
 	function openChangedFile(item: ChangeItem) {
@@ -104,15 +164,6 @@ export function createGitActivity(deps: GitActivityDeps) {
 	}
 
 	async function init() {
-		const project = getProject(deps.getActiveTabPath() ?? undefined);
-		baseline = new Map(
-			project.files.map((file: ProjectFile) => {
-				const root = getProjectRootPath();
-				const fullPath = file.name.startsWith(`${root}/`) ? file.name : `${root}/${file.name}`;
-				return [fullPath, file.contents ?? ''];
-			})
-		);
-
 		await refreshChanges();
 	}
 
@@ -127,6 +178,9 @@ export function createGitActivity(deps: GitActivityDeps) {
 		get canCommit() {
 			return canCommit;
 		},
+		get stagedCount() {
+			return stagedCount;
+		},
 		get scanning() {
 			return scanning;
 		},
@@ -137,6 +191,9 @@ export function createGitActivity(deps: GitActivityDeps) {
 			return lastCommitSummary;
 		},
 		setMessage,
+		toggleStage,
+		stageAll,
+		unstageAll,
 		refreshChanges,
 		commitAll,
 		openChangedFile,

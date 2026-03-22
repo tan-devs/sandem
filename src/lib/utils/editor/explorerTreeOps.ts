@@ -8,6 +8,56 @@
 import type { FileNode } from '$types/editor.js';
 
 /**
+ * Validate and normalize a project-relative path.
+ *
+ * Security rules:
+ * - Must be relative (no leading slash, drive letter, or UNC prefix)
+ * - Must not contain traversal/current-dir segments (`..`, `.`)
+ * - Must not contain empty segments
+ * - Must not contain Windows-invalid filename characters
+ */
+export function validateProjectRelativePath(input: string): string {
+	const trimmed = input.trim();
+	if (!trimmed) {
+		throw new Error('Path is required.');
+	}
+
+	if (/^[a-zA-Z]:[\\/]/.test(trimmed)) {
+		throw new Error('Absolute paths are not allowed.');
+	}
+
+	if (trimmed.startsWith('/') || trimmed.startsWith('\\')) {
+		throw new Error('Absolute paths are not allowed.');
+	}
+
+	const normalized = trimmed.replace(/\\+/g, '/');
+	if (normalized.startsWith('//')) {
+		throw new Error('Absolute paths are not allowed.');
+	}
+
+	const segments = normalized.split('/');
+	for (const segment of segments) {
+		if (!segment) {
+			throw new Error('Path contains an empty segment.');
+		}
+
+		if (segment === '.' || segment === '..') {
+			throw new Error('Path traversal segments are not allowed.');
+		}
+
+		if (/[<>:"|?*\u0000-\u001F]/.test(segment)) {
+			throw new Error(`Invalid path segment: ${segment}`);
+		}
+
+		if (/[. ]$/.test(segment)) {
+			throw new Error(`Invalid path segment: ${segment}`);
+		}
+	}
+
+	return segments.join('/');
+}
+
+/**
  * Find a node by path in the tree
  */
 export function findNode(nodes: FileNode[], path: string): FileNode | undefined {

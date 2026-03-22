@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { Accordion } from 'bits-ui';
 
 	import type { FileNode } from '$types/editor';
@@ -10,6 +11,15 @@
 	import ExplorerProjectInfo from './ExplorerProjectInfo.svelte';
 	import ExplorerOutline from './ExplorerOutline.svelte';
 	import ExplorerTimeline from './ExplorerTimeline.svelte';
+
+	type ExplorerDialogIntent = 'create-file' | 'create-folder' | 'rename' | 'delete';
+
+	type ExplorerDialogState = {
+		open: boolean;
+		intent: ExplorerDialogIntent | null;
+		value: string;
+		targetPath: string | null;
+	};
 
 	interface Props {
 		openSections: string[];
@@ -49,6 +59,10 @@
 		onTimelineOpenPath: (path: string) => void;
 		onSearchChange: (query: string) => void;
 		onSearchClear: () => void;
+		dialogState: ExplorerDialogState;
+		onDialogValueChange: (value: string) => void;
+		onDialogCancel: () => void;
+		onDialogConfirm: () => void;
 	}
 
 	let {
@@ -75,18 +89,93 @@
 		onCloseContextMenu,
 		onTimelineOpenPath,
 		onSearchChange,
-		onSearchClear
+		onSearchClear,
+		dialogState,
+		onDialogValueChange,
+		onDialogCancel,
+		onDialogConfirm
 	}: Props = $props();
+
+	let dialogInput: HTMLInputElement | null = $state(null);
+
+	const dialogMeta = $derived.by(() => {
+		switch (dialogState.intent) {
+			case 'create-file':
+				return {
+					title: 'Create file',
+					description: 'Enter a project-relative file path.',
+					confirmLabel: 'Create',
+					showInput: true,
+					inputLabel: 'File path'
+				};
+			case 'create-folder':
+				return {
+					title: 'Create folder',
+					description: 'Enter a project-relative folder path.',
+					confirmLabel: 'Create',
+					showInput: true,
+					inputLabel: 'Folder path'
+				};
+			case 'rename':
+				return {
+					title: 'Rename path',
+					description: 'Enter the new project-relative path.',
+					confirmLabel: 'Rename',
+					showInput: true,
+					inputLabel: 'New path'
+				};
+			case 'delete':
+				return {
+					title: 'Delete path',
+					description: dialogState.targetPath
+						? `Delete ${dialogState.targetPath}? This cannot be undone.`
+						: 'Delete selected path? This cannot be undone.',
+					confirmLabel: 'Delete',
+					showInput: false,
+					inputLabel: ''
+				};
+			default:
+				return {
+					title: '',
+					description: '',
+					confirmLabel: 'Confirm',
+					showInput: false,
+					inputLabel: ''
+				};
+		}
+	});
+
+	$effect(() => {
+		if (!dialogState.open || !dialogMeta.showInput) {
+			return;
+		}
+
+		void tick().then(() => {
+			dialogInput?.focus();
+			dialogInput?.select();
+		});
+	});
+
+	function handleDialogKeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			onDialogCancel();
+		}
+	}
+
+	function handleDialogSubmit(event: SubmitEvent) {
+		event.preventDefault();
+		onDialogConfirm();
+	}
 
 	// Compute folder name for project info (supports both workspace summaries with `id`
 	// and full project objects with `_id`).
 	const folderName = $derived.by(() => {
 		if (!activeProject) return null;
-		const projectId =
-			(activeProject as { _id?: string; id?: string })._id ??
-			(activeProject as { _id?: string; id?: string }).id;
+		const projectMeta = activeProject as { _id?: string; id?: string; title?: string };
+		const projectId = projectMeta._id ?? projectMeta.id;
 		if (!projectId) return null;
-		return projectFolderName(projectId);
+		return projectFolderName(projectId, projectMeta.title);
 	});
 </script>
 
@@ -133,6 +222,49 @@
 	<!-- Timeline Child Component -->
 	<ExplorerTimeline events={timelineEvents} onOpenPath={onTimelineOpenPath} />
 </Accordion.Root>
+
+{#if dialogState.open && dialogState.intent}
+	<div class="explorer-dialog-backdrop" role="presentation" onclick={onDialogCancel}></div>
+	<div
+		class="explorer-dialog"
+		role="dialog"
+		aria-modal="true"
+		aria-label={dialogMeta.title}
+		tabindex="-1"
+		onkeydown={handleDialogKeydown}
+	>
+		<form onsubmit={handleDialogSubmit}>
+			<header class="explorer-dialog-header">{dialogMeta.title}</header>
+			<p class="explorer-dialog-description">{dialogMeta.description}</p>
+
+			{#if dialogMeta.showInput}
+				<label class="explorer-dialog-label" for="explorer-dialog-path"
+					>{dialogMeta.inputLabel}</label
+				>
+				<input
+					bind:this={dialogInput}
+					id="explorer-dialog-path"
+					type="text"
+					value={dialogState.value}
+					oninput={(event) => onDialogValueChange((event.currentTarget as HTMLInputElement).value)}
+					required
+				/>
+			{/if}
+
+			<div class="explorer-dialog-actions">
+				<button type="button" class="dialog-btn secondary" onclick={onDialogCancel}>Cancel</button>
+				<button
+					type="submit"
+					class="dialog-btn"
+					class:danger={dialogState.intent === 'delete'}
+					disabled={dialogMeta.showInput && !dialogState.value.trim()}
+				>
+					{dialogMeta.confirmLabel}
+				</button>
+			</div>
+		</form>
+	</div>
+{/if}
 
 <style>
 	/* ── Accordion sections (VS Code-like) ────────────────────── */
@@ -226,5 +358,103 @@
 
 	.status-msg.success {
 		color: var(--success);
+	}
+
+	.explorer-dialog-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 40;
+		background: color-mix(in srgb, black 24%, transparent);
+	}
+
+	.explorer-dialog {
+		position: fixed;
+		top: 50%;
+		left: 50%;
+		z-index: 41;
+		transform: translate(-50%, -50%);
+		width: min(420px, calc(100vw - 28px));
+		padding: 14px;
+		border-radius: 8px;
+		border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+		background: color-mix(in srgb, var(--mg) 92%, var(--bg));
+		display: grid;
+		gap: 10px;
+		box-shadow:
+			0 16px 30px color-mix(in srgb, var(--text) 20%, transparent),
+			0 0 0 1px color-mix(in srgb, var(--border) 32%, transparent);
+	}
+
+	.explorer-dialog form {
+		display: grid;
+		gap: 10px;
+	}
+
+	.explorer-dialog-header {
+		font-size: 13px;
+		font-weight: 700;
+		color: var(--text);
+	}
+
+	.explorer-dialog-description {
+		margin: 0;
+		font-size: 11px;
+		color: var(--muted);
+	}
+
+	.explorer-dialog-label {
+		font-size: 11px;
+		font-weight: 600;
+		color: var(--muted);
+	}
+
+	.explorer-dialog input {
+		width: 100%;
+		border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
+		border-radius: 4px;
+		padding: 7px 8px;
+		font-size: 12px;
+		font-family: inherit;
+		background: color-mix(in srgb, var(--bg) 88%, var(--fg));
+		color: var(--text);
+	}
+
+	.explorer-dialog input:focus {
+		outline: none;
+		border-color: var(--accent);
+		box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent);
+	}
+
+	.explorer-dialog-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 8px;
+	}
+
+	.dialog-btn {
+		height: 28px;
+		padding: 0 12px;
+		border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+		border-radius: 4px;
+		background: color-mix(in srgb, var(--accent) 18%, transparent);
+		color: var(--text);
+		font-size: 11px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.dialog-btn.secondary {
+		background: color-mix(in srgb, var(--fg) 76%, transparent);
+	}
+
+	.dialog-btn.danger {
+		background: color-mix(in srgb, var(--error) 20%, transparent);
+		border-color: color-mix(in srgb, var(--error) 48%, transparent);
+		color: var(--error);
+	}
+
+	.dialog-btn:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
 	}
 </style>

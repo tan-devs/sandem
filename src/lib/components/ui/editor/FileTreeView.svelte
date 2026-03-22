@@ -22,6 +22,23 @@
 		onFileClick,
 		onNodeContextMenu
 	}: Props = $props();
+
+	function handleTreeItemKeydown(node: FileNode, event: KeyboardEvent) {
+		const isContextMenuShortcut = event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10');
+		if (!isContextMenuShortcut) return;
+
+		event.preventDefault();
+		const target = event.currentTarget as HTMLElement | null;
+		const rect = target?.getBoundingClientRect();
+		const syntheticEvent = new MouseEvent('contextmenu', {
+			bubbles: true,
+			cancelable: true,
+			clientX: rect ? rect.left + Math.min(24, rect.width) : 0,
+			clientY: rect ? rect.top + rect.height / 2 : 0
+		});
+
+		onNodeContextMenu?.(node, syntheticEvent);
+	}
 </script>
 
 <div class="tree" role="tree">
@@ -42,10 +59,13 @@
 			justify="start"
 			class={`tree-row ${node.depth === 0 ? 'root' : ''} ${open ? 'open' : ''} ${selected ? 'active' : ''}`}
 			style={`--depth: ${node.depth};`}
+			data-tree-path={node.path}
 			onclick={() => onDirClick(node)}
 			oncontextmenu={(event: MouseEvent) => onNodeContextMenu?.(node, event)}
+			onkeydown={(event: KeyboardEvent) => handleTreeItemKeydown(node, event)}
 			role="treeitem"
 			aria-expanded={open}
+			aria-haspopup="menu"
 		>
 			<span class="caret" aria-hidden="true">
 				{#if open}
@@ -80,10 +100,13 @@
 			justify="start"
 			class={`tree-row ${active || selected ? 'active' : ''}`}
 			style={`--depth: ${node.depth};`}
+			data-tree-path={node.path}
 			onclick={() => onFileClick(node)}
 			oncontextmenu={(event: MouseEvent) => onNodeContextMenu?.(node, event)}
+			onkeydown={(event: KeyboardEvent) => handleTreeItemKeydown(node, event)}
 			role="treeitem"
 			aria-current={active || selected ? 'true' : undefined}
+			aria-haspopup="menu"
 		>
 			<span class="caret" aria-hidden="true"></span>
 			<span class="node-icon file-icon" aria-hidden="true">

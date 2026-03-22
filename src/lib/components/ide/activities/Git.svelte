@@ -36,7 +36,7 @@
 		tone="success"
 		size="icon"
 		class="panel-icon-action"
-		title="Commit All"
+		title="Commit Staged"
 		onclick={() => void git.commitAll()}
 	>
 		<Check size={14} strokeWidth={1.75} />
@@ -64,7 +64,7 @@
 				onclick={() => void git.commitAll()}
 			>
 				<Check size={12} strokeWidth={2} />
-				Commit
+				Commit Staged ({git.stagedCount})
 			</Button>
 
 			{#if git.lastCommitSummary}
@@ -75,8 +75,14 @@
 		<!-- Changes section -->
 		<div class="changes-section">
 			<div class="changes-header">
-				<span class="changes-label">CHANGES</span>
-				<span class="changes-count">{git.changes.length}</span>
+				<div class="changes-title-group">
+					<span class="changes-label">CHANGES</span>
+					<span class="changes-count">{git.changes.length}</span>
+				</div>
+				<div class="changes-actions">
+					<button class="changes-link" onclick={() => git.stageAll()}>Stage all</button>
+					<button class="changes-link" onclick={() => git.unstageAll()}>Unstage all</button>
+				</div>
 			</div>
 			{#if git.scanning}
 				<div class="empty-state">Scanning workspace…</div>
@@ -85,10 +91,18 @@
 			{:else}
 				<div class="changes-list">
 					{#each git.changes as item (item.path)}
-						<button class="change-item" onclick={() => git.openChangedFile(item)}>
-							<span class={`change-type ${item.type}`}>{item.type[0].toUpperCase()}</span>
-							<span class="change-path">{item.path}</span>
-						</button>
+						<div class="change-item">
+							<input
+								type="checkbox"
+								class="change-stage-checkbox"
+								checked={item.staged ?? false}
+								onchange={() => git.toggleStage(item.path)}
+							/>
+							<button class="change-open" onclick={() => git.openChangedFile(item)}>
+								<span class={`change-type ${item.type}`}>{item.type[0].toUpperCase()}</span>
+								<span class="change-path">{item.path}</span>
+							</button>
+						</div>
 					{/each}
 				</div>
 			{/if}
@@ -182,9 +196,36 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		height: 24px;
+		min-height: 24px;
 		padding: 0 10px;
 		border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+		gap: 8px;
+	}
+
+	.changes-title-group {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+
+	.changes-actions {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.changes-link {
+		padding: 0;
+		border: none;
+		background: transparent;
+		font-size: 10px;
+		font-weight: 600;
+		color: var(--info);
+		cursor: pointer;
+	}
+
+	.changes-link:hover {
+		text-decoration: underline;
 	}
 
 	.changes-label {
@@ -227,15 +268,28 @@
 		gap: 8px;
 		min-height: 28px;
 		padding: 4px 10px;
-		background: transparent;
-		border: none;
 		border-bottom: 1px solid color-mix(in srgb, var(--border) 35%, transparent);
-		cursor: pointer;
-		text-align: left;
 	}
 
 	.change-item:hover {
 		background: color-mix(in srgb, var(--fg) 65%, transparent);
+	}
+
+	.change-stage-checkbox {
+		margin: 0;
+	}
+
+	.change-open {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		width: 100%;
+		min-height: 24px;
+		padding: 0;
+		background: transparent;
+		border: none;
+		cursor: pointer;
+		text-align: left;
 	}
 
 	.change-type {

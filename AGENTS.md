@@ -35,10 +35,11 @@ After completing the code, ask the user if they want a playground link. Only cal
 5. **`/repo` Auth Gating**: Demo mode is guest-only. If authenticated, always run repo workspace flow; do not gate by project count.
 6. **Starter Seed on First Visit**: For authenticated owners with zero projects, rely on `ensureStarterProjectForOwner` to create starter content.
 7. **Keep this file current**: Whenever `AGENTS.md` is read during work, update it as needed so it accurately reflects the app’s current behavior, architecture, scripts, and known status.
-8. **Explorer Multi-root Contract**: In authenticated `/repo`, the WebContainer root is a multi-project workspace (`project-*` folders from Convex). Explorer tree should treat those folders as the canonical top-level roots.
+8. **Explorer Multi-root Contract**: In authenticated `/repo`, the WebContainer root is a multi-project workspace (folder names are slugified from each Convex project title). Explorer tree should treat those folders as the canonical top-level roots.
 9. **Explorer Sync Status**: Treat Convex ↔ Explorer sync as foundational/in-progress unless explicitly wired in the active `/repo` shell. Avoid documenting it as fully shipped if delete/rename root actions are still scaffolded.
 10. **Explorer Startup Sync**: Explorer must not require manual refresh to reveal project root folders; keep silent polling + bootstrap retries active so post-boot mount races self-heal.
 11. **Project Selection Sync**: Selecting a root project folder should re-target sync context immediately (room/subscription and tree refresh behavior should follow selected project).
+12. **Explorer Action UX**: Use non-blocking in-panel dialogs (create/rename/delete intents) instead of `window.prompt`/`window.confirm` in the active Explorer flow.
 
 ## Styling Architecture (The "Svelte.dev" Way)
 
@@ -72,6 +73,22 @@ After completing the code, ask the user if they want a playground link. Only cal
 - `src/lib/components/ide/activities/ExplorerTimeline.svelte` - Local explorer activity timeline (actions/errors/open/toggle) with file reopen shortcuts
 
 **Benefits**: All dependencies are explicit in context object, making data flow transparent. Pure functions are testable without mocking. Presentation components are reusable with any data source.
+
+## Terminal Architecture (Orchestrator + Controller + Presentation)
+
+**Pattern Overview**: Terminal now follows the same decomposition style as Explorer:
+
+1. **Controller** (`createTerminalPanelController.svelte.ts`): Owns panel UI state (`activeTab`, toolbar visibility, terminal error), tab metadata, terminal option defaults, and placeholder copy mapping.
+2. **Orchestrator** (`Terminal.svelte`): Wires IDE/runtime dependencies (permissions subscription, shell process, theme sync observer, panel context actions) and passes pure props/callbacks to children.
+3. **Presentation** (`TerminalPanelHeader.svelte`, `TerminalToolbar.svelte`, `TerminalViewport.svelte`): Stateless render components receiving data + callbacks via props.
+
+**Key Files**:
+
+- `src/lib/controllers/workspace/createTerminalPanelController.svelte.ts`
+- `src/lib/components/ide/workspace/Terminal.svelte`
+- `src/lib/components/ide/workspace/TerminalPanelHeader.svelte`
+- `src/lib/components/ide/workspace/TerminalToolbar.svelte`
+- `src/lib/components/ide/workspace/TerminalViewport.svelte`
 
 ---
 
@@ -108,6 +125,9 @@ Use this checklist when picking up the project in a new session to get productiv
 - Repo workspace controller (runtime + project orchestration): `src/lib/controllers/workspace/createRepoController.svelte.ts`
 - Explorer tree controller (polling until runtime available): `src/lib/controllers/explorer/createFileTreeController.svelte.ts`
 - Explorer pure tree ops: `src/lib/utils/editor/fileTreeOps.ts`
+- Git activity controller (real repository ops via isomorphic-git + WebContainer FS): `src/lib/controllers/activity/createGitActivity.svelte.ts`
+- Shell process controller (terminal bootstrap + git command shim aliasing): `src/lib/services/runtime/createShellProcess.svelte.ts`
+- Terminal panel UI controller + split presentation: `src/lib/controllers/workspace/createTerminalPanelController.svelte.ts`, `src/lib/components/ide/workspace/Terminal*.svelte`
 - Explorer/Convex sync scaffolding: `src/lib/hooks/explorer/createProjectSyncController.svelte.ts`, `src/lib/controllers/explorer/createExplorerActionsController.svelte.ts`
 - Project folder sync helpers: `src/lib/utils/editor/projectFolderSync.ts`
 - App-level SvelteKit error helpers: `src/lib/sveltekit/errors.ts`
