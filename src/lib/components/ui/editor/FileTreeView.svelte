@@ -24,7 +24,8 @@
 	}: Props = $props();
 
 	function handleTreeItemKeydown(node: FileNode, event: KeyboardEvent) {
-		const isContextMenuShortcut = event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10');
+		const isContextMenuShortcut =
+			event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10');
 		if (!isContextMenuShortcut) return;
 
 		event.preventDefault();
