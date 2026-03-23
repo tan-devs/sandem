@@ -2,7 +2,7 @@ import type { Doc, Id } from '$convex/_generated/dataModel.js';
 
 export type Document = Doc<'projects'>;
 export type Identity = Id<'projects'>;
-export type Files = ProjectDoc['files'][number];
+export type Files = Document['files'][number];
 
 export type PROJECT =
 	| Document
@@ -22,5 +22,5 @@ export type FOLDER = {
 export type CALLS = {
 	list(owner: string): Promise<FOLDER[]>;
 	create(owner: string, title: string): Promise<string>;
-	delete(owner: string, ProjectId: string): Promise<void>;
+	delete(owner: string, id: string): Promise<void>;
 };
