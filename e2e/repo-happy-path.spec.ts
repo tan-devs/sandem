@@ -1,7 +1,5 @@
 import { test, expect } from '@playwright/test';
 
-const RUN_MULTI_USER_E2E = process.env.RUN_MULTI_USER_E2E === '1';
-
 function requireTestCredentials() {
 	const email = process.env.TEST_USER_EMAIL;
 	const password = process.env.TEST_USER_PASSWORD;
@@ -249,10 +247,6 @@ test.describe('Repo happy path', () => {
 	});
 
 	test('multi-user same-file typing sync', async ({ browser }) => {
-		test.skip(
-			!RUN_MULTI_USER_E2E,
-			'Set RUN_MULTI_USER_E2E=1 to run multi-user collaboration stress tests.'
-		);
 		test.setTimeout(120000);
 
 		const ctx1 = await browser.newContext();
@@ -287,10 +281,6 @@ test.describe('Repo happy path', () => {
 	});
 
 	test('multi-user concurrent edits converge', async ({ browser }) => {
-		test.skip(
-			!RUN_MULTI_USER_E2E,
-			'Set RUN_MULTI_USER_E2E=1 to run multi-user collaboration stress tests.'
-		);
 		test.setTimeout(180000);
 
 		const ctx1 = await browser.newContext();
@@ -343,10 +333,6 @@ test.describe('Repo happy path', () => {
 	});
 
 	test('multi-user file create/delete sync + reconnect resume', async ({ browser }) => {
-		test.skip(
-			!RUN_MULTI_USER_E2E,
-			'Set RUN_MULTI_USER_E2E=1 to run multi-user collaboration stress tests.'
-		);
 		test.setTimeout(240000);
 
 		const ctx1 = await browser.newContext();

@@ -41,14 +41,30 @@ export default defineConfig({
 				storageState: 'e2e/.auth/user.json'
 			},
 			dependencies: ['setup']
+		},
+		{
+			name: 'firefox',
+			use: {
+				...devices['Desktop Firefox'],
+				storageState: 'e2e/.auth/user.json'
+			},
+			dependencies: ['setup']
+		},
+		{
+			name: 'webkit',
+			use: {
+				...devices['Desktop Safari'],
+				storageState: 'e2e/.auth/user.json'
+			},
+			dependencies: ['setup']
 		}
 	],
 
 	/* Run your local dev server before starting the tests */
 	webServer: {
-		command: 'pnpm run dev',
+		command: 'pnpm run dev:frontend',
 		url: process.env.SITE_URL ?? 'http://localhost:5173',
 		reuseExistingServer: !process.env.CI,
-		timeout: 120 * 1000
+		timeout: 180 * 1000
 	}
 });
