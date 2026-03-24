@@ -11,7 +11,7 @@
 	import { createError, createErrorReporter, formatError, toError } from '$lib/sveltekit/index.js';
 
 	import ErrorPanel from '$lib/components/ui/primitives/ErrorPanel.svelte';
-	import AppHeader from '$lib/components/ide/workspace/AppHeader.svelte';
+	import AppHeader from '$lib/components/workspace/AppHeader.svelte';
 
 	let bootstrapError = $state<string | null>(null);
 	const reportRootLayoutError = createErrorReporter((next) => {

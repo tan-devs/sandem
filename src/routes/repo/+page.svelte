@@ -1,9 +1,9 @@
 <script lang="ts">
-	import RepoPaneLayout from '$lib/components/ide/workspace/RepoPaneLayout.svelte';
+	import RepoPaneLayout from '$lib/components/workspace/RepoPaneLayout.svelte';
 
 	import Editor from '$lib/components/editor/Editor.svelte';
-	import Terminal from '$lib/components/ide/terminal/Terminal.svelte';
-	import RightSidebar from '$lib/components/ide/workspace/RightSidebar.svelte';
+	import Terminal from '$lib/components/terminal/Terminal.svelte';
+	import RightSidebar from '$lib/components/preview/RightSidebar.svelte';
 </script>
 
 <RepoPaneLayout>

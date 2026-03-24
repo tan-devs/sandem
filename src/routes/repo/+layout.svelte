@@ -16,8 +16,10 @@
 
 	import type { RepoLayoutData } from '$types/routes.js';
 
-	import { ActivityBar, Sidebar, Statusbar } from '$lib/components/ide/workspace';
-	import { Resizer } from '$lib/components/ui/workspace';
+	import { ActivityBar } from '$lib/components/sidebar/activities';
+	import Sidebar from '$lib/components/sidebar/Sidebar.svelte';
+	import Statusbar from '$lib/components/workspace/Statusbar.svelte';
+	import Resizer from '$lib/components/ui/primitives/Resizer.svelte';
 
 	import ErrorPanel from '$lib/components/ui/primitives/ErrorPanel.svelte';
 
@@ -39,7 +41,7 @@
 	const ownerId = $derived(currentUser?._id ?? '');
 
 	const projectsResponse = useQuery(
-		api.projects.getProjects,
+		api.projects.getAllProjects,
 		() => (ownerId ? { owner: ownerId } : 'skip'),
 		() => ({ initialData: data.projects, keepPreviousData: true })
 	);
@@ -136,7 +138,6 @@
 
 <div class="container">
 	<main class="repo-layout">
-	
 		<ActivityBar {panels} />
 
 		<section class="workspace-shell">

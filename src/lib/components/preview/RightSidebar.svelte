@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Preview from '../workspace/Preview.svelte';
-	import Chat from './Chat.svelte';
+	import Preview from '$lib/components/preview/Preview.svelte';
+	import Chat from '$lib/components/preview/Chat.svelte';
 	import { createRightPaneController } from '$lib/controllers';
 	const controller = createRightPaneController();
 	let ActivePanel = $derived(controller.tab === 'chat' ? Chat : Preview);

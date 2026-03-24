@@ -37,10 +37,10 @@
 
 	const isRepoRoute = $derived(page.url.pathname.startsWith('/repo'));
 
-	import AppMenu from '$lib/components/ide/workspace/AppMenu.svelte';
+	import AppMenu from '$lib/components/workspace/AppMenu.svelte';
 	const menus = ['File', 'Edit', 'Selection', 'View', 'Go', 'Run', 'Terminal', 'Help'];
 
-	import CommandPalette from '$lib/components/ide/workspace/CommandPalette.svelte';
+	import CommandPalette from '$lib/components/workspace/CommandPalette.svelte';
 	import PanelControls from '$lib/components/ui/primitives/PanelControls.svelte';
 	import WindowControls from '$lib/components/ui/primitives/WindowControls.svelte';
 

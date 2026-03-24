@@ -12,7 +12,7 @@
 	import Button from '$lib/components/ui/primitives/Button.svelte';
 	import Card from '$lib/components/ui/primitives/Card.svelte';
 	import DropDown from '$lib/components/ui/primitives/DropDown.svelte';
-	import FileTree from '$lib/components/editor/FileTree.svelte';
+	import FileTree from '$lib/components/sidebar/explorer/FileTree.svelte';
 	import Form from '$lib/components/ui/primitives/Form.svelte';
 	import Grid from '$lib/components/ui/primitives/Grid.svelte';
 	import MenuBar from '$lib/components/ui/primitives/MenuBar.svelte';

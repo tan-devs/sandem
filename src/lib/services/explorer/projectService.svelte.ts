@@ -4,18 +4,18 @@ import { resolveProjectFileName } from '$lib/utils/project/file-system.js';
 import type { PROJECT, Identity, Files } from '$types/projects.js';
 import type { WebContainer } from '@webcontainer/api';
 import { getLiveblocksClient } from '$lib/liveblocks.config.js';
-import { appendTerminalAudit, collaborationPermissionsStore } from '$lib/stores';
+import { appendTerminalAudit, collaborationPermissionsStore } from '$lib/stores/collaboration';
 
 type MutableProject = { files: Files[] };
 type FsEvent = Extract<Liveblocks['RoomEvent'], { type: 'fs-op' }>;
-type CreateProjectFilesSyncOptions = {
+type Options = {
 	getProject: () => PROJECT | undefined;
 	getProjectForPath?: (path: string) => PROJECT | undefined;
 	getWebcontainer: () => WebContainer;
 	onRemoteOperationApplied?: () => Promise<void> | void;
 };
 
-export function createProjectFilesSync(options: CreateProjectFilesSyncOptions) {
+export function projectFilesSync(options: Options) {
 	let convexClient: ReturnType<typeof useConvexClient> | null = null;
 	try {
 		convexClient = useConvexClient();

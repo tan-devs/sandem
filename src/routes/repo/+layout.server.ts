@@ -28,7 +28,7 @@ export const load = (async ({ locals, cookies }) => {
 		});
 
 		// Load all projects for the current owner.
-		const projects = await client.query(api.projects.getProjects, {
+		const projects = await client.query(api.projects.getAllProjects, {
 			owner: currentUser._id
 		});
 

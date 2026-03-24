@@ -5,7 +5,7 @@ import {
 	normalizeProjectFilePatches,
 	resolveProjectFileName
 } from '$lib/utils/project/file-system.js';
-import type { IDEProject, ProjectId } from '$types/projects.js';
+import type { PROJECT, Identity } from '$types/projects.js';
 import { isPersistedProject } from '$lib/utils/project/guards.js';
 
 export type AutoSaveStatus =
@@ -15,7 +15,7 @@ export type AutoSaveStatus =
 	| 'Session only'
 	| 'Save failed';
 
-export function createAutoSaver(getProject: () => IDEProject | undefined) {
+export function createAutoSaver(getProject: () => PROJECT | undefined) {
 	// Gracefully degrade when there is no ConvexProvider in the tree
 	// (e.g. the /shop demo route). In that case every call is a no-op and
 	// the status stays 'Saved' so the Editor UI looks clean.
@@ -43,13 +43,13 @@ export function createAutoSaver(getProject: () => IDEProject | undefined) {
 	}
 
 	async function persistProjectFilePatches(
-		projectId: ProjectId,
+		Identity: Identity,
 		patches: ReadonlyArray<{ name: string; contents: string }>,
-		project: IDEProject
+		project: PROJECT
 	) {
 		try {
-			await convexClient!.mutation(api.projects.updateProjectFiles, {
-				id: projectId,
+			await convexClient!.mutation(api.projects.updateProject, {
+				id: Identity,
 				files: [...patches]
 			});
 			return;
@@ -63,17 +63,17 @@ export function createAutoSaver(getProject: () => IDEProject | undefined) {
 
 		const mergedFiles = mergeProjectFilesWithPatches(project.files, patches);
 		await convexClient!.mutation(api.projects.updateProject, {
-			id: projectId,
+			id: Identity,
 			files: mergedFiles
 		});
 	}
 
 	async function flushPendingSaves() {
 		const project = getProject();
-		const projectId = isPersistedProject(project) ? project._id : undefined;
+		const Identity = isPersistedProject(project) ? project._id : undefined;
 
 		// No-op in demo/guest mode (no persisted project)
-		if (!convexClient || !projectId) {
+		if (!convexClient || !Identity) {
 			pendingSaves.clear();
 			saveStatus = 'Session only';
 			return;
@@ -98,7 +98,7 @@ export function createAutoSaver(getProject: () => IDEProject | undefined) {
 		}
 
 		try {
-			await persistProjectFilePatches(projectId as ProjectId, normalizedPatches, project);
+			await persistProjectFilePatches(Identity as Identity, normalizedPatches, project);
 
 			saveStatus = 'Saved';
 		} catch (err) {
@@ -123,9 +123,9 @@ export function createAutoSaver(getProject: () => IDEProject | undefined) {
 		if (changes.length === 0) return;
 
 		const project = getProject();
-		const projectId = isPersistedProject(project) ? project._id : undefined;
+		const Identity = isPersistedProject(project) ? project._id : undefined;
 
-		if (!convexClient || !projectId || !project) {
+		if (!convexClient || !Identity || !project) {
 			saveStatus = 'Session only';
 			return;
 		}
