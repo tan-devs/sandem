@@ -7,3 +7,4 @@ export { default as Form } from './Form.svelte';
 export { default as Grid } from './Grid.svelte';
 export { default as Icon } from './Icon.svelte';
 export { default as Tabs } from './Tabs.svelte';
+export { default as FileTreeView } from './FileTreeView.svelte';

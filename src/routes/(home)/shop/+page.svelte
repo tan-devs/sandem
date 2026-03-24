@@ -2,21 +2,21 @@
 	import { Menubar, Accordion } from 'bits-ui';
 	import { Search, Plus } from '@lucide/svelte';
 
-	import ModeToggle from '$lib/components/ui/theme/ModeToggle.svelte';
-	import ThemeSwitcher from '$lib/components/ui/theme/ThemeSwitcher.svelte';
+	import ModeToggle from '$lib/components/ui/colors/ModeToggle.svelte';
+	import ThemeSwitcher from '$lib/components/ui/colors/ThemeSwitcher.svelte';
 
-	import PageSection from '$lib/components/ui/layout/PageSection.svelte';
+	import PageSection from '$lib/components/ui/primitives/PageSection.svelte';
 
 	import AccordionItem from '$lib/components/ui/primitives/AccordionItem.svelte';
 	import Avatar from '$lib/components/ui/primitives/Avatar.svelte';
 	import Button from '$lib/components/ui/primitives/Button.svelte';
 	import Card from '$lib/components/ui/primitives/Card.svelte';
-	import DropDown from '$lib/components/ui/inputs/DropDown.svelte';
-	import FileTree from '$lib/components/ui/editor/FileTree.svelte';
+	import DropDown from '$lib/components/ui/primitives/DropDown.svelte';
+	import FileTree from '$lib/components/editor/FileTree.svelte';
 	import Form from '$lib/components/ui/primitives/Form.svelte';
 	import Grid from '$lib/components/ui/primitives/Grid.svelte';
-	import MenuBar from '$lib/components/ui/navigation/MenuBar.svelte';
-	import SearchBar from '$lib/components/ui/inputs/SearchBar.svelte';
+	import MenuBar from '$lib/components/ui/primitives/MenuBar.svelte';
+	import SearchBar from '$lib/components/ui/primitives/SearchBar.svelte';
 	import Tabs from '$lib/components/ui/primitives/Tabs.svelte';
 
 	let search = $state('');

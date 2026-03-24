@@ -2,7 +2,7 @@
 	import { api } from '$convex/_generated/api.js';
 	import { useQuery } from 'convex-svelte';
 	import { useAuth } from '$lib/svelte/index.js';
-	import PageSection from '$lib/components/ui/layout/PageSection.svelte';
+	import PageSection from '$lib/components/ui/primitives/PageSection.svelte';
 	import Card from '$lib/components/ui/primitives/Card.svelte';
 
 	let { data } = $props();

@@ -1,1 +1,1 @@
-projects.d.ts
+src\types\projects.d.ts

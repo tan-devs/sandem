@@ -5,3 +5,4 @@ export * from './createRightPaneController.svelte.js';
 export * from './createTerminalPanelController.svelte.js';
 export * from './createTerminalSessionsController.svelte.js';
 export * from './createTerminalWorkspaceController.svelte.js';
+export * from '../container/projectSyncController.svelte.js';

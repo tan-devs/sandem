@@ -1,7 +1,7 @@
 import { WebContainer, type WebContainerProcess } from '@webcontainer/api';
 import { createError, composeErrorMessage } from '$lib/sveltekit/index.js';
 import { editorStore } from '$lib/stores';
-import { projectFilesToTree } from '$lib/utils/project/filesystem.js';
+import { projectFilesToTree } from '$lib/utils/project/file-system.js';
 import { projectFolderName } from '$lib/utils/project/projects.js';
 import type { RepoLayoutData } from '$types/routes.js';
 

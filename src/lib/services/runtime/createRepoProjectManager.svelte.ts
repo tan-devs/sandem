@@ -3,7 +3,7 @@ import { createError } from '$lib/sveltekit/index.js';
 import { editorStore } from '$lib/stores';
 import { VITE_REACT_TEMPLATE } from '$lib/utils/project/template.js';
 import { uniqueProjects } from '$lib/utils/project/projects.js';
-import type { ProjectId } from '$types/projects.js';
+import type {  Identity } from '$types/projects.js';
 import type { RepoLayoutData } from '$types/routes.js';
 
 type ConvexLikeClient = {
@@ -39,7 +39,7 @@ export function createRepoProjectManager(options: CreateRepoProjectManagerOption
 			});
 
 			const project = (await options.convexClient.query(api.projects.getProject, {
-				id: id as ProjectId
+				id: id as Identity
 			})) as RepoLayoutData['projects'][number] | null;
 
 			if (!project) throw new Error('Project creation succeeded but project could not be loaded.');
@@ -64,7 +64,7 @@ export function createRepoProjectManager(options: CreateRepoProjectManagerOption
 		mutatingProjectId = projectId;
 		try {
 			await options.convexClient.mutation(api.projects.updateProject, {
-				id: projectId as ProjectId,
+				id: projectId as Identity,
 				title: nextTitle
 			});
 
@@ -83,7 +83,7 @@ export function createRepoProjectManager(options: CreateRepoProjectManagerOption
 		mutatingProjectId = projectId;
 		try {
 			await options.convexClient.mutation(api.projects.deleteProject, {
-				id: projectId as ProjectId
+				id: projectId as Identity
 			});
 
 			const nextProjects = options.getProjects().filter((project) => project._id !== projectId);

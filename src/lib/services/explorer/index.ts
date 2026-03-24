@@ -1,1 +1,1 @@
-export * from './createProjectFilesSync.svelte.js';
+export * from './projectService.svelte.js';

@@ -48,6 +48,97 @@ export const createProject = mutation({
 	}
 });
 
+export const getAllProjects = query({
+	args: { owner: v.string() },
+	handler: async (ctx, args) => {
+		if (!args.owner) return [];
+
+		return await ctx.db
+			.query('projects')
+			.withIndex('by_owner', (q) => q.eq('owner', args.owner))
+			.collect();
+	}
+});
+
+export const getDesiredProject = query({
+	args: { id: v.id('projects') },
+	handler: async (ctx, args) => {
+		return await ctx.db.get(args.id);
+	}
+});
+
+// -------------------------
+// Update & Delete
+// -------------------------
+
+export const updateProject = mutation({
+	args: {
+		id: v.id('projects'),
+		title: v.optional(v.string()),
+		files: v.optional(v.array(FILE)),
+		entry: v.optional(v.string()),
+		room: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		const { id, ...updates } = args;
+		await ctx.db.patch(id, updates);
+	}
+});
+
+export const deleteProject = mutation({
+	args: { id: v.id('projects'), owner: v.string() },
+	handler: async (ctx, args) => {
+		if (!args.owner) {
+			return null;
+		}
+		await ctx.db.delete(args.id);
+	}
+});
+
+export const updateALLFiles = mutation({
+	args: {
+		id: v.id('projects'),
+		files: v.array(FILE)
+	},
+	handler: async (ctx, args) => {
+		const project = await ctx.db.get(args.id);
+		if (!project) {
+			throw new Error('Project not found');
+		}
+
+		if (args.files.length === 0) {
+			return { updated: 0, total: project.files.length };
+		}
+
+		const contentsByName = new Map(project.files.map((file) => [file.name, file.contents]));
+		for (const patch of args.files) {
+			contentsByName.set(patch.name, patch.contents);
+		}
+
+		const existingNames = new Set(project.files.map((file) => file.name));
+		const mergedFiles = project.files.map((file) => ({
+			name: file.name,
+			contents: contentsByName.get(file.name) ?? file.contents
+		}));
+
+		for (const patch of args.files) {
+			if (existingNames.has(patch.name)) continue;
+			mergedFiles.push({ name: patch.name, contents: patch.contents });
+		}
+
+		await ctx.db.patch(args.id, { files: mergedFiles });
+
+		return {
+			updated: args.files.length,
+			total: mergedFiles.length
+		};
+	}
+});
+
+// -------------------------
+// Create & Get
+// -------------------------
+
 export const ensureLiveblocksRoomsForOwner = mutation({
 	args: { owner: v.string() },
 	handler: async (ctx, args) => {
@@ -68,18 +159,6 @@ export const ensureLiveblocksRoomsForOwner = mutation({
 		}
 
 		return patched;
-	}
-});
-
-export const getProjects = query({
-	args: { owner: v.string() },
-	handler: async (ctx, args) => {
-		if (!args.owner) return [];
-
-		return await ctx.db
-			.query('projects')
-			.withIndex('by_owner', (q) => q.eq('owner', args.owner))
-			.collect();
 	}
 });
 
@@ -140,13 +219,6 @@ export const ensureStarterProjectForOwner = mutation({
 	}
 });
 
-export const getProject = query({
-	args: { id: v.id('projects') },
-	handler: async (ctx, args) => {
-		return await ctx.db.get(args.id);
-	}
-});
-
 // -------------------------
 // Collab
 // -------------------------
@@ -161,70 +233,5 @@ export const openCollab = query({
 			.query('projects')
 			.filter((q) => q.eq(q.field('room'), args.room))
 			.first();
-	}
-});
-
-// -------------------------
-// Update & Delete
-// -------------------------
-
-export const updateProject = mutation({
-	args: {
-		id: v.id('projects'),
-		title: v.optional(v.string()),
-		files: v.optional(v.array(FILE)),
-		entry: v.optional(v.string()),
-		room: v.optional(v.string())
-	},
-	handler: async (ctx, args) => {
-		const { id, ...updates } = args;
-		await ctx.db.patch(id, updates);
-	}
-});
-
-export const updateProjectFiles = mutation({
-	args: {
-		id: v.id('projects'),
-		files: v.array(FILE)
-	},
-	handler: async (ctx, args) => {
-		const project = await ctx.db.get(args.id);
-		if (!project) {
-			throw new Error('Project not found');
-		}
-
-		if (args.files.length === 0) {
-			return { updated: 0, total: project.files.length };
-		}
-
-		const contentsByName = new Map(project.files.map((file) => [file.name, file.contents]));
-		for (const patch of args.files) {
-			contentsByName.set(patch.name, patch.contents);
-		}
-
-		const existingNames = new Set(project.files.map((file) => file.name));
-		const mergedFiles = project.files.map((file) => ({
-			name: file.name,
-			contents: contentsByName.get(file.name) ?? file.contents
-		}));
-
-		for (const patch of args.files) {
-			if (existingNames.has(patch.name)) continue;
-			mergedFiles.push({ name: patch.name, contents: patch.contents });
-		}
-
-		await ctx.db.patch(args.id, { files: mergedFiles });
-
-		return {
-			updated: args.files.length,
-			total: mergedFiles.length
-		};
-	}
-});
-
-export const deleteProject = mutation({
-	args: { id: v.id('projects') },
-	handler: async (ctx, args) => {
-		await ctx.db.delete(args.id);
 	}
 });

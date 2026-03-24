@@ -3,7 +3,7 @@
 	import { useQuery } from 'convex-svelte';
 	import { useAuth } from '$lib/svelte/index.js';
 	import { authClient } from '$lib/context';
-	import PageSection from '$lib/components/ui/layout/PageSection.svelte';
+	import PageSection from '$lib/components/ui/primitives/PageSection.svelte';
 	import Card from '$lib/components/ui/primitives/Card.svelte';
 	import Form from '$lib/components/ui/primitives/Form.svelte';
 	import Button from '$lib/components/ui/primitives/Button.svelte';

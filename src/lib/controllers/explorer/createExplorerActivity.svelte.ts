@@ -1,5 +1,5 @@
 import type { WebContainer } from '@webcontainer/api';
-import { getRootFolder } from '$lib/utils/project/filesystem.js';
+import { getRootFolder } from '$lib/utils/project/file-system.js';
 import type { FileNode } from '$types/editor.js';
 import type { ExplorerActivityDeps } from '../../../types/hooks.js';
 

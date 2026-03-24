@@ -10,32 +10,32 @@ export { default as Icon } from './primitives/Icon.svelte';
 export { default as Tabs } from './primitives/Tabs.svelte';
 
 // Editor
-export { default as Breadcrumbs } from './editor/Breadcrumbs.svelte';
-export { default as Empty } from './editor/Empty.svelte';
-export { default as FileTree } from './editor/FileTree.svelte';
-export { default as FileTreeView } from './editor/FileTreeView.svelte';
-export { default as SaveStatus } from './editor/SaveStatus.svelte';
+export { default as Breadcrumbs } from '../editor/Breadcrumbs.svelte';
+export { default as Empty } from '../editor/Empty.svelte';
+export { default as FileTree } from '../editor/FileTree.svelte';
+export { default as FileTreeView } from '../editor/FileTreeView.svelte';
+export { default as SaveStatus } from '../editor/SaveStatus.svelte';
 
 // Inputs
-export { default as DropDown } from './inputs/DropDown.svelte';
-export { default as SearchBar } from './inputs/SearchBar.svelte';
+export { default as DropDown } from './primitives/DropDown.svelte';
+export { default as SearchBar } from './primitives/SearchBar.svelte';
 
 // Navigation
-export { default as AppHeader } from './navigation/AppHeader.svelte';
-export { default as AppMenu } from './navigation/AppMenu.svelte';
-export { default as MenuBar } from './navigation/MenuBar.svelte';
-export { default as NavigationList } from './navigation/NavigationList.svelte';
+export { default as AppHeader } from '../ide/workspace/AppHeader.svelte';
+export { default as AppMenu } from '../ide/workspace/AppMenu.svelte';
+export { default as MenuBar } from './primitives/MenuBar.svelte';
+export { default as NavigationList } from './primitives/NavigationList.svelte';
 
 // Layout
-export { default as PageSection } from './layout/PageSection.svelte';
+export { default as PageSection } from './primitives/PageSection.svelte';
 
 // Theme
-export { default as ModeToggle } from './theme/ModeToggle.svelte';
-export { default as ThemeSwitcher } from './theme/ThemeSwitcher.svelte';
+export { default as ModeToggle } from './colors/ModeToggle.svelte';
+export { default as ThemeSwitcher } from './colors/ThemeSwitcher.svelte';
 
 // Workspace
-export { default as CommandPalette } from './workspace/CommandPalette.svelte';
-export { default as PanelControls } from './workspace/PanelControls.svelte';
-export { default as RepoPaneLayout } from './workspace/RepoPaneLayout.svelte';
-export { default as Resizer } from './workspace/Resizer.svelte';
-export { default as WindowControls } from './workspace/WindowControls.svelte';
+export { default as CommandPalette } from '../ide/workspace/CommandPalette.svelte';
+export { default as PanelControls } from './primitives/PanelControls.svelte';
+export { default as RepoPaneLayout } from '../ide/workspace/RepoPaneLayout.svelte';
+export { default as Resizer } from './primitives/Resizer.svelte';
+export { default as WindowControls } from './primitives/WindowControls.svelte';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { FileNode } from '$types/editor.js';
-import type { IDEProject } from '$types/projects.js';
+import type { PROJECT } from '$types/projects.js';
 import { validateProjectRelativePath } from './explorerTreeOps.js';
 import { normalizeToProjectPath } from '$lib/controllers/explorer/createExplorerActionHandlers.svelte.js';
 
@@ -45,7 +45,7 @@ describe('normalizeToProjectPath', () => {
 	const activeProject = {
 		_id: 'proj_123',
 		title: 'Project Alpha'
-	} as IDEProject;
+	} as PROJECT;
 
 	it('keeps known root paths unchanged', () => {
 		expect(normalizeToProjectPath('project-beta/src/app.ts', tree, activeProject)).toBe(

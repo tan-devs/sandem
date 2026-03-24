@@ -1,7 +1,7 @@
 import type { WebContainer } from '@webcontainer/api';
 import type * as Monaco from 'monaco-editor';
 import type { TabId } from '$lib/stores';
-import type { IDEProject } from '$types/projects.js';
+import type { PROJECT } from '$types/projects.js';
 import type {
 	FileNode,
 	ChangeItem,
@@ -51,7 +51,7 @@ export type GitActivityDeps = {
 	getWebcontainer: () => WebContainer;
 	getEntryPath: () => string;
 	getActiveTabPath: () => string | null;
-	getProject: (path?: string) => IDEProject;
+	getProject: (path?: string) => PROJECT;
 	openFile: (path: string) => void;
 };
 
@@ -95,7 +95,7 @@ export type EditorStatusStore = {
 };
 
 export type EditorRuntimeDependencies = {
-	getProject: () => IDEProject;
+	getProject: () => PROJECT;
 	getActivePath: () => string | null;
 	toProjectFile: (path: string) => string;
 	toWebPath: (projectFileName: string) => string;
