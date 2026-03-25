@@ -4,7 +4,7 @@ import { MonacoBinding } from 'y-monaco';
 import { LiveblocksYjsProvider } from '@liveblocks/yjs';
 import type * as Monaco from 'monaco-editor';
 import type { Awareness } from 'y-protocols/awareness.js';
-import { getLanguage } from '$lib/utils/editor/language.js';
+import { getLanguage } from '$lib/utils/ide/language.js';
 import type { IDEProject } from '$types/projects.js';
 import type { EditorRuntimeDependencies } from '$types/hooks.js';
 import type { ModelBinding } from './createModelBindings.svelte.js';

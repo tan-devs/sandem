@@ -4,9 +4,9 @@ import {
 	mergeProjectFilesWithPatches,
 	normalizeProjectFilePatches,
 	resolveProjectFileName
-} from '$lib/utils/project/file-system.js';
+} from '$lib/utils/ide/file-system.js';
 import type { PROJECT, Identity } from '$types/projects.js';
-import { isPersistedProject } from '$lib/utils/project/guards.js';
+import { isPersistedProject } from '$lib/utils/ide/guards.js';
 
 export type AutoSaveStatus =
 	| 'Saved'

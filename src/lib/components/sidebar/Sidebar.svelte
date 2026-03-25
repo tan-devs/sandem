@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { activity, type TabId } from '$lib/stores';
 
-	import Explorer from '../activities/Explorer.svelte';
-	import SearchPanel from '../activities/Search.svelte';
-	import Git from '../activities/Git.svelte';
-	import Debug from '../activities/Debug.svelte';
+	import Explorer from './explorer/Explorer.svelte';
+	import SearchPanel from './search/Search.svelte';
+	import Git from './git/Git.svelte';
+	import Debug from './debug/Debug.svelte';
 
 	// Map tab id → component. Keys must exactly match TabId values.
 	// ✅ 'run' key aligns with TabId and ActivityBar's corrected id: 'run'.

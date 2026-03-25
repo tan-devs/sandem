@@ -6,12 +6,12 @@ import type { WebContainer } from '@webcontainer/api';
 import type { FileTreeController, ProjectSyncController } from '$types/hooks';
 import type { IDEProject } from '$types/projects';
 import type { FileNode } from '$types/editor';
-import { projectFolderName } from '$lib/utils/project/projects.js';
+import { projectFolderName } from '$lib/utils/ide/projects.js';
 import {
 	findNode,
 	getAllDirectoryPaths,
 	validateProjectRelativePath
-} from '$lib/utils/editor/explorerTreeOps.js';
+} from '$lib/utils/ide/explorerTreeOps.js';
 
 export type ExplorerActionContext = {
 	fileTree: FileTreeController;

@@ -5,7 +5,7 @@ import {
 	STARTER_PROJECT_ENTRY,
 	STARTER_PROJECT_FILES,
 	STARTER_PROJECT_TITLE
-} from '../lib/utils/project/template.js';
+} from '../lib/utils/ide/template.js';
 
 const FILE = v.object({
 	name: v.string(),

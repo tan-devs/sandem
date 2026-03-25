@@ -14,14 +14,14 @@
 	import { requireIDEContext } from '$lib/context';
 	import { editorStore } from '$lib/stores';
 	import { activity } from '$lib/stores';
-	import { projectFolderName } from '$lib/utils/project/projects.js';
-	import { findNodeByPath } from '$lib/utils/editor/fileTreeOps.js';
-	import { filterNodesByQuery, getPathsToExpand } from '$lib/utils/editor/explorerTreeOps.js';
+	import { projectFolderName } from '$lib/utils/ide/projects.js';
+	import { findNodeByPath } from '$lib/utils/ide/fileTreeOps.js';
+	import { filterNodesByQuery, getPathsToExpand } from '$lib/utils/ide/explorerTreeOps.js';
 	import type { FileNode } from '$types/editor';
 	import type { IDEProject } from '$types/projects';
 
 	import { createFileTree } from '$lib/controllers';
-	import { createProjectFilesSync } from '$lib/services';
+	import { projectFilesSync } from '$lib/services';
 	import { createExplorerStateController } from '$lib/controllers/explorer/createExplorerStateController.svelte.js';
 	import {
 		handleCreateFile,
@@ -50,7 +50,7 @@
 			(ide.getWorkspaceProjects?.() ?? []).map((p) => projectFolderName(p.id, p.title))
 	});
 
-	const projectSync = createProjectFilesSync({
+	const projectSync = projectFilesSync({
 		getProject: () => ide.getProject(editorStore.activeTabPath ?? undefined),
 		getProjectForPath: (path: string) => ide.getProject(path),
 		getWebcontainer: ide.getWebcontainer,

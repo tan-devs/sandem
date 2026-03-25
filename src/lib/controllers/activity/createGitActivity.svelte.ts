@@ -1,6 +1,6 @@
 import type { WebContainer } from '@webcontainer/api';
 import * as git from 'isomorphic-git';
-import { getRootFolder } from '$lib/utils/project/file-system.js';
+import { getRootFolder } from '$lib/utils/ide/file-system.js';
 import type { GitActivityDeps } from '$types/hooks.js';
 import type { ChangeItem } from '$types/editor.js';
 

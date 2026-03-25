@@ -1,1 +1,1 @@
-export * from './projectService.svelte.js';
+export * from './projectService.svelte';

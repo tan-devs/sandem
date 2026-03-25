@@ -2,12 +2,8 @@ import { untrack } from 'svelte';
 import { createError } from '$lib/sveltekit/index.js';
 import { createRepoRuntimeManager } from '$lib/services/runtime/createRepoRuntimeManager.svelte.js';
 import { createRepoProjectManager } from '$lib/services/runtime/createRepoProjectManager.svelte.js';
-import { VITE_REACT_TEMPLATE } from '$lib/utils/project/template.js';
-import {
-	areProjectsEqual,
-	projectFolderName,
-	uniqueProjects
-} from '$lib/utils/project/projects.js';
+import { VITE_REACT_TEMPLATE } from '$lib/utils/ide/template.js';
+import { areProjectsEqual, projectFolderName, uniqueProjects } from '$lib/utils/ide/projects.js';
 import type { IDEProject } from '$types/projects.js';
 import type { RepoLayoutData } from '$types/routes.js';
 

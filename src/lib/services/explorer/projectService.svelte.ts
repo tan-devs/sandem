@@ -1,6 +1,6 @@
 import { useConvexClient } from 'convex-svelte';
 import { api } from '$convex/_generated/api.js';
-import { resolveProjectFileName } from '$lib/utils/project/file-system.js';
+import { resolveProjectFileName } from '$lib/utils/ide/file-system.js';
 import type { PROJECT, Identity, Files } from '$types/projects.js';
 import type { WebContainer } from '@webcontainer/api';
 import { getLiveblocksClient } from '$lib/liveblocks.config.js';

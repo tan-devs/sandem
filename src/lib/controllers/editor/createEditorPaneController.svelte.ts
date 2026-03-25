@@ -6,7 +6,7 @@ import {
 	getRootFolder,
 	resolveProjectFileName,
 	toWebContainerPath
-} from '$lib/utils/project/file-system.js';
+} from '$lib/utils/ide/file-system.js';
 import {
 	EDITOR_QUICK_ACTIONS,
 	deriveEditorSaveStatusVariant,

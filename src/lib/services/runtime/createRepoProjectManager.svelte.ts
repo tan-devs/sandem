@@ -1,9 +1,9 @@
 import { api } from '$convex/_generated/api.js';
 import { createError } from '$lib/sveltekit/index.js';
 import { editorStore } from '$lib/stores';
-import { VITE_REACT_TEMPLATE } from '$lib/utils/project/template.js';
-import { uniqueProjects } from '$lib/utils/project/projects.js';
-import type {  Identity } from '$types/projects.js';
+import { VITE_REACT_TEMPLATE } from '$lib/utils/ide/template.js';
+import { uniqueProjects } from '$lib/utils/ide/projects.js';
+import type { Identity } from '$types/projects.js';
 import type { RepoLayoutData } from '$types/routes.js';
 
 type ConvexLikeClient = {
