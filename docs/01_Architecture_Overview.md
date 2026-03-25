@@ -18,7 +18,7 @@
 
 ## Sync and persistence
 
-- On startup: `ensureStarterProjectForOwner` for auth users
+- At auth user creation: `seedStarterProjectForOwner` / `ensureStarterProjectForOwner`
 - `useQuery(api.projects.getAllProjects)` live subscription
 - Liveblocks → WebContainer writes via `createLiveblocksEditorSync`
 - Optional Convex mutations drive persistence

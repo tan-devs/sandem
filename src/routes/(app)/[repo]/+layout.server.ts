@@ -31,11 +31,6 @@ export const load = (async ({ locals, cookies }: Pick<RequestEvent, 'locals' | '
 			// Identity is resolved server-side via ctx.auth — no guestId needed.
 			userIdentity = await client.mutation(api.filesystem.ensureUserIdentity, {});
 
-			// Seed a starter project the first time this user logs in.
-			await client.mutation(api.projects.ensureStarterProjectForOwner, {
-				ownerId: currentUser._id
-			});
-
 			// Backfill any projects that are missing a Liveblocks room slug.
 			await client.mutation(api.projects.ensureLiveblocksRoomsForOwner, {
 				ownerId: currentUser._id

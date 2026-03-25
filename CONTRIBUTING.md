@@ -196,7 +196,7 @@ Use the Node/pnpm path above for local contribution work.
 
 - Guests (`currentUser = null`) see the demo workspace template.
 - Authenticated users always enter their own repo workspace flow.
-- On first authenticated visit, backend seeding (`ensureStarterProjectForOwner`) creates a starter project if the owner has no projects yet.
+- On first authenticated account creation, backend seeding (`seedStarterProjectForOwner` / `ensureStarterProjectForOwner`) creates a starter project if the owner has no projects yet.
 
 ## Code style
 

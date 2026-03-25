@@ -257,67 +257,75 @@ export const deleteProject = mutation({
  * Starter project nodes are inserted into the `nodes` table —
  * not embedded in the project document.
  */
+export async function seedStarterProjectForOwner(
+	ctx: { db: any; auth: any },
+	ownerId: string
+): Promise<string | null> {
+	if (!ownerId) return null;
+
+	const now = Date.now();
+
+	// Check idempotency guard
+	const seedState = await ctx.db
+		.query('projectSeedState')
+		.withIndex('by_owner', (q: any) => q.eq('ownerId', ownerId))
+		.first();
+
+	if (seedState?.starterProjectSeeded) return null;
+
+	// Also skip if they already own at least one project (e.g. migrated user)
+	const existing = await ctx.db
+		.query('projects')
+		.withIndex('by_owner', (q: any) => q.eq('ownerId', ownerId))
+		.first();
+
+	let projectId: string | null = null;
+
+	if (!existing) {
+		projectId = await ctx.db.insert('projects', {
+			ownerId,
+			name: STARTER_PROJECT_TITLE,
+			isPublic: true, // starter is public so guests can view it
+			room: generateLiveblocksRoomId(ownerId, STARTER_PROJECT_TITLE),
+			entry: STARTER_PROJECT_ENTRY,
+			createdAt: now,
+			updatedAt: now
+		});
+
+		// Seed starter files as nodes
+		for (const file of STARTER_PROJECT_FILES as Array<{ name: string; contents: string }>) {
+			const path = file.name.startsWith('/') ? file.name : `/${file.name}`;
+			await ctx.db.insert('nodes', {
+				projectId,
+				path,
+				name: file.name.split('/').pop() ?? file.name,
+				type: 'file',
+				content: file.contents,
+				createdAt: now,
+				updatedAt: now
+			});
+		}
+	}
+
+	// Write idempotency record
+	if (seedState) {
+		await ctx.db.patch(seedState._id, { starterProjectSeeded: true, seededAt: now });
+	} else {
+		await ctx.db.insert('projectSeedState', {
+			ownerId,
+			starterProjectSeeded: true,
+			seededAt: now
+		});
+	}
+
+	return projectId;
+}
+
 export const ensureStarterProjectForOwner = mutation({
 	args: { ownerId: v.id('users') },
 	handler: async (ctx, args) => {
 		if (!args.ownerId) return null;
-
-		const now = Date.now();
-
-		// Check idempotency guard
-		const seedState = await ctx.db
-			.query('projectSeedState')
-			.withIndex('by_owner', (q: any) => q.eq('ownerId', args.ownerId))
-			.first();
-
-		if (seedState?.starterProjectSeeded) return null;
-
-		// Also skip if they already own at least one project (e.g. migrated user)
-		const existing = await ctx.db
-			.query('projects')
-			.withIndex('by_owner', (q: any) => q.eq('ownerId', args.ownerId))
-			.first();
-
-		let projectId: string | null = null;
-
-		if (!existing) {
-			projectId = await ctx.db.insert('projects', {
-				ownerId: args.ownerId,
-				name: STARTER_PROJECT_TITLE,
-				isPublic: true, // starter is public so guests can view it
-				room: generateLiveblocksRoomId(args.ownerId, STARTER_PROJECT_TITLE),
-				entry: STARTER_PROJECT_ENTRY,
-				createdAt: now,
-				updatedAt: now
-			});
-
-			// Seed starter files as nodes
-			for (const file of STARTER_PROJECT_FILES as Array<{ name: string; contents: string }>) {
-				const path = file.name.startsWith('/') ? file.name : `/${file.name}`;
-				await ctx.db.insert('nodes', {
-					projectId,
-					path,
-					name: file.name.split('/').pop() ?? file.name,
-					type: 'file',
-					content: file.contents,
-					createdAt: now,
-					updatedAt: now
-				});
-			}
-		}
-
-		// Write idempotency record
-		if (seedState) {
-			await ctx.db.patch(seedState._id, { starterProjectSeeded: true, seededAt: now });
-		} else {
-			await ctx.db.insert('projectSeedState', {
-				ownerId: args.ownerId,
-				starterProjectSeeded: true,
-				seededAt: now
-			});
-		}
-
-		return projectId;
+		return seedStarterProjectForOwner(ctx, args.ownerId);
 	}
 });
 
