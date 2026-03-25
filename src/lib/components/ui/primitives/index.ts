@@ -8,3 +8,4 @@ export { default as Grid } from './Grid.svelte';
 export { default as Icon } from './Icon.svelte';
 export { default as Tabs } from './Tabs.svelte';
 export { default as FileTreeView } from './FileTreeView.svelte';
+export { default as FileTreeNode } from './FileTreeNode.svelte';

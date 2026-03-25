@@ -18,19 +18,20 @@ export const load = (async ({ locals, cookies }: Pick<RequestEvent, 'locals' | '
 		const currentUser = await client.query(api.auth.getCurrentUser, {});
 
 		let projects = [] as ProjectDocument[];
+		let userIdentity: Awaited<
+			ReturnType<typeof client.mutation<typeof api.filesystem.ensureUserIdentity>>
+		> | null = null;
 
 		if (currentUser) {
 			// ----------------------------------------------------------------
 			// Authenticated user
 			// ----------------------------------------------------------------
 
-			// Ensure the user row exists / lastSeen is fresh.
-			// ensureUserIdentity resolves the identity from ctx.auth internally —
-			// no guestId needed here.
-			await client.mutation(api.filesystem.ensureUserIdentity, {});
+			// Upsert the user row and get back { convexUserId, isGuest: false }.
+			// Identity is resolved server-side via ctx.auth — no guestId needed.
+			userIdentity = await client.mutation(api.filesystem.ensureUserIdentity, {});
 
 			// Seed a starter project the first time this user logs in.
-			// ownerId is now v.id('users'); currentUser._id satisfies that type.
 			await client.mutation(api.projects.ensureStarterProjectForOwner, {
 				ownerId: currentUser._id
 			});
@@ -61,16 +62,28 @@ export const load = (async ({ locals, cookies }: Pick<RequestEvent, 'locals' | '
 				});
 			}
 
-			// Persist the guest identity row so filesystem operations have a
-			// stable ownerId to attach to.
-			await client.mutation(api.filesystem.ensureUserIdentity, { guestId });
+			// Upsert the guest identity row so filesystem operations have a
+			// stable ownerId. Returns { convexUserId, isGuest: true }.
+			userIdentity = await client.mutation(api.filesystem.ensureUserIdentity, { guestId });
 
 			// Guests can't own projects — leave projects as [].
 		}
 
-		return { authState, currentUser, projects };
+		return {
+			authState,
+			currentUser,
+			isGuest: !currentUser,
+			userIdentity,
+			projects
+		};
 	} catch {
 		// Fail closed: treat any backend/network error as a guest-like state.
-		return { authState, currentUser: null, projects: [] };
+		return {
+			authState,
+			currentUser: null,
+			isGuest: true,
+			userIdentity: null,
+			projects: []
+		};
 	}
 }) satisfies LayoutServerLoad<RepoLayoutData>;

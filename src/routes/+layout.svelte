@@ -7,8 +7,6 @@
 	import { setupConvex } from 'convex-svelte';
 	setupConvex(PUBLIC_CONVEX_URL);
 
-	import AppHeader from '$lib/components/workspace/AppHeader.svelte';
-
 	let { children } = $props();
 </script>
 
@@ -19,8 +17,6 @@
 <!-- html -->
 
 <div class="container">
-	<AppHeader />
-
 	{@render children()}
 </div>
 

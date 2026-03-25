@@ -13,7 +13,7 @@ import {
 	deriveEditorTabItems,
 	shouldShowEmptyEditorState
 } from '$lib/utils';
-import type { IDEPanels } from '$lib/stores/panel/panelStore.svelte.js';
+import type { IDEPanels } from '$lib/stores/panelStore.svelte.js';
 
 type CreateEditorPaneControllerOptions = {
 	ide: IDEContext;

@@ -1,12 +1,12 @@
 # Changelog
 
-> Last updated: 2026-03-22
+> Last updated: 2026-03-25
 >
 > **📚 For complete project documentation, see [docs/README.md](./docs/README.md)**
 
 ## Unreleased
 
-### Library Structure & Documentation (2026-03-22)
+### Library Structure & Documentation (2026-03-25)
 
 - **refactor: 3-tier index.ts consolidation**
   - Organized all `src/lib/*/` subdirectories with consolidated index.ts files (38 total)
@@ -50,6 +50,7 @@
 - showcase: tabs now render different accordion datasets in `/shop`
 - repo: demo mode is now guest-only on `/repo` (authenticated users no longer fall back to demo based on project count)
 - repo: first-time authenticated users are auto-seeded with a starter project through `ensureStarterProjectForOwner`
+- chore: updated route layout convergence in docs; root/app/repo structure verified and described in AGENTS.md/README.md
 
 ## 0.5.1
 

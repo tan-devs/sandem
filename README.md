@@ -113,9 +113,10 @@ src/
 │   ├── utils/            # Filesystem, language, template helpers
 │   └── liveblocks.config.ts
 ├── routes/               # SvelteKit pages & server endpoints
-│   ├── (home)/           # Public pages: home, auth, shop, test
-│   ├── repo/             # IDE workspace route
-│   └── api/              # Server endpoints: auth, Liveblocks hooks
+│   ├── (app)/            # App shell routes (auth gated + guest demo)
+│   │   ├── (home)/       # Public pages: home, auth, shop, test
+│   │   ├── [repo]/       # IDE workspace route
+│   │   └── api/          # Server endpoints: auth, Liveblocks hooks
 ├── app.css               # Global tokens & interactive states
 ├── app.html
 ├── hooks.server.ts       # COOP/COEP header setup
@@ -142,16 +143,18 @@ When a user opens `/repo/[projectId]`:
 
 - **Convex → WebContainer:** bulk mount on startup; can remount on document updates
 - **Editor → WebContainer:** keystroke-by-keystroke via `wc.fs.writeFile()` (sub-100ms)
-- **Editor → Convex:** debounced auto-save (1.5s); tracks pending saves per file and retries on failure
+- **Editor → Convex:** debounced auto-save (3s by default, as implemented in `src/lib/controllers/liveblocksSyncController.svelte.ts`); tracks pending saves per file and retries on failure
 - **Collaboration:** Liveblocks + Yjs CRDT syncs remote edits live; local changes trigger save, remote changes are preserved
 
 ### Data model
 
-Files stored as: `{ name: string, contents: string }[]` (a flat array). Converted to WebContainer `FileSystemTree` at mount time using `filesystem-utils.ts`.
+Files are represented as `nodes` (see `src/types/filesystem.d.ts`):
+`{ _id, path, name, type: 'file' | 'folder', content?, parentId?, createdAt, updatedAt }`.
+This list is converted into WebContainer tree format using `src/lib/utils/vfs.ts` (`buildWebContainerTree`) for mount operations.
 
 ### Theming
 
-All colors reference semantic CSS variables (`--bg`, `--fg`, `--accent`, etc.) in `app.css`. Four built-in palettes (default, forest, solar, ocean) with light/dark variants, toggled via `data-theme` and `data-mode` attributes. The IDE route (`/repo`) always renders dark.
+All colors reference semantic CSS variables (`--bg`, `--fg`, `--accent`, etc.) in `app.css`. Four built-in palettes (default, forest, solar, ocean) with light/dark variants, toggled via `data-theme` and `data-mode` attributes. User preference is persisted in `localStorage` and the default mode falls back to OS color scheme.
 
 ---
 

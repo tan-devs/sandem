@@ -8,10 +8,10 @@
 
 	import { createSvelteAuthClient, useAuth } from '$lib/svelte/index.js';
 	import { createError } from '$lib/sveltekit/index.js';
+	import { projectFolderName } from '$lib/utils/ide/projects.js';
 
-	import { authClient } from '$lib/context';
-	import { setIDEContext } from '$lib/context';
-	import { createRepoController } from '$lib/controllers';
+	import { authClient, setIDEContext } from '$lib/context';
+	import { createRepoController, createLiveblocksEditorSync } from '$lib/controllers';
 	import { createPanelsState, setPanelsContext } from '$lib/stores';
 
 	import type { RepoLayoutData } from '$types/routes.js';
@@ -20,7 +20,6 @@
 	import Sidebar from '$lib/components/sidebar/Sidebar.svelte';
 	import Statusbar from '$lib/components/workspace/Statusbar.svelte';
 	import Resizer from '$lib/components/ui/primitives/Resizer.svelte';
-
 	import ErrorPanel from '$lib/components/ui/primitives/ErrorPanel.svelte';
 
 	let { children, data }: { children: Snippet; data: RepoLayoutData } = $props();
@@ -40,9 +39,11 @@
 	const isDemo = $derived(isGuest);
 	const ownerId = $derived(currentUser?._id ?? '');
 
+	// Live Convex subscription — authoritative project list.
+	// createProjectSyncController (manual polling) is now redundant and deleted.
 	const projectsResponse = useQuery(
 		api.projects.getAllProjects,
-		() => (ownerId ? { owner: ownerId } : 'skip'),
+		() => (ownerId ? { ownerId } : 'skip'),
 		() => ({ initialData: data.projects, keepPreviousData: true })
 	);
 
@@ -61,38 +62,50 @@
 		convexClient: convexOps
 	});
 
+	// Seed from server data immediately (handles SSR initial state).
 	$effect(() => {
 		repo.syncProjects(data.projects);
 	});
 
+	// Keep project list in sync with the live Convex subscription.
 	$effect(() => {
 		if (isDemo) return;
 
 		const queryState = projectsResponse as {
 			data?: RepoLayoutData['projects'];
 			error?: unknown;
-			isLoading?: boolean;
-			isPending?: boolean;
 		};
 
 		if (queryState.error) {
 			repo.failRuntimeWithError(
-				createError('Failed to load projects for this workspace.', {
-					code: 'INTERNAL_ERROR'
-				}),
+				createError('Failed to load projects for this workspace.', { code: 'INTERNAL_ERROR' }),
 				queryState.error
 			);
 			return;
 		}
 
-		const queryData = queryState.data;
-		if (!queryData) {
-			repo.syncProjects(data.projects);
-			return;
-		}
-
-		repo.syncProjects(queryData);
+		if (queryState.data) repo.syncProjects(queryState.data);
+		else repo.syncProjects(data.projects);
 	});
+
+	// ── Liveblocks → WebContainer → Convex write pipeline ────────────────────
+	//
+	// getWorkspaceRoot() resolves the active project's folder name using the same
+	// projectFolderName() utility that createRepoController uses internally, so
+	// paths stay consistent across the multi-project workspace layout.
+	//
+	const editorSync = createLiveblocksEditorSync({
+		getWebcontainer: () => repo.getWebcontainer(),
+		persistFile: (path, content) =>
+			convexClient.mutation(api.filesystem.upsertFile as never, { path, content }),
+		getWorkspaceRoot: () => {
+			const p = repo.activeProject;
+			return p ? projectFolderName(p._id, p.title) : '';
+		},
+		onError: (target, path, err) =>
+			console.error(`[editorSync:${target}] write failed — "${path}"`, err)
+	});
+	// ─────────────────────────────────────────────────────────────────────────
 
 	const panels = createPanelsState({ activeTab: 'explorer' });
 	setPanelsContext(panels);
@@ -130,10 +143,18 @@
 		cancelRenameProject: repo.cancelRename,
 		commitRenameProject: repo.commitRename,
 		requestDeleteProject: repo.requestDelete,
-		confirmDeleteProject: repo.confirmDelete
+		confirmDeleteProject: repo.confirmDelete,
+		// Exposed so editor tabs can call watch/unwatch/flush directly.
+		editorSync
 	});
 
-	onMount(() => repo.mount());
+	onMount(() => {
+		const cleanup = repo.mount();
+		return () => {
+			editorSync.destroy();
+			cleanup?.();
+		};
+	});
 </script>
 
 <div class="container">
@@ -157,9 +178,9 @@
 							testId="runtime-recovery-ui"
 						>
 							{#snippet actions()}
-								<button class="action" onclick={() => void repo.startRuntime()}
-									>Retry runtime</button
-								>
+								<button class="action" onclick={() => void repo.startRuntime()}>
+									Retry runtime
+								</button>
 								<button
 									class="action"
 									onclick={() => {
@@ -191,7 +212,6 @@
 	.container {
 		display: grid;
 		grid-template-rows: 1fr auto;
-
 		max-height: 100dvh;
 		height: 100%;
 		overflow: hidden;

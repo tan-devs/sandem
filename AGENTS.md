@@ -1,6 +1,6 @@
 You are able to use the Svelte MCP server, where you have access to comprehensive Svelte 5 and SvelteKit documentation. Here's how to use the available tools effectively:
 
-> Last updated: 2026-03-22
+> Last updated: 2026-03-25
 
 ## Available MCP Tools:
 
@@ -124,7 +124,7 @@ Use this checklist when picking up the project in a new session to get productiv
 - Header/layout shell: `src/lib/components/ui/navigation/AppHeader.svelte`
 - Card component shell: `src/lib/components/ui/primitives/Card.svelte`
 - Theme switcher: `src/lib/components/ui/theme/ThemeSwitcher.svelte`
-- IDE route shell: `src/routes/repo/+layout.svelte`, `src/routes/repo/+layout.server.ts`
+- IDE route shell: `src/routes/(app)/[repo]/+layout.svelte`, `src/routes/(app)/[repo]/+layout.server.ts`
 - Repo workspace controller (runtime + project orchestration): `src/lib/controllers/workspace/createRepoController.svelte.ts`
 - Explorer tree controller (polling until runtime available): `src/lib/controllers/explorer/createFileTreeController.svelte.ts`
 - Explorer pure tree ops: `src/lib/utils/editor/fileTreeOps.ts`

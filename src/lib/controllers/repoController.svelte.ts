@@ -4,7 +4,7 @@ import { createRepoRuntimeManager } from '$lib/services/runtime/createRepoRuntim
 import { createRepoProjectManager } from '$lib/services/runtime/createRepoProjectManager.svelte.js';
 import { VITE_REACT_TEMPLATE } from '$lib/utils/ide/template.js';
 import { areProjectsEqual, projectFolderName, uniqueProjects } from '$lib/utils/ide/projects.js';
-import type { IDEProject } from '$types/projects.js';
+import type { PROJECT } from '$types/projects.js';
 import type { RepoLayoutData } from '$types/routes.js';
 
 type ConvexLikeClient = {
@@ -26,7 +26,7 @@ export function createRepoController(options: Options) {
 	const demoProject = {
 		files: VITE_REACT_TEMPLATE.files,
 		room: undefined
-	} satisfies IDEProject;
+	} satisfies PROJECT;
 
 	// UI State
 	let projects = $state<RepoLayoutData['projects']>([]);
@@ -108,12 +108,12 @@ export function createRepoController(options: Options) {
 		}
 	}
 
-	function getFallbackProject(): IDEProject {
+	function getFallbackProject(): PROJECT {
 		if (options.isDemo()) return demoProject;
 		return activeProject ?? projects[0] ?? demoProject;
 	}
 
-	function getProjectForPath(path?: string): IDEProject {
+	function getProjectForPath(path?: string): PROJECT {
 		if (options.isDemo()) return demoProject;
 		if (!path) return getFallbackProject();
 		const folder = path.split('/')[0];
