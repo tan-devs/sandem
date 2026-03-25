@@ -1,0 +1,76 @@
+import { api } from '$convex/_generated/api.js';
+import { createAuth } from '$convex/auth.js';
+import { createConvexHttpClient, getAuthState } from '$lib/sveltekit/index.js';
+import type { RequestEvent } from '@sveltejs/kit';
+import type { LayoutServerLoad } from './$types.js';
+import type { RepoLayoutData } from '$types/routes.js';
+import type { Document as ProjectDocument } from '$types/projects.js';
+
+// Render this route fully on the client — it relies on browser-only sandbox APIs.
+export const ssr = false;
+
+export const load = (async ({ locals, cookies }: Pick<RequestEvent, 'locals' | 'cookies'>) => {
+	const client = createConvexHttpClient({ token: locals.token });
+	const authState = await getAuthState(createAuth, cookies);
+
+	try {
+		// Returns the full Convex user document (with _id as v.id('users')) or null.
+		const currentUser = await client.query(api.auth.getCurrentUser, {});
+
+		let projects = [] as ProjectDocument[];
+
+		if (currentUser) {
+			// ----------------------------------------------------------------
+			// Authenticated user
+			// ----------------------------------------------------------------
+
+			// Ensure the user row exists / lastSeen is fresh.
+			// ensureUserIdentity resolves the identity from ctx.auth internally —
+			// no guestId needed here.
+			await client.mutation(api.filesystem.ensureUserIdentity, {});
+
+			// Seed a starter project the first time this user logs in.
+			// ownerId is now v.id('users'); currentUser._id satisfies that type.
+			await client.mutation(api.projects.ensureStarterProjectForOwner, {
+				ownerId: currentUser._id
+			});
+
+			// Backfill any projects that are missing a Liveblocks room slug.
+			await client.mutation(api.projects.ensureLiveblocksRoomsForOwner, {
+				ownerId: currentUser._id
+			});
+
+			projects =
+				(await client.query(api.projects.getAllProjects, {
+					ownerId: currentUser._id
+				})) ?? [];
+		} else {
+			// ----------------------------------------------------------------
+			// Guest user
+			// ----------------------------------------------------------------
+
+			// Ensure a stable guest ID lives in a 30-day cookie.
+			let guestId = cookies.get('guestId');
+			if (!guestId) {
+				guestId = `guest-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+				cookies.set('guestId', guestId, {
+					path: '/',
+					maxAge: 60 * 60 * 24 * 30,
+					httpOnly: true,
+					sameSite: 'lax'
+				});
+			}
+
+			// Persist the guest identity row so filesystem operations have a
+			// stable ownerId to attach to.
+			await client.mutation(api.filesystem.ensureUserIdentity, { guestId });
+
+			// Guests can't own projects — leave projects as [].
+		}
+
+		return { authState, currentUser, projects };
+	} catch {
+		// Fail closed: treat any backend/network error as a guest-like state.
+		return { authState, currentUser: null, projects: [] };
+	}
+}) satisfies LayoutServerLoad<RepoLayoutData>;

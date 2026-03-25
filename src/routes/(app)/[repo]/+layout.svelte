@@ -192,6 +192,7 @@
 		display: grid;
 		grid-template-rows: 1fr auto;
 
+		max-height: 100dvh;
 		height: 100%;
 		overflow: hidden;
 	}
