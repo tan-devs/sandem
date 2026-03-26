@@ -1,6 +1,6 @@
 import { createClient, type GenericCtx } from '@convex-dev/better-auth';
-import { type DataModel } from './_generated/dataModel.js';
-import { query } from './_generated/server.js';
+import { type DataModel } from '../_generated/dataModel.js';
+import { query } from '../_generated/server.js';
 export declare const authComponent: ReturnType<typeof createClient<DataModel>>;
 export declare const createAuth: (ctx: GenericCtx<DataModel>) => import("better-auth").Auth<{
     baseURL: string;

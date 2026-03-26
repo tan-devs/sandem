@@ -1,10 +1,10 @@
 import type { GenericId } from 'convex/values';
 
 // ---------------------------------------------------------------------------
-// Shared return shapes
+// Shared document shapes
 // ---------------------------------------------------------------------------
 
-type ProjectDoc = {
+export type ProjectDoc = {
 	_id: GenericId<'projects'>;
 	_creationTime: number;
 	ownerId: GenericId<'users'>;
@@ -16,7 +16,7 @@ type ProjectDoc = {
 	updatedAt: number;
 };
 
-type NodeDoc = {
+export type NodeDoc = {
 	_id: GenericId<'nodes'>;
 	_creationTime: number;
 	projectId: GenericId<'projects'>;
@@ -27,6 +27,12 @@ type NodeDoc = {
 	parentId?: GenericId<'nodes'> | undefined;
 	createdAt: number;
 	updatedAt: number;
+};
+
+/** A file entry as stored in starter-project / template seed arrays. */
+export type ProjectFile = {
+	name: string;
+	contents: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -53,6 +59,7 @@ export declare const updateProject: import('convex/server').RegisteredMutation<
 		entry?: string | undefined;
 		room?: string | undefined;
 		isPublic?: boolean | undefined;
+		files?: Array<{ name: string; contents: string }> | undefined;
 	},
 	Promise<void>
 >;

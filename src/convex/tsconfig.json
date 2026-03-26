@@ -20,6 +20,6 @@
 		"isolatedModules": true,
 		"noEmit": true
 	},
-	"include": ["./**/*", "../types/projects.d.ts", "../types/filesystem.d.ts"],
+	"include": ["./**/*.ts", "./**/*.d.ts"],
 	"exclude": ["./_generated"]
 }

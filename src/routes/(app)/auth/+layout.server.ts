@@ -1,5 +1,5 @@
 import { api } from '$convex/_generated/api.js';
-import { createAuth } from '$convex/auth.js';
+import { createAuth } from '$convex/functions/auth.js';
 import { createConvexHttpClient, getAuthState } from '$lib/sveltekit/index.js';
 import type { LayoutServerLoad } from './$types.js';
 

@@ -1,10 +1,10 @@
 import { createClient, type GenericCtx } from '@convex-dev/better-auth';
 import { convex } from '@convex-dev/better-auth/plugins';
-import { components } from './_generated/api.js';
-import { type DataModel } from './_generated/dataModel.js';
-import { query } from './_generated/server.js';
+import { components } from '../_generated/api.js';
+import { type DataModel } from '../_generated/dataModel.js';
+import { query } from '../_generated/server.js';
 import { betterAuth } from 'better-auth';
-import authConfig from './auth.config.js';
+import authConfig from '../config/auth.config.js';
 
 const siteUrl = process.env.SITE_URL!;
 

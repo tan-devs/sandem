@@ -13,8 +13,8 @@
 	"include": ["src/**/*"],
 	"exclude": [
 		"src/convex/auth.ts",
-		"src/convex/http.ts",
-		"src/convex/projects.ts",
-		"src/convex/schema.ts"
+		"src/convex/functions/http.tsns/http.ts",
+		"src/convex/functions/projects.tsrojects.ts",
+		"src/convex/functions/schema.ts"
 	]
 }

@@ -1,6 +1,6 @@
-import { mutation, query } from './_generated/server.js';
+import { mutation, query } from '../_generated/server.js';
 import { v } from 'convex/values';
-import type { Id } from './_generated/dataModel.js';
+import type { Id } from '../_generated/dataModel.js';
 import { seedStarterProjectForOwner } from './projects.js';
 
 // ---------------------------------------------------------------------------
