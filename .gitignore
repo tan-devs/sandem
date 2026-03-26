@@ -32,3 +32,9 @@ vite.config.ts.timestamp-*
 /playwright-report/
 /test-results/
 /src/convex/_generated
+# Additional common non-source artifacts
+/.vite
+/coverage
+/.cache
+.history/
+*.log
