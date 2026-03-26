@@ -20,6 +20,11 @@
 5. Runtime manager:
    - `src/lib/services/runtime/createRepoRuntimeManager.svelte.ts`
 
+## Cairo Monaco SSR fix
+
+- `createCollaboration.svelte` now uses dynamic `await import('y-monaco')` so the `monaco-editor/esm` tree (including `.css` imports) does not run during SSR.
+- `createRuntime.svelte` now guards on `typeof window === 'undefined'` and only boots collaborative models in browser.
+
 ## Practical wiring snippet
 
 ```svelte

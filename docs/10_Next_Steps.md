@@ -10,6 +10,7 @@
 - Folder rename/move and project permissions are implemented via `filesystem.renameNode` and auth guard checks
 - Continue Git integration with isomorphic-git and commit history for versioning
 - Fix current `autoSaver` test expectation mismatch (`projects:updateProject` vs `projects:updateProjectFiles` API call)
+- Address Monaco SSR crash: dynamic lazy-load for `y-monaco` with browser-only startup guard to avoid `ERR_UNKNOWN_FILE_EXTENSION .css` on `/`.
 
 ---
 
