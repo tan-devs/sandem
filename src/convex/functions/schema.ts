@@ -4,9 +4,8 @@ import { v } from 'convex/values';
 export default defineSchema({
 	/**
 	 * Users — both real and guest.
-	 * tokenIdentifier comes from your auth provider (Clerk / Auth0).
-	 * username is the human-readable handle; kept separate so it can
-	 * change without touching any other table.
+	 * tokenIdentifier comes from auth provider.
+	 * username is the human-readable handle.
 	 */
 	users: defineTable({
 		tokenIdentifier: v.string(), // Betterauth
@@ -31,7 +30,9 @@ export default defineSchema({
 		entry: v.optional(v.string()), // default open file path, e.g. "/src/index.ts"
 		createdAt: v.number(),
 		updatedAt: v.number()
-	}).index('by_owner', ['ownerId']),
+	})
+		.index('by_owner', ['ownerId'])
+		.index('by_room', ['room']),
 
 	/**
 	 * Nodes — the unified filesystem tree for a project.

@@ -48,14 +48,3 @@ export const getCurrentUser: ReturnType<typeof query> = query({
 		return authComponent.safeGetAuthUser(ctx);
 	}
 });
-
-// Public query for testing - no auth required
-export const getPublicData: ReturnType<typeof query> = query({
-	args: {},
-	handler: async () => {
-		return {
-			message: 'This is public data',
-			timestamp: Date.now()
-		};
-	}
-});

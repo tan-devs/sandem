@@ -3,3 +3,4 @@ export * from './filesystem';
 export * from './http';
 export * from './projects';
 export * from './schema';
+export * from './identity';

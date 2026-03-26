@@ -198,6 +198,15 @@ Total structure: 38 index.ts files organized as 8 parent-level consolidators →
 
 - Run `pnpm run format` before `pnpm run lint` if formatting fails in CI
 - Run `pnpm run check` to catch Svelte/TypeScript diagnostics
+
+## Backend refactor + source-of-truth pattern
+
+- Convex backend has been refactored into `src/convex/functions/*` for action/query logic and `src/convex/utils/*` for pure helpers.
+- `src/convex/functions/projects.ts`, `src/convex/functions/filesystem.ts`, `src/convex/functions/auth.ts`, and `src/convex/functions/identity.ts` are now the authoritative storage/branch of truth for project state and filesystem operations.
+- `src/convex/types/index.ts` and companion `*.d.ts` files represent the typed schema/API contract, with `filesystem.d.ts` added and `getPublicData` removed from the Auth API.
+- Client and server integration should read/write through these Convex mutations/queries; the backend view gets propagated to the frontend via generated `$convex/_generated/api` bindings.
+- Keep this section in sync as the backend evolves; new endpoints should be documented here as part of the agent checklist.
+
 - Run `pnpm run test` after non-trivial logic changes
 - For E2E on a fresh machine, run `pnpm run test:e2e:install-browsers` once first
 - E2E specs should fail fast for missing auth credentials and runtime readiness; avoid silent early returns/reload-based retries when validating benchmark reliability

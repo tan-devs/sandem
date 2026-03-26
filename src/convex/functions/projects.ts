@@ -1,8 +1,10 @@
-import { mutation, query } from '../_generated/server.js';
-import type { MutationCtx, QueryCtx } from '../_generated/server.js';
+import { mutation, query, type MutationCtx, type QueryCtx } from '../_generated/server.js';
+
 import { v } from 'convex/values';
 import type { GenericId } from 'convex/values';
 import type { ProjectDoc, NodeDoc, ProjectFile } from '../types/index.js';
+import { normalizeNodePath, getParentNodePath } from '../utils/paths.js';
+import { generateLiveblocksRoomId } from '../utils/project.js';
 import {
 	STARTER_PROJECT_ENTRY,
 	STARTER_PROJECT_FILES,
@@ -22,22 +24,6 @@ type AnyCtx = QueryCtx | MutationCtx;
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function toRoomSlug(input: string): string {
-	return (
-		input
-			.toLowerCase()
-			.replace(/\s+/g, '-')
-			.replace(/[^a-z0-9-]/g, '')
-			.slice(0, 36) || 'project'
-	);
-}
-
-function generateLiveblocksRoomId(ownerId: string, projectName: string): string {
-	const stamp = Date.now().toString(36);
-	const entropy = Math.random().toString(36).slice(2, 8);
-	return `room-${toRoomSlug(ownerId)}-${toRoomSlug(projectName)}-${stamp}-${entropy}`;
-}
 
 // ---------------------------------------------------------------------------
 // Permission guard
@@ -196,7 +182,7 @@ export const openCollab = query({
 
 		const project = await ctx.db
 			.query('projects')
-			.filter((q) => q.eq(q.field('room'), args.room))
+			.withIndex('by_room', (q) => q.eq('room', args.room))
 			.first();
 
 		if (!project) return null;
@@ -256,19 +242,6 @@ export const deleteProject = mutation({
 // ---------------------------------------------------------------------------
 
 const SYSTEM_TEMPLATE_USERNAME = 'sandem-system';
-
-function normalizeNodePath(path: string): string {
-	if (!path) return '/';
-	return path.startsWith('/') ? path : `/${path}`;
-}
-
-function getParentNodePath(path: string): string {
-	const normalized = normalizeNodePath(path);
-	if (normalized === '/' || normalized === '') return '';
-	const lastSlash = normalized.lastIndexOf('/');
-	if (lastSlash <= 0) return '';
-	return normalized.substring(0, lastSlash);
-}
 
 async function ensureSystemTemplateUser(ctx: MutationCtx) {
 	let systemUser = await ctx.db

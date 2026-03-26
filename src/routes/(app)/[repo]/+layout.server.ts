@@ -19,7 +19,7 @@ export const load = (async ({ locals, cookies }: Pick<RequestEvent, 'locals' | '
 
 		let projects = [] as ProjectDocument[];
 		let userIdentity: Awaited<
-			ReturnType<typeof client.mutation<typeof api.filesystem.ensureUserIdentity>>
+			ReturnType<typeof client.mutation<typeof api.identity.ensureUserIdentity>>
 		> | null = null;
 
 		if (currentUser) {
@@ -29,7 +29,7 @@ export const load = (async ({ locals, cookies }: Pick<RequestEvent, 'locals' | '
 
 			// Upsert the user row and get back { convexUserId, isGuest: false }.
 			// Identity is resolved server-side via ctx.auth — no guestId needed.
-			userIdentity = await client.mutation(api.filesystem.ensureUserIdentity, {});
+			userIdentity = await client.mutation(api.identity.ensureUserIdentity, {});
 
 			// Seed starter project for new users (idempotent).
 			await client.mutation(api.projects.ensureStarterProjectForOwner, {
@@ -78,7 +78,7 @@ export const load = (async ({ locals, cookies }: Pick<RequestEvent, 'locals' | '
 
 			// Upsert the guest identity row so filesystem operations have a
 			// stable ownerId. Returns { convexUserId, isGuest: true }.
-			userIdentity = await client.mutation(api.filesystem.ensureUserIdentity, { guestId });
+			userIdentity = await client.mutation(api.identity.ensureUserIdentity, { guestId });
 
 			// Guests can't own projects — leave projects as [].
 		}

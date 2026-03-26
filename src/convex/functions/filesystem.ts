@@ -1,197 +1,85 @@
 import { mutation, query } from '../_generated/server.js';
+import type { MutationCtx } from '../_generated/server.js';
 import { v } from 'convex/values';
 import type { Id } from '../_generated/dataModel.js';
-import { seedStarterProjectForOwner } from './projects.js';
+import { normalizeNodePath, getParentNodePath } from '../utils/paths.js';
+import { folderNameFromProject } from '../utils/project.js';
+import { buildWebContainerTree } from '../utils/vfs.js';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Fallback UUID for environments where crypto.randomUUID is unavailable. */
-function generateId(): string {
-	if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-		return crypto.randomUUID();
-	}
-	return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-/**
- * Build the nested object format WebContainers expects to boot:
- *   { "src": { directory: { "utils.js": { file: { contents: "..." } } } } }
- */
-function buildWebContainerTree(
-	nodes: Array<{
-		path: string;
-		type: 'file' | 'folder';
-		content?: string;
-	}>
-): Record<string, unknown> {
-	const root: Record<string, unknown> = {};
-
-	// Sort so folders are processed before their children
-	const sorted = [...nodes].sort((a, b) => a.path.localeCompare(b.path));
-
-	for (const node of sorted) {
-		// Strip leading slash, split into segments: "/src/utils.js" → ["src", "utils.js"]
-		const segments = node.path.replace(/^\//, '').split('/').filter(Boolean);
-		if (segments.length === 0) continue;
-
-		let cursor = root;
-
-		for (let i = 0; i < segments.length - 1; i++) {
-			const seg = segments[i];
-			if (!cursor[seg]) {
-				cursor[seg] = { directory: {} };
-			}
-			cursor = (cursor[seg] as { directory: Record<string, unknown> }).directory;
-		}
-
-		const leaf = segments[segments.length - 1];
-		if (node.type === 'folder') {
-			cursor[leaf] = cursor[leaf] ?? { directory: {} };
-		} else {
-			cursor[leaf] = { file: { contents: node.content ?? '' } };
-		}
-	}
-
-	return root;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers for project + node write access
-// ---------------------------------------------------------------------------
-
-function normalizeNodePath(path: string): string {
-	if (!path) return '/';
-	return path.startsWith('/') ? path : `/${path}`;
-}
-
-function getParentNodePath(path: string): string {
-	const normalized = normalizeNodePath(path);
-	if (normalized === '/' || normalized === '') return '';
-	const lastSlash = normalized.lastIndexOf('/');
-	if (lastSlash <= 0) return '';
-	return normalized.substring(0, lastSlash);
-}
-
-function folderNameFromProject(project: { name?: string; title?: string; _id: string }): string {
-	const raw = project.name || project.title || project._id;
-	const slug = String(raw)
-		.trim()
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, '-')
-		.replace(/^-+|-+$/g, '');
-	return slug || String(project._id);
-}
-
-async function findProjectByFolderName(ctx: { db: any; auth: any }, folderName: string) {
-	const projects = await ctx.db.query('projects').collect();
-	for (const project of projects) {
-		if (folderNameFromProject(project) === folderName) {
-			return project;
-		}
-	}
-	return null;
-}
+// ─── Write-access guard ───────────────────────────────────────────────────────
 
 async function assertProjectWriteAccess(
-	ctx: { db: any; auth: any },
-	project: { ownerId: string; isPublic?: boolean }
-) {
+	ctx: MutationCtx,
+	project: { _id: Id<'projects'>; ownerId: Id<'users'> }
+): Promise<void> {
 	const identity = await ctx.auth.getUserIdentity();
-	if (!identity) {
-		throw new Error('Guest users cannot modify project files.');
-	}
+	if (!identity) throw new Error('Guest users cannot modify project files.');
+
 	const user = await ctx.db
 		.query('users')
-		.withIndex('by_tokenIdentifier', (q: any) => q.eq('tokenIdentifier', identity.tokenIdentifier))
+		.withIndex('by_tokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
 		.first();
-	if (!user) {
-		throw new Error('Authenticated user not found.');
-	}
-	if (String(user._id) !== String(project.ownerId)) {
-		throw new Error('Read-only: only project owner can modify files.');
-	}
+
+	if (!user) throw new Error('Authenticated user not found.');
+	if (user._id !== project.ownerId)
+		throw new Error('Read-only: only the project owner can modify files.');
 }
 
-// ---------------------------------------------------------------------------
-// Identity
-// ---------------------------------------------------------------------------
-
-export const ensureUserIdentity = mutation({
-	args: {
-		/** Pass only for guest sessions — authenticated users are resolved via ctx.auth. */
-		guestId: v.optional(v.string())
-	},
-	handler: async (ctx, args) => {
-		const now = Date.now();
-
-		// --- Authenticated user path ---
-		const identity = await ctx.auth.getUserIdentity();
-		if (identity) {
-			const tokenIdentifier = identity.tokenIdentifier;
-
-			const existing = await ctx.db
-				.query('users')
-				.withIndex('by_tokenIdentifier', (q: any) => q.eq('tokenIdentifier', tokenIdentifier))
-				.first();
-
-			if (existing) {
-				await ctx.db.patch(existing._id, { lastSeen: now });
-				return { convexUserId: existing._id, isGuest: false };
-			}
-
-			const id = await ctx.db.insert('users', {
-				tokenIdentifier,
-				username: identity.name ?? identity.email ?? tokenIdentifier,
-				isGuest: false,
-				createdAt: now,
-				lastSeen: now
-			});
-
-			// Seed starter project immediately at account creation for authenticated users.
-			await seedStarterProjectForOwner(ctx, id);
-
-			return { convexUserId: id, isGuest: false };
-		}
-
-		// --- Guest user path ---
-		const guestToken = args.guestId?.trim() || generateId();
-
-		const existingGuest = await ctx.db
-			.query('users')
-			.withIndex('by_tokenIdentifier', (q: any) => q.eq('tokenIdentifier', guestToken))
-			.first();
-
-		if (existingGuest) {
-			await ctx.db.patch(existingGuest._id, { lastSeen: now });
-			return { convexUserId: existingGuest._id, isGuest: true };
-		}
-
-		const guestDbId = await ctx.db.insert('users', {
-			tokenIdentifier: guestToken,
-			username: `guest-${guestToken.slice(0, 6)}`,
-			isGuest: true,
-			createdAt: now,
-			lastSeen: now
-		});
-
-		return { convexUserId: guestDbId, isGuest: true };
-	}
-});
-
-// ---------------------------------------------------------------------------
-// Node CRUD  (replaces createFolder / createFile / updateFileContents)
-// ---------------------------------------------------------------------------
+// ─── Folder-path creator (shared by upsertFile) ───────────────────────────────
 
 /**
- * Create a file or folder node inside a project.
- *
- * The caller is responsible for:
- *   - passing a path that starts with "/" and is unique within the project
- *   - passing content only for files
- *   - resolving parentId (optional; used for fast UI tree rendering)
+ * Walk `parentPath` segments and ensure every ancestor folder node exists.
+ * Returns the deepest folder's node ID (used as parentId for the file node).
  */
+async function ensureFolderPath(
+	ctx: MutationCtx,
+	projectId: Id<'projects'>,
+	parentPath: string,
+	now: number
+): Promise<Id<'nodes'> | undefined> {
+	// Fast path: parent folder already exists
+	const existingParent = await ctx.db
+		.query('nodes')
+		.withIndex('by_project_path', (q) => q.eq('projectId', projectId).eq('path', parentPath))
+		.first();
+
+	if (existingParent) return existingParent._id;
+
+	// Slow path: walk the segments and create any missing folders
+	let lastId: Id<'nodes'> | undefined;
+	let accumPath = '';
+
+	for (const segment of parentPath.replace(/^\//, '').split('/')) {
+		accumPath += `/${segment}`;
+
+		let folderNode = await ctx.db
+			.query('nodes')
+			.withIndex('by_project_path', (q) => q.eq('projectId', projectId).eq('path', accumPath))
+			.first();
+
+		if (!folderNode) {
+			const insertedId = await ctx.db.insert('nodes', {
+				projectId,
+				path: accumPath,
+				name: segment,
+				type: 'folder',
+				parentId: lastId,
+				createdAt: now,
+				updatedAt: now
+			});
+			folderNode = await ctx.db.get(insertedId);
+		}
+
+		if (!folderNode) throw new Error(`Failed to create parent folder "${accumPath}".`);
+		lastId = folderNode._id;
+	}
+
+	return lastId;
+}
+
+// ─── Node CRUD ────────────────────────────────────────────────────────────────
+
+/** Create a file or folder node inside a project. Throws on duplicate path. */
 export const createNode = mutation({
 	args: {
 		projectId: v.id('projects'),
@@ -202,18 +90,15 @@ export const createNode = mutation({
 		parentId: v.optional(v.id('nodes'))
 	},
 	handler: async (ctx, args) => {
-		// Prevent duplicate paths within the same project
 		const existing = await ctx.db
 			.query('nodes')
 			.withIndex('by_project_path', (q) => q.eq('projectId', args.projectId).eq('path', args.path))
 			.first();
 
-		if (existing) {
-			throw new Error(`A node already exists at path "${args.path}" in this project.`);
-		}
+		if (existing) throw new Error(`A node already exists at "${args.path}".`);
 
 		const now = Date.now();
-		return await ctx.db.insert('nodes', {
+		return ctx.db.insert('nodes', {
 			projectId: args.projectId,
 			path: args.path,
 			name: args.name,
@@ -228,10 +113,7 @@ export const createNode = mutation({
 
 /** Update a file node's content. Throws if the node is a folder. */
 export const updateNodeContent = mutation({
-	args: {
-		id: v.id('nodes'),
-		content: v.string()
-	},
+	args: { id: v.id('nodes'), content: v.string() },
 	handler: async (ctx, args) => {
 		const node = await ctx.db.get(args.id);
 		if (!node) throw new Error('Node not found.');
@@ -242,101 +124,87 @@ export const updateNodeContent = mutation({
 	}
 });
 
+/**
+ * Upsert a file by workspace-relative path.
+ *
+ * Path format: `<project-folder>/<file-path>` e.g. `my-app-abc123/src/App.tsx`
+ *
+ * Prefer passing `projectId` when the caller already has it — this skips the
+ * folder-name lookup entirely and is significantly faster.
+ *
+ * Called by createLiveblocksEditorSync on every lazy Convex persist (3 s debounce).
+ */
 export const upsertFile = mutation({
 	args: {
 		path: v.string(),
-		content: v.string()
+		content: v.string(),
+		/** Skip the folder-name scan by passing the project ID directly. */
+		projectId: v.optional(v.id('projects'))
 	},
 	handler: async (ctx, args) => {
-		const normalized = args.path.replace(/^\/+/, '');
-		const parts = normalized.split('/').filter(Boolean);
-		if (parts.length < 2) {
-			throw new Error('Invalid upsertFile path: must include project folder and file path.');
-		}
-
-		const projectFolder = parts[0];
-		const project = await findProjectByFolderName(ctx, projectFolder);
-		if (!project) {
-			throw new Error(`Project "${projectFolder}" not found.`);
-		}
-
-		await assertProjectWriteAccess(ctx, project);
-
-		const projectRelativePath = parts.slice(1).join('/');
-		if (!projectRelativePath) {
-			throw new Error('Invalid file path after project prefix.');
-		}
-
-		const nodePath = normalizeNodePath(projectRelativePath);
 		const now = Date.now();
 
-		// Ensure folder structure exists and locate parentId for the inserted file.
-		let parentId: Id<'nodes'> | undefined;
-		const parentPath = getParentNodePath(nodePath);
-		if (parentPath) {
-			const existingParent = await ctx.db
-				.query('nodes')
-				.withIndex('by_project_path', (q: any) =>
-					q.eq('projectId', project._id).eq('path', parentPath)
-				)
-				.first();
+		// ── Resolve project ───────────────────────────────────────────────────
+		type ProjectReference = { _id: Id<'projects'>; ownerId: Id<'users'>; name?: string };
+		let project: ProjectReference | null = null;
+		let projectRelativePath: string;
 
-			if (existingParent) {
-				parentId = existingParent._id;
-			} else {
-				let accumPath = '';
-				for (const segment of parentPath.replace(/^\//, '').split('/')) {
-					accumPath += `/${segment}`;
-					let folderNode = await ctx.db
-						.query('nodes')
-						.withIndex('by_project_path', (q: any) =>
-							q.eq('projectId', project._id).eq('path', accumPath)
-						)
-						.first();
+		if (args.projectId) {
+			// Fast path: caller supplied the projectId — no scan needed.
+			const fetched = await ctx.db.get(args.projectId);
+			if (!fetched) throw new Error(`Project "${args.projectId}" not found.`);
+			project = fetched as ProjectReference;
 
-					if (!folderNode) {
-						const parentFolderPath = getParentNodePath(accumPath);
-						const parentFolder = parentFolderPath
-							? await ctx.db
-									.query('nodes')
-									.withIndex('by_project_path', (q: any) =>
-										q.eq('projectId', project._id).eq('path', parentFolderPath)
-									)
-									.first()
-							: undefined;
+			// Strip the leading folder segment if it was included in the path.
+			const normalized = args.path.replace(/^\/+/g, '');
+			const parts = normalized.split('/').filter(Boolean);
+			const expectedFolder = folderNameFromProject(project);
+			projectRelativePath = parts[0] === expectedFolder ? parts.slice(1).join('/') : normalized;
+		} else {
+			// Slow path: derive project from the folder-name prefix in the path.
+			// Avoid this in hot paths — pass projectId instead.
+			const normalized = args.path.replace(/^\/+/, '');
+			const parts = normalized.split('/').filter(Boolean);
 
-						const insertedParent = await ctx.db.insert('nodes', {
-							projectId: project._id,
-							path: accumPath,
-							name: segment,
-							type: 'folder',
-							parentId: parentFolder?._id,
-							createdAt: now,
-							updatedAt: now
-						});
-
-						folderNode = await ctx.db.get(insertedParent);
-					}
-
-					if (!folderNode) {
-						throw new Error(`Failed to create parent folder '${accumPath}'`);
-					}
-
-					parentId = folderNode._id;
-				}
+			if (parts.length < 2) {
+				throw new Error('upsertFile: path must include a project folder prefix and a file path.');
 			}
+
+			const folderName = parts[0];
+			const allProjects = await ctx.db
+				.query('projects')
+				.withIndex('by_owner', (q) => q.gte('ownerId', '' as Id<'users'>))
+				.collect();
+
+			const match = allProjects.find((p) => folderNameFromProject(p) === folderName);
+			if (!match) throw new Error(`No project found for folder "${folderName}".`);
+
+			project = match as ProjectReference;
+			projectRelativePath = parts.slice(1).join('/');
 		}
 
+		if (!projectRelativePath) throw new Error('upsertFile: empty file path after project prefix.');
+		if (!project) throw new Error('upsertFile: project resolution failed.');
+
+		// ── Auth check ────────────────────────────────────────────────────────
+		await assertProjectWriteAccess(ctx, project);
+
+		// ── Ensure ancestor folders ───────────────────────────────────────────
+		const nodePath = normalizeNodePath(projectRelativePath);
+		const parentPath = getParentNodePath(nodePath);
+		const parentId = parentPath
+			? await ensureFolderPath(ctx, project._id, parentPath, now)
+			: undefined;
+
+		// ── Upsert the file node ──────────────────────────────────────────────
 		const existingFile = await ctx.db
 			.query('nodes')
-			.withIndex('by_project_path', (q: any) => q.eq('projectId', project._id).eq('path', nodePath))
+			.withIndex('by_project_path', (q) => q.eq('projectId', project!._id).eq('path', nodePath))
 			.first();
 
 		if (existingFile) {
-			if (existingFile.type !== 'file') {
+			if (existingFile.type !== 'file')
 				throw new Error('Cannot overwrite a folder with file content.');
-			}
-
 			await ctx.db.patch(existingFile._id, { content: args.content, updatedAt: now });
 		} else {
 			await ctx.db.insert('nodes', {
@@ -355,23 +223,19 @@ export const upsertFile = mutation({
 	}
 });
 
-/** Rename a node. Also updates the path and all descendant paths. */
+/** Rename a node and cascade the path update to all descendants. */
 export const renameNode = mutation({
-	args: {
-		id: v.id('nodes'),
-		newName: v.string()
-	},
+	args: { id: v.id('nodes'), newName: v.string() },
 	handler: async (ctx, args) => {
 		const node = await ctx.db.get(args.id);
 		if (!node) throw new Error('Node not found.');
 
 		const parentPath = node.path.substring(0, node.path.lastIndexOf('/'));
 		const newPath = `${parentPath}/${args.newName}`;
+		const now = Date.now();
 
-		// Update this node
-		await ctx.db.patch(args.id, { name: args.newName, path: newPath, updatedAt: Date.now() });
+		await ctx.db.patch(args.id, { name: args.newName, path: newPath, updatedAt: now });
 
-		// If it's a folder, update all descendants' paths too
 		if (node.type === 'folder') {
 			const allNodes = await ctx.db
 				.query('nodes')
@@ -383,7 +247,7 @@ export const renameNode = mutation({
 				if (child.path.startsWith(oldPrefix)) {
 					await ctx.db.patch(child._id, {
 						path: newPath + '/' + child.path.slice(oldPrefix.length),
-						updatedAt: Date.now()
+						updatedAt: now
 					});
 				}
 			}
@@ -393,7 +257,7 @@ export const renameNode = mutation({
 	}
 });
 
-/** Delete a node. If it's a folder, also deletes all descendant nodes. */
+/** Delete a node and cascade to all descendants if it is a folder. */
 export const deleteNode = mutation({
 	args: { id: v.id('nodes') },
 	handler: async (ctx, args) => {
@@ -410,9 +274,7 @@ export const deleteNode = mutation({
 
 			const prefix = node.path + '/';
 			for (const child of allNodes) {
-				if (child.path.startsWith(prefix)) {
-					await ctx.db.delete(child._id);
-				}
+				if (child.path.startsWith(prefix)) await ctx.db.delete(child._id);
 			}
 		}
 
@@ -420,48 +282,36 @@ export const deleteNode = mutation({
 	}
 });
 
-// ---------------------------------------------------------------------------
-// Queries
-// ---------------------------------------------------------------------------
+// ─── Queries ──────────────────────────────────────────────────────────────────
 
-/** Return all nodes for a project — used to build the sidebar file tree. */
+/** All nodes for a project — used to build the sidebar file tree. */
 export const listNodes = query({
 	args: { projectId: v.id('projects') },
-	handler: async (ctx, args) => {
-		return await ctx.db
+	handler: async (ctx, args) =>
+		ctx.db
 			.query('nodes')
 			.withIndex('by_project_path', (q) => q.eq('projectId', args.projectId))
-			.collect();
-	}
+			.collect()
 });
 
-/** Return the direct children of a folder (or root-level nodes if parentId is omitted). */
+/** Direct children of a folder (root-level nodes if parentId is omitted). */
 export const listChildren = query({
 	args: {
 		projectId: v.id('projects'),
 		parentId: v.optional(v.id('nodes'))
 	},
-	handler: async (ctx, args) => {
-		return await ctx.db
+	handler: async (ctx, args) =>
+		ctx.db
 			.query('nodes')
 			.withIndex('by_parent', (q) =>
 				q.eq('projectId', args.projectId).eq('parentId', args.parentId)
 			)
-			.collect();
-	}
+			.collect()
 });
 
 /**
- * Return all nodes for a project formatted as the nested object tree
- * that WebContainers' `mount()` expects.
- *
- * Example return value:
- * {
- *   "index.js": { file: { contents: "console.log('hi')" } },
- *   "src": { directory: {
- *     "utils.js": { file: { contents: "export const x = 1" } }
- *   }}
- * }
+ * All nodes for a project formatted as the nested tree WebContainer's
+ * `mount()` expects.
  */
 export const getWebContainerTree = query({
 	args: { projectId: v.id('projects') },
@@ -478,8 +328,8 @@ export const getWebContainerTree = query({
 });
 
 /**
- * Build a root workspace tree for all projects owned by a user.
- * The caller can mount this directly at `/` in WebContainer.
+ * Root workspace tree for all projects owned by a user.
+ * Mount this directly at `/` in WebContainer to get the multi-project layout.
  */
 export const getWorkspaceTree = query({
 	args: { ownerId: v.id('users') },
@@ -495,12 +345,7 @@ export const getWorkspaceTree = query({
 			'package.json': {
 				file: {
 					contents: JSON.stringify(
-						{
-							name: 'sandem-workspace',
-							private: true,
-							version: '0.0.0',
-							workspaces: ['*']
-						},
+						{ name: 'sandem-workspace', private: true, version: '0.0.0', workspaces: ['*'] },
 						null,
 						2
 					)
@@ -514,12 +359,11 @@ export const getWorkspaceTree = query({
 				.withIndex('by_project_path', (q) => q.eq('projectId', project._id))
 				.collect();
 
-			const projectTree = buildWebContainerTree(
-				nodes.map((n) => ({ path: n.path, type: n.type, content: n.content }))
-			);
-
-			const folder = folderNameFromProject(project);
-			workspaceTree[folder] = { directory: projectTree };
+			workspaceTree[folderNameFromProject(project)] = {
+				directory: buildWebContainerTree(
+					nodes.map((n) => ({ path: n.path, type: n.type, content: n.content }))
+				)
+			};
 		}
 
 		return workspaceTree;
