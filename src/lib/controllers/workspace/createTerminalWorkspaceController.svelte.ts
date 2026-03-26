@@ -4,10 +4,10 @@ import {
 	getTerminalTabPlaceholder,
 	isTerminalPanelTab,
 	type TerminalPanelTab
-} from './createTerminalPanelController.svelte.js';
-import type { createTerminalPanelController } from './createTerminalPanelController.svelte.js';
-import type { createTerminalSessionsController } from './createTerminalSessionsController.svelte.js';
-import type { TerminalSessionMeta } from './createTerminalSessionsController.svelte.js';
+} from './createTerminalPanelController.svelte';
+import type { createTerminalPanelController } from './createTerminalPanelController.svelte';
+import type { createTerminalSessionsController } from './createTerminalSessionsController.svelte';
+import type { TerminalSessionMeta } from './createTerminalSessionsController.svelte';
 
 type RuntimeShell = {
 	isReady: boolean;

@@ -1,2 +1,2 @@
-export * from './createEditorShortcuts.svelte.js';
-export * from './createEditorPaneController.svelte.js';
+export * from './createEditorShortcuts.svelte';
+export * from './createEditorPaneController.svelte';

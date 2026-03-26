@@ -23,6 +23,7 @@
 	import ErrorPanel from '$lib/components/ui/primitives/ErrorPanel.svelte';
 
 	let { children, data }: { children: Snippet; data: RepoLayoutData } = $props();
+
 	const convexClient = useConvexClient();
 
 	createSvelteAuthClient({ authClient, getServerState: () => data.authState });
@@ -56,6 +57,7 @@
 
 	const repo = createRepoController({
 		getInitialProjects: () => data.projects,
+		getWorkspaceTree: () => data.workspaceTree ?? {},
 		isDemo: () => isDemo,
 		isGuest: () => isGuest,
 		ownerId: () => ownerId,
@@ -96,8 +98,9 @@
 	//
 	const editorSync = createLiveblocksEditorSync({
 		getWebcontainer: () => repo.getWebcontainer(),
-		persistFile: (path, content) =>
-			convexClient.mutation(api.filesystem.upsertFile as never, { path, content }),
+		persistFile: async (path, content) => {
+			await convexClient.mutation(api.filesystem.upsertFile, { path, content });
+		},
 		getWorkspaceRoot: () => {
 			const p = repo.activeProject;
 			return p ? projectFolderName(p._id, p.title) : '';
@@ -157,6 +160,8 @@
 	});
 </script>
 
+<!-- html -->
+
 <div class="container">
 	<main class="repo-layout">
 		<ActivityBar {panels} />
@@ -207,6 +212,8 @@
 
 	<Statusbar status={statusText} {isGuest} />
 </div>
+
+<!-- /html -->
 
 <style>
 	.container {

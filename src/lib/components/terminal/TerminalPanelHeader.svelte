@@ -5,7 +5,7 @@
 	import type {
 		TerminalPanelTab,
 		TerminalPanelTabItem
-	} from '$lib/controllers/workspace/createTerminalPanelController.svelte.js';
+	} from '$lib/controllers/workspace/createTerminalPanelController.svelte';
 
 	type Props = {
 		panelTabItems: TerminalPanelTabItem[];

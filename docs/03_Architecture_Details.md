@@ -6,11 +6,11 @@
 
 ## Key source files
 
-- `src/lib/controllers/workspace/createRepoController.svelte.ts`
-- `src/lib/services/runtime/createRepoRuntimeManager.svelte.ts`
+- `src/lib/controllers/RepoController.svelte.ts`
+- `src/lib/services/runtime/createRuntimeManager.svelte.ts`
 - `src/lib/services/runtime/createRepoProjectManager.svelte.ts`
 - `src/lib/utils/ide/projects.ts`
-- `src/lib/controllers/liveblocksSyncController.svelte.ts`
+- `src/lib/controllers/LiveblocksSyncController.svelte.ts`
 
 ## Data models
 

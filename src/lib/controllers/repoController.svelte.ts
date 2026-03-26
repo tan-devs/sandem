@@ -1,7 +1,8 @@
 import { untrack } from 'svelte';
 import { createError } from '$lib/sveltekit/index.js';
-import { createRepoRuntimeManager } from '$lib/services/runtime/createRepoRuntimeManager.svelte.js';
-import { createRepoProjectManager } from '$lib/services/runtime/createRepoProjectManager.svelte.js';
+import { createRuntimeManager } from '$lib/services/runtime/createRuntimeManager.svelte';
+import type { FileSystemTree } from '@webcontainer/api';
+import { createRepoProjectManager } from '$lib/services/runtime/createRepoProjectManager.svelte';
 import { VITE_REACT_TEMPLATE } from '$lib/utils/ide/template.js';
 import { areProjectsEqual, projectFolderName, uniqueProjects } from '$lib/utils/ide/projects.js';
 import type { PROJECT } from '$types/projects.js';
@@ -14,6 +15,7 @@ type ConvexLikeClient = {
 
 type Options = {
 	getInitialProjects: () => RepoLayoutData['projects'];
+	getWorkspaceTree: () => FileSystemTree;
 	isDemo: () => boolean;
 	isGuest: () => boolean;
 	ownerId: () => string;
@@ -22,11 +24,11 @@ type Options = {
 
 const DEMO_FOLDER = 'demo';
 
-export function createRepoController(options: Options) {
+export function RepoController(options: Options) {
 	const demoProject = {
 		files: VITE_REACT_TEMPLATE.files,
 		room: undefined
-	} satisfies PROJECT;
+	} as unknown as PROJECT;
 
 	// UI State
 	let projects = $state<RepoLayoutData['projects']>([]);
@@ -35,10 +37,11 @@ export function createRepoController(options: Options) {
 	let pendingDeleteProjectId = $state<string | null>(null);
 
 	// Runtime Manager
-	const runtime = createRepoRuntimeManager({
+	const runtime = createRuntimeManager({
 		isDemo: options.isDemo,
 		getProjects: () => projects,
-		getEntryPath: () => getEntryPath()
+		getEntryPath: () => getEntryPath(),
+		getWorkspaceTree: options.getWorkspaceTree
 	});
 
 	// Project Manager
@@ -60,7 +63,7 @@ export function createRepoController(options: Options) {
 		new Map<string, string>(
 			options.isDemo()
 				? []
-				: projects.map((project) => [project._id, projectFolderName(project._id, project.title)])
+				: projects.map((project) => [project._id, projectFolderName(project._id, project.name)])
 		)
 	);
 
@@ -76,7 +79,7 @@ export function createRepoController(options: Options) {
 			: runtime.ready
 				? options.isGuest()
 					? '👤 Guest session · changes are temporary'
-					: `⚡ Ready · ${activeProject?.title ?? 'Project'}`
+					: `⚡ Ready · ${activeProject?.name ?? 'Project'}`
 				: runtime.runtimePhase === 'installing'
 					? '📦 Installing project dependencies…'
 					: runtime.runtimePhase === 'mounting'
@@ -129,8 +132,8 @@ export function createRepoController(options: Options) {
 		const project = activeProject ?? projects[0];
 		if (!project) return `${DEMO_FOLDER}/${VITE_REACT_TEMPLATE.entry}`;
 
-		const folder = folderMap.get(project._id) ?? projectFolderName(project._id, project.title);
-		const entryFile = project.entry ?? project.files[0]?.name ?? VITE_REACT_TEMPLATE.entry;
+		const folder = folderMap.get(project._id) ?? projectFolderName(project._id, project.name);
+		const entryFile = project.entry ?? VITE_REACT_TEMPLATE.entry;
 		return `${folder}/${entryFile}`;
 	}
 
@@ -251,7 +254,7 @@ export function createRepoController(options: Options) {
 		// Runtime access
 		getWebcontainer: () => runtime.webcontainer,
 		getWorkspaceProjects: () =>
-			projects.map((project) => ({ id: project._id, title: project.title })),
+			projects.map((project) => ({ id: project._id, title: project.name })),
 		startRuntime: () => runtime.startRuntime(),
 		failRuntimeWithError: (Error: ReturnType<typeof createError>, error?: unknown) =>
 			runtime.failRuntimeWithError(Error, error),

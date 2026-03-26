@@ -1,6 +1,6 @@
 import type * as Monaco from 'monaco-editor';
 import { getLanguage } from '$lib/utils/ide/language.js';
-import type { IDEProject } from '$types/projects.js';
+import type { PROJECT } from '$types/projects.js';
 import type { EditorRuntimeDependencies } from '$types/hooks.js';
 
 export interface ModelBinding {
@@ -17,14 +17,15 @@ type SwapModelParams = {
 };
 
 type SeedOfflineParams = {
-	project: IDEProject;
+	project: PROJECT;
 	instance: typeof Monaco;
 	bindings: Map<string, ModelBinding>;
 	toWebPath: EditorRuntimeDependencies['toWebPath'];
 };
 
 export function createOfflineModels({ project, instance, bindings, toWebPath }: SeedOfflineParams) {
-	for (const file of project.files) {
+	const projectFiles = project.files ?? [];
+	for (const file of projectFiles) {
 		const fullPath = toWebPath(file.name);
 		const model = instance.editor.createModel(file.contents ?? '', getLanguage(fullPath));
 		bindings.set(fullPath, { model, destroy: () => model.dispose() });

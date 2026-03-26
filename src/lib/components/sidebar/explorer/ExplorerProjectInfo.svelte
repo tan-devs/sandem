@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { Accordion } from 'bits-ui';
 	import { ChevronRight } from '@lucide/svelte';
-	import type { IDEProject } from '$types/projects';
+	import type { PROJECT } from '$types/projects';
 
 	interface Props {
-		activeProject: IDEProject | null;
+		activeProject: PROJECT | null;
 		projectFolderName: string | null;
 	}
 

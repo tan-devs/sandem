@@ -17,7 +17,7 @@ vi.mock('$convex/_generated/api.js', () => ({
 	}
 }));
 
-import { createAutoSaver } from './autoSaver.svelte.js';
+import { createAutoSaver } from './autoSaver.svelte';
 
 describe('createAutoSaver', () => {
 	let consoleErrorSpy: ReturnType<typeof vi.spyOn>;

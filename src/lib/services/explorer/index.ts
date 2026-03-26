@@ -1,1 +1,1 @@
-export * from '../projectService.svelte';
+export * from './projectService.svelte';

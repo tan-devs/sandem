@@ -15,9 +15,9 @@
 ## Filesystem mount flow
 
 1. Convex projects from DB -> `repo.getWorkspaceProjects()`
-2. Each project name -> folder path via projectFolderName
-3. `createRepoRuntimeManager` mounts folder under WebContainer
-4. Editor opens files by path from repo and file-tree
+2. Each project name (`project.name`) -> slugified folder via `projectFolderName(project._id, project.name)`
+3. `createRuntimeManager` mounts folder under WebContainer
+4. `createLiveblocksEditorSync` + Explorer controls path open/selection using `/project-folder/...` path semantics
 
 ---
 

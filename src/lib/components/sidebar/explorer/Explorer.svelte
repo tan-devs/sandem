@@ -18,11 +18,11 @@
 	import { findNodeByPath } from '$lib/utils/ide/fileTreeOps.js';
 	import { filterNodesByQuery, getPathsToExpand } from '$lib/utils/ide/explorerTreeOps.js';
 	import type { FileNode } from '$types/editor';
-	import type { IDEProject } from '$types/projects';
+	import type { PROJECT } from '$types/projects';
 
 	import { createFileTree } from '$lib/controllers';
 	import { projectFilesSync } from '$lib/services';
-	import { createExplorerStateController } from '$lib/controllers/explorer/createExplorerStateController.svelte.js';
+	import { createExplorerStateController } from '$lib/controllers/explorer/createExplorerStateController.svelte';
 	import {
 		handleCreateFile,
 		handleCreateFolder,
@@ -33,7 +33,7 @@
 		handleCollapseAll,
 		handleRefreshAndExpandAll,
 		type ExplorerActionContext
-	} from '$lib/controllers/explorer/createExplorerActionHandlers.svelte.js';
+	} from '$lib/controllers/explorer/createExplorerActionHandlers.svelte';
 
 	import ExplorerContent from './ExplorerContent.svelte';
 	import ActivityPanel from '../activities/ActivityPanel.svelte';
@@ -279,7 +279,7 @@
 			projectSync,
 			editorOpenFile: editorStore.openFile,
 			getWebcontainer: ide.getWebcontainer,
-			getActiveProject: () => activeProject as IDEProject | undefined,
+			getActiveProject: () => activeProject as PROJECT | undefined,
 			tree,
 			selectedPath: explorerState.selectedPath,
 			onMessage: setActionMessage,
@@ -546,7 +546,7 @@
 		{filteredTree}
 		{treeLoading}
 		{treeError}
-		activeProject={(activeProject as IDEProject | undefined) ?? null}
+		activeProject={(activeProject as PROJECT | undefined) ?? null}
 		{actionMessage}
 		{actionError}
 		selectedPath={explorerState.selectedPath}

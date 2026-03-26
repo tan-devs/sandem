@@ -20,4 +20,5 @@ export type RepoLayoutData = {
 	authState: InitialAuthState;
 	currentUser: RouteUser | null;
 	projects: Document[];
+	workspaceTree?: Record<string, unknown>;
 };

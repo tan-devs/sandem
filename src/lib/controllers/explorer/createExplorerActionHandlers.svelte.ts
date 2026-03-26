@@ -4,7 +4,7 @@
  */
 import type { WebContainer } from '@webcontainer/api';
 import type { FileTreeController, ProjectSyncController } from '$types/hooks';
-import type { IDEProject } from '$types/projects';
+import type { PROJECT } from '$types/projects';
 import type { FileNode } from '$types/editor';
 import { projectFolderName } from '$lib/utils/ide/projects.js';
 import {
@@ -18,7 +18,7 @@ export type ExplorerActionContext = {
 	projectSync: ProjectSyncController;
 	editorOpenFile: (path: string) => void;
 	getWebcontainer: () => WebContainer;
-	getActiveProject: () => IDEProject | undefined;
+	getActiveProject: () => PROJECT | undefined;
 	tree: FileNode[];
 	selectedPath: string | null;
 	onMessage: (msg: string) => void;
@@ -223,7 +223,7 @@ export async function handleRefreshAndExpandAll(ctx: ExplorerActionContext) {
 export function normalizeToProjectPath(
 	input: string,
 	tree: FileNode[],
-	activeProject?: IDEProject
+	activeProject?: PROJECT
 ): string {
 	const value = validateProjectRelativePath(input);
 

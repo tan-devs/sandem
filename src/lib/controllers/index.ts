@@ -3,7 +3,7 @@ export * from './editor/index';
 export * from './explorer/index';
 export * from './workspace/index';
 
-export * from './liveblocksSyncController.svelte';
-export * from './fileTreeController.svelte';
-export * from './headerController.svelte';
-export * from './repoController.svelte';
+export * from './LiveblocksSyncController.svelte';
+export * from './FileTreeController.svelte';
+export * from './HeaderController.svelte';
+export * from './RepoController.svelte';

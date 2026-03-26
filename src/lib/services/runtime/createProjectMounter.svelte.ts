@@ -29,7 +29,9 @@ export function createProjectMounter(
 		const project = getProject();
 
 		try {
-			for (const file of project.files) {
+			const projectFiles =
+				(project as unknown as { files?: Array<{ name: string; contents: string }> }).files ?? [];
+			for (const file of projectFiles) {
 				await writeWcFile(wc, file.name, file.contents);
 			}
 			mounted = true;

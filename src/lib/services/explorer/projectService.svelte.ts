@@ -4,7 +4,7 @@ import { resolveProjectFileName } from '$lib/utils/ide/file-system.js';
 import type { PROJECT, Identity, Files } from '$types/projects.js';
 import type { WebContainer } from '@webcontainer/api';
 import { getLiveblocksClient } from '$lib/liveblocks.config.js';
-import { appendTerminalAudit, collaborationPermissionsStore } from '$lib/stores/collaboration';
+import { appendTerminalAudit, collaborationPermissionsStore } from '$lib/stores';
 
 type MutableProject = { files: Files[] };
 type FsEvent = Extract<Liveblocks['RoomEvent'], { type: 'fs-op' }>;
@@ -118,6 +118,7 @@ export function projectFilesSync(options: Options) {
 		const wc = options.getWebcontainer();
 		const project = resolveProject(event.path);
 		if (!project) return;
+		const projectFiles = project.files ?? [];
 
 		if (event.op === 'create') {
 			if (event.isDirectory) {
@@ -130,12 +131,13 @@ export function projectFilesSync(options: Options) {
 				}
 				await wc.fs.writeFile(event.path, content, 'utf-8');
 
-				const fileName = resolveProjectFileName(event.path, project.files);
-				const nextFiles = project.files.some((f: Files) => f.name === fileName)
-					? project.files.map((f: Files) =>
+				const projectFiles = project.files ?? [];
+				const fileName = resolveProjectFileName(event.path, projectFiles);
+				const nextFiles = projectFiles.some((f: Files) => f.name === fileName)
+					? projectFiles.map((f: Files) =>
 							f.name === fileName ? { ...f, contents: content } : { ...f }
 						)
-					: [...project.files.map((f: Files) => ({ ...f })), { name: fileName, contents: content }];
+					: [...projectFiles.map((f: Files) => ({ ...f })), { name: fileName, contents: content }];
 
 				await persistProjectFiles(nextFiles, project);
 			}
@@ -144,9 +146,10 @@ export function projectFilesSync(options: Options) {
 		if (event.op === 'rename' && event.nextPath) {
 			await wc.fs.rename(event.path, event.nextPath);
 
-			const fromName = resolveProjectFileName(event.path, project.files);
-			const toName = resolveProjectFileName(event.nextPath, project.files);
-			const nextFiles = project.files.map((file: Files) =>
+			const projectFiles = project.files ?? [];
+			const fromName = resolveProjectFileName(event.path, projectFiles);
+			const toName = resolveProjectFileName(event.nextPath, projectFiles);
+			const nextFiles = projectFiles.map((file: Files) =>
 				file.name === fromName ? { ...file, name: toName } : { ...file }
 			);
 
@@ -156,8 +159,8 @@ export function projectFilesSync(options: Options) {
 		if (event.op === 'delete') {
 			await wc.fs.rm(event.path, { recursive: true, force: true });
 
-			const deleted = resolveProjectFileName(event.path, project.files);
-			const nextFiles = project.files
+			const deleted = resolveProjectFileName(event.path, projectFiles);
+			const nextFiles = projectFiles
 				.filter((file: Files) => file.name !== deleted)
 				.map((f: Files) => ({ ...f }));
 			await persistProjectFiles(nextFiles, project);
@@ -200,8 +203,9 @@ export function projectFilesSync(options: Options) {
 		const projectId = getProjectId(project);
 		if (!convexClient || !project || !projectId) return;
 
-		const fileName = resolveProjectFileName(path, project.files);
-		const nextFiles = project.files.map((file: Files) =>
+		const projectFiles = project.files ?? [];
+		const fileName = resolveProjectFileName(path, projectFiles);
+		const nextFiles = projectFiles.map((file: Files) =>
 			file.name === fileName ? { ...file, contents } : file
 		);
 
@@ -223,7 +227,7 @@ export function projectFilesSync(options: Options) {
 		if (!project) return;
 		await upsertFile(path, contents);
 
-		const actorId = String((project as { owner?: string } | undefined)?.owner ?? 'unknown');
+		const actorId = String((project as { ownerId?: string } | undefined)?.ownerId ?? 'unknown');
 		await broadcastFsOperation(
 			{
 				type: 'fs-op',
@@ -243,7 +247,7 @@ export function projectFilesSync(options: Options) {
 		if (!canWrite()) return;
 		const project = resolveProject(path);
 		if (!project) return;
-		const actorId = String((project as { owner?: string } | undefined)?.owner ?? 'unknown');
+		const actorId = String((project as { ownerId?: string } | undefined)?.ownerId ?? 'unknown');
 		await broadcastFsOperation(
 			{
 				type: 'fs-op',
@@ -263,14 +267,15 @@ export function projectFilesSync(options: Options) {
 		const project = resolveProject(path) ?? resolveProject(nextPath);
 		if (!project) return;
 
-		const fromName = resolveProjectFileName(path, project.files);
-		const toName = resolveProjectFileName(nextPath, project.files);
-		const nextFiles = project.files.map((file: Files) =>
+		const projectFiles = project.files ?? [];
+		const fromName = resolveProjectFileName(path, projectFiles);
+		const toName = resolveProjectFileName(nextPath, projectFiles);
+		const nextFiles = projectFiles.map((file: Files) =>
 			file.name === fromName ? { ...file, name: toName } : { ...file }
 		);
 		await persistProjectFiles(nextFiles, project);
 
-		const actorId = String((project as { owner?: string } | undefined)?.owner ?? 'unknown');
+		const actorId = String((project as { ownerId?: string } | undefined)?.ownerId ?? 'unknown');
 		await broadcastFsOperation(
 			{
 				type: 'fs-op',
@@ -290,8 +295,9 @@ export function projectFilesSync(options: Options) {
 		const project = resolveProject(path);
 		if (!project) return;
 
-		const deleted = resolveProjectFileName(path, project.files);
-		const nextFiles = project.files
+		const projectFiles = project.files ?? [];
+		const deleted = resolveProjectFileName(path, projectFiles);
+		const nextFiles = projectFiles
 			.filter((file: Files) => file.name !== deleted)
 			.map((f: Files) => ({ ...f }));
 		await persistProjectFiles(nextFiles, project);

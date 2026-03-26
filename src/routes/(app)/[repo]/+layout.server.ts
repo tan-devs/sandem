@@ -31,15 +31,34 @@ export const load = (async ({ locals, cookies }: Pick<RequestEvent, 'locals' | '
 			// Identity is resolved server-side via ctx.auth — no guestId needed.
 			userIdentity = await client.mutation(api.filesystem.ensureUserIdentity, {});
 
+			// Seed starter project for new users (idempotent).
+			await client.mutation(api.projects.ensureStarterProjectForOwner, {
+				ownerId: currentUser._id
+			});
+
 			// Backfill any projects that are missing a Liveblocks room slug.
 			await client.mutation(api.projects.ensureLiveblocksRoomsForOwner, {
 				ownerId: currentUser._id
 			});
 
+			const workspaceTree =
+				(await client.query(api.filesystem.getWorkspaceTree, {
+					ownerId: currentUser._id
+				})) ?? {};
+
 			projects =
 				(await client.query(api.projects.getAllProjects, {
 					ownerId: currentUser._id
 				})) ?? [];
+
+			return {
+				authState,
+				currentUser,
+				isGuest: false,
+				userIdentity,
+				projects,
+				workspaceTree
+			};
 		} else {
 			// ----------------------------------------------------------------
 			// Guest user

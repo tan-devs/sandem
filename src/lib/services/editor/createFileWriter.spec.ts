@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createFileWriter } from './createFileWriter.svelte.js';
+import { createFileWriter } from './createFileWriter.svelte';
 
 type WriteCall = { fileName: string; content: string };
 

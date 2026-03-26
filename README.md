@@ -132,19 +132,21 @@ src/
 
 When a user opens `/repo/[projectId]`:
 
-1. **Server validates** — checks auth token and loads the project document from Convex
-2. **WebContainer boots** — starts Node.js runtime in the browser (non-blocking; spinner shows while loading)
-3. **Live query** — subscribes to the Convex project; updates stream in automatically if shared
-4. **Mount files** — transforms flat file array into a filesystem tree and mounts it into WebContainer
-5. **Provide context** — layout creates shared getters so child components (Editor, Terminal, Preview) can access the container and project
-6. **Render UI** — only after mount is done, to avoid showing broken editors
+1. **Server validates** — checks auth token and resolves the user identity; guest gets a stable guestId cookie
+2. **Project sync** — Convex query `projects.getAllProjects` + `filesystem.getWorkspaceTree` returns the full multi-project tree with folder IDs slugified via `projectFolderName`
+3. **WebContainer boots** — starts Node.js runtime in the browser (non-blocking; spinner shows while loading)
+4. **Mount files** — `createRuntimeManager` mounts the unified workspace (`workspaces: ['*']`) to `/`, including `/project-a`, `/project-b` subfolders
+5. **Select active project** — `RepoController` tracks active project, resolves entry path, and binds UI to selected project folder
+6. **Provide context** — layout connects `getWebcontainer`, `getProjectForPath`, `getEntryPath`, `getWorkspaceProjects`, and `editorSync` into Svelte context
+7. **Render UI** — children render once runtime is `ready` to avoid clobbered editor state
 
 ### File synchronization
 
-- **Convex → WebContainer:** bulk mount on startup; can remount on document updates
-- **Editor → WebContainer:** keystroke-by-keystroke via `wc.fs.writeFile()` (sub-100ms)
-- **Editor → Convex:** debounced auto-save (3s by default, as implemented in `src/lib/controllers/liveblocksSyncController.svelte.ts`); tracks pending saves per file and retries on failure
-- **Collaboration:** Liveblocks + Yjs CRDT syncs remote edits live; local changes trigger save, remote changes are preserved
+- **Convex → WebContainer:** `filesystem.getWorkspaceTree` builds root-level workspace from all projects and mounts at `/`; updates happen via `buildWebContainerTree` and `buildWorkspaceTree`
+- **Editor → WebContainer:** debounced writes (75ms default) using `wc.fs.writeFile()` through `createLiveblocksEditorSync`
+- **Editor → Convex:** debounced persistence (3000ms default) using `filesystem.upsertFile` from the same sync layer (differential and explicit flush support)
+- **Collaboration:** Liveblocks + Yjs CRDT syncs remote edits live; the editor sync layer merges intent with local buffer and provides room presence/permissions
+- **Guest protection:** `assertProjectWriteAccess` in `filesystem.ts` enforces guest read-only on non-owner projects; `ensureStarterProjectForOwner` seeds a starter code base for auth users only
 
 ### Data model
 
@@ -262,9 +264,11 @@ The Convex ↔ Explorer sync layer features:
 
 - ✓ Three production-ready controllers (ProjectSync, FileTree, ExplorerActions)
 - ✓ Two utility modules (fileTreeOps, projectFolderSync) with pure functions
-- ✓ Complete end-to-end documentation
-- ✓ WebContainer readiness retry behavior and Convex sync scaffolding
-- ⏳ Full integration of root-level explorer actions to Convex mutations in active `/repo` shell (in progress)
+- ✓ Live root workspace mounting via `getWorkspaceTree` and `buildWorkspaceTree` (multi-project paths under `/`)
+- ✓ Project rename + recursive path updates (`filesystem.renameNode`) implemented and wired in Explorer
+- ✓ Guest mode access guard (`assertProjectWriteAccess`), completed and enforced in `upsertFile`
+- ✓ Auth startup seeding (`ensureStarterProjectForOwner`) is idempotent and triggered from layout load
+- ✓ All roadmap Step 1-4 features are integrated in current implementation
 
 ---
 

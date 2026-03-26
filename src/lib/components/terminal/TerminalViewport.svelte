@@ -4,7 +4,7 @@
 		ITerminalOptions,
 		Terminal
 	} from '@battlefieldduck/xterm-svelte';
-	import type { TerminalPanelTab } from '$lib/controllers/workspace/createTerminalPanelController.svelte.js';
+	import type { TerminalPanelTab } from '$lib/controllers/workspace/createTerminalPanelController.svelte';
 	import TerminalSessionPane from './TerminalSessionPane.svelte';
 
 	type TerminalSessionView = {

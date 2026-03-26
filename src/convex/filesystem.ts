@@ -58,16 +58,66 @@ function buildWebContainerTree(
 }
 
 // ---------------------------------------------------------------------------
+// Helpers for project + node write access
+// ---------------------------------------------------------------------------
+
+function normalizeNodePath(path: string): string {
+	if (!path) return '/';
+	return path.startsWith('/') ? path : `/${path}`;
+}
+
+function getParentNodePath(path: string): string {
+	const normalized = normalizeNodePath(path);
+	if (normalized === '/' || normalized === '') return '';
+	const lastSlash = normalized.lastIndexOf('/');
+	if (lastSlash <= 0) return '';
+	return normalized.substring(0, lastSlash);
+}
+
+function folderNameFromProject(project: { name?: string; title?: string; _id: string }): string {
+	const raw = project.name || project.title || project._id;
+	const slug = String(raw)
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-+|-+$/g, '');
+	return slug || String(project._id);
+}
+
+async function findProjectByFolderName(ctx: { db: any; auth: any }, folderName: string) {
+	const projects = await ctx.db.query('projects').collect();
+	for (const project of projects) {
+		if (folderNameFromProject(project) === folderName) {
+			return project;
+		}
+	}
+	return null;
+}
+
+async function assertProjectWriteAccess(
+	ctx: { db: any; auth: any },
+	project: { ownerId: string; isPublic?: boolean }
+) {
+	const identity = await ctx.auth.getUserIdentity();
+	if (!identity) {
+		throw new Error('Guest users cannot modify project files.');
+	}
+	const user = await ctx.db
+		.query('users')
+		.withIndex('by_tokenIdentifier', (q: any) => q.eq('tokenIdentifier', identity.tokenIdentifier))
+		.first();
+	if (!user) {
+		throw new Error('Authenticated user not found.');
+	}
+	if (String(user._id) !== String(project.ownerId)) {
+		throw new Error('Read-only: only project owner can modify files.');
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Identity
 // ---------------------------------------------------------------------------
 
-/**
- * Upsert a user row and return a stable { convexUserId, isGuest } pair.
- *
- * For authenticated users, tokenIdentifier comes from Better Auth's session
- * (ctx.auth). For guests, a stable browser-generated guestId is used as the
- * tokenIdentifier with isGuest: true.
- */
 export const ensureUserIdentity = mutation({
 	args: {
 		/** Pass only for guest sessions — authenticated users are resolved via ctx.auth. */
@@ -83,7 +133,7 @@ export const ensureUserIdentity = mutation({
 
 			const existing = await ctx.db
 				.query('users')
-				.withIndex('by_tokenIdentifier', (q) => q.eq('tokenIdentifier', tokenIdentifier))
+				.withIndex('by_tokenIdentifier', (q: any) => q.eq('tokenIdentifier', tokenIdentifier))
 				.first();
 
 			if (existing) {
@@ -110,7 +160,7 @@ export const ensureUserIdentity = mutation({
 
 		const existingGuest = await ctx.db
 			.query('users')
-			.withIndex('by_tokenIdentifier', (q) => q.eq('tokenIdentifier', guestToken))
+			.withIndex('by_tokenIdentifier', (q: any) => q.eq('tokenIdentifier', guestToken))
 			.first();
 
 		if (existingGuest) {
@@ -188,6 +238,119 @@ export const updateNodeContent = mutation({
 		if (node.type !== 'file') throw new Error('Cannot set content on a folder node.');
 
 		await ctx.db.patch(args.id, { content: args.content, updatedAt: Date.now() });
+		return true;
+	}
+});
+
+export const upsertFile = mutation({
+	args: {
+		path: v.string(),
+		content: v.string()
+	},
+	handler: async (ctx, args) => {
+		const normalized = args.path.replace(/^\/+/, '');
+		const parts = normalized.split('/').filter(Boolean);
+		if (parts.length < 2) {
+			throw new Error('Invalid upsertFile path: must include project folder and file path.');
+		}
+
+		const projectFolder = parts[0];
+		const project = await findProjectByFolderName(ctx, projectFolder);
+		if (!project) {
+			throw new Error(`Project "${projectFolder}" not found.`);
+		}
+
+		await assertProjectWriteAccess(ctx, project);
+
+		const projectRelativePath = parts.slice(1).join('/');
+		if (!projectRelativePath) {
+			throw new Error('Invalid file path after project prefix.');
+		}
+
+		const nodePath = normalizeNodePath(projectRelativePath);
+		const now = Date.now();
+
+		// Ensure folder structure exists and locate parentId for the inserted file.
+		let parentId: Id<'nodes'> | undefined;
+		const parentPath = getParentNodePath(nodePath);
+		if (parentPath) {
+			const existingParent = await ctx.db
+				.query('nodes')
+				.withIndex('by_project_path', (q: any) =>
+					q.eq('projectId', project._id).eq('path', parentPath)
+				)
+				.first();
+
+			if (existingParent) {
+				parentId = existingParent._id;
+			} else {
+				let accumPath = '';
+				for (const segment of parentPath.replace(/^\//, '').split('/')) {
+					accumPath += `/${segment}`;
+					let folderNode = await ctx.db
+						.query('nodes')
+						.withIndex('by_project_path', (q: any) =>
+							q.eq('projectId', project._id).eq('path', accumPath)
+						)
+						.first();
+
+					if (!folderNode) {
+						const parentFolderPath = getParentNodePath(accumPath);
+						const parentFolder = parentFolderPath
+							? await ctx.db
+									.query('nodes')
+									.withIndex('by_project_path', (q: any) =>
+										q.eq('projectId', project._id).eq('path', parentFolderPath)
+									)
+									.first()
+							: undefined;
+
+						const insertedParent = await ctx.db.insert('nodes', {
+							projectId: project._id,
+							path: accumPath,
+							name: segment,
+							type: 'folder',
+							parentId: parentFolder?._id,
+							createdAt: now,
+							updatedAt: now
+						});
+
+						folderNode = await ctx.db.get(insertedParent);
+					}
+
+					if (!folderNode) {
+						throw new Error(`Failed to create parent folder '${accumPath}'`);
+					}
+
+					parentId = folderNode._id;
+				}
+			}
+		}
+
+		const existingFile = await ctx.db
+			.query('nodes')
+			.withIndex('by_project_path', (q: any) => q.eq('projectId', project._id).eq('path', nodePath))
+			.first();
+
+		if (existingFile) {
+			if (existingFile.type !== 'file') {
+				throw new Error('Cannot overwrite a folder with file content.');
+			}
+
+			await ctx.db.patch(existingFile._id, { content: args.content, updatedAt: now });
+		} else {
+			await ctx.db.insert('nodes', {
+				projectId: project._id,
+				path: nodePath,
+				name: nodePath.split('/').pop() ?? '',
+				type: 'file',
+				content: args.content,
+				parentId,
+				createdAt: now,
+				updatedAt: now
+			});
+		}
+
 		return true;
 	}
 });
@@ -311,5 +474,54 @@ export const getWebContainerTree = query({
 		return buildWebContainerTree(
 			nodes.map((n) => ({ path: n.path, type: n.type, content: n.content }))
 		);
+	}
+});
+
+/**
+ * Build a root workspace tree for all projects owned by a user.
+ * The caller can mount this directly at `/` in WebContainer.
+ */
+export const getWorkspaceTree = query({
+	args: { ownerId: v.id('users') },
+	handler: async (ctx, args) => {
+		if (!args.ownerId) return {};
+
+		const projects = await ctx.db
+			.query('projects')
+			.withIndex('by_owner', (q) => q.eq('ownerId', args.ownerId))
+			.collect();
+
+		const workspaceTree: Record<string, unknown> = {
+			'package.json': {
+				file: {
+					contents: JSON.stringify(
+						{
+							name: 'sandem-workspace',
+							private: true,
+							version: '0.0.0',
+							workspaces: ['*']
+						},
+						null,
+						2
+					)
+				}
+			}
+		};
+
+		for (const project of projects) {
+			const nodes = await ctx.db
+				.query('nodes')
+				.withIndex('by_project_path', (q) => q.eq('projectId', project._id))
+				.collect();
+
+			const projectTree = buildWebContainerTree(
+				nodes.map((n) => ({ path: n.path, type: n.type, content: n.content }))
+			);
+
+			const folder = folderNameFromProject(project);
+			workspaceTree[folder] = { directory: projectTree };
+		}
+
+		return workspaceTree;
 	}
 });

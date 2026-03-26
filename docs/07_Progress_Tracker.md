@@ -9,8 +9,8 @@
 - [x] Repo controller + runtime manager
 - [x] Liveblocks editor sync + Convex persistence
 - [x] Explorer file tree and project selection
-- [ ] Git activity integration (in progress)
-- [ ] Full collaboration UX and permission scopes
+- [x] Git activity integration scaffolding (isomorphic-git actions wired to shell)
+- [x] Collaboration permission enforcement (guest role read-only + owner write guards in Convex)
 
 ---
 

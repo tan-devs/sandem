@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { FileNode } from '$types/editor.js';
 import type { PROJECT } from '$types/projects.js';
 import { validateProjectRelativePath } from './explorerTreeOps.js';
-import { normalizeToProjectPath } from '$lib/controllers/explorer/createExplorerActionHandlers.svelte.js';
+import { normalizeToProjectPath } from '$lib/controllers/explorer/createExplorerActionHandlers.svelte';
 
 describe('validateProjectRelativePath', () => {
 	it('allows valid project-relative paths and normalizes backslashes', () => {

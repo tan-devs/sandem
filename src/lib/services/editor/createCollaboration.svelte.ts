@@ -5,9 +5,9 @@ import { LiveblocksYjsProvider } from '@liveblocks/yjs';
 import type * as Monaco from 'monaco-editor';
 import type { Awareness } from 'y-protocols/awareness.js';
 import { getLanguage } from '$lib/utils/ide/language.js';
-import type { IDEProject } from '$types/projects.js';
+import type { PROJECT } from '$types/projects.js';
 import type { EditorRuntimeDependencies } from '$types/hooks.js';
-import type { ModelBinding } from './createModelBindings.svelte.js';
+import type { ModelBinding } from './createModelBindings.svelte';
 import {
 	resetCollaborationStores,
 	setCollaborationPermissions,
@@ -16,7 +16,7 @@ import {
 } from '$lib/stores';
 
 type SetupCollaborationOptions = {
-	project: IDEProject;
+	project: PROJECT;
 	editor: Monaco.editor.IStandaloneCodeEditor;
 	instance: typeof Monaco;
 	bindings: Map<string, ModelBinding>;
@@ -169,7 +169,8 @@ export function createCollaboration(
 		detachProviderListener(provider, 'sync', onProviderSync as (...args: unknown[]) => void);
 	});
 
-	for (const file of options.project.files) {
+	const projectFiles = options.project.files ?? [];
+	for (const file of projectFiles) {
 		const fullPath = options.toWebPath(file.name);
 		const ytext = ydoc.getText(file.name);
 		const model = options.instance.editor.createModel('', getLanguage(fullPath));

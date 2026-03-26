@@ -1,3 +1,3 @@
-export * from './createEditorLifecycle.svelte.js';
-export * from './createRuntime.svelte.js';
-export * from './createStatus.svelte.js';
+export * from './createEditorLifecycle.svelte';
+export * from './createRuntime.svelte';
+export * from './createStatus.svelte';

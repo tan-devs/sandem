@@ -27,3 +27,95 @@ export function buildFileSystemTree(
 
 	return tree;
 }
+
+export function mergeFileSystemTrees(
+	base: FileSystemTree,
+	overlay: FileSystemTree
+): FileSystemTree {
+	for (const key of Object.keys(overlay)) {
+		if (!base[key]) {
+			base[key] = overlay[key];
+			continue;
+		}
+
+		const baseNode = base[key] as { directory?: FileSystemTree; file?: { contents: string } };
+		const overlayNode = overlay[key] as { directory?: FileSystemTree; file?: { contents: string } };
+
+		if (baseNode.directory && overlayNode.directory) {
+			mergeFileSystemTrees(baseNode.directory, overlayNode.directory);
+		} else if (overlayNode.directory) {
+			base[key] = { directory: overlayNode.directory };
+		} else if (overlayNode.file) {
+			base[key] = { file: overlayNode.file };
+		}
+	}
+
+	return base;
+}
+
+export function buildWorkspaceTree(
+	projects: Array<{
+		_id: string;
+		title?: string;
+		name?: string;
+		files?: Array<{ name: string; contents: string }>;
+	}>,
+	rootFiles: Array<{ name: string; contents: string }> = []
+): FileSystemTree {
+	const tree: FileSystemTree = {
+		'package.json': {
+			file: {
+				contents: JSON.stringify(
+					{
+						name: 'sandem-workspace',
+						private: true,
+						version: '0.0.0',
+						workspaces: ['*']
+					},
+					null,
+					2
+				)
+			}
+		}
+	};
+
+	for (const file of rootFiles) {
+		const parts = file.name
+			.replace(/^[\\/]+/, '')
+			.split('/')
+			.filter(Boolean);
+		let cursor: FileSystemTree = tree;
+
+		for (let i = 0; i < parts.length; i++) {
+			const part = parts[i];
+			const isLeaf = i === parts.length - 1;
+			if (isLeaf) {
+				cursor[part] = { file: { contents: file.contents ?? '' } };
+			} else {
+				if (!cursor[part]) cursor[part] = { directory: {} };
+				cursor = (cursor[part] as { directory: FileSystemTree }).directory;
+			}
+		}
+	}
+
+	for (const project of projects) {
+		const folderName = project.title
+			? project.title.replace(/\s+/g, '-')
+			: (project.name ?? project._id);
+		if (!tree[folderName]) {
+			tree[folderName] = { directory: {} };
+		}
+
+		const projectFiles = project.files ?? [];
+		const projectTree = buildFileSystemTree(
+			projectFiles.map((file) => ({ path: file.name, type: 'file', content: file.contents }))
+		);
+
+		mergeFileSystemTrees(
+			(tree[folderName] as { directory: FileSystemTree }).directory,
+			projectTree
+		);
+	}
+
+	return tree;
+}

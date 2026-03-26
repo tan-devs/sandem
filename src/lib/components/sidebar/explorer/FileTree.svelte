@@ -10,14 +10,15 @@
 	 * This component owns all mutations (rename, delete, new file/folder) and
 	 * passes isOwner down so the tree knows when to show write controls.
 	 */
-	import { useQuery, useMutation } from 'convex-svelte';
+	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api.js';
 	import { FileTreeNode } from '$lib/components/ui/primitives';
 	import type { FileNode } from '$types/filesystem.js';
 	import type { Id } from '$convex/_generated/dataModel.js';
 
-	export let projectId: Id<'projects'>;
+	export let projectId: Id<'projects'> | undefined = undefined;
 	export let isOwner: boolean = false;
+	export let variant: 'compact' | 'default' = 'default';
 
 	// -------------------------------------------------------------------------
 	// Convex subscriptions & mutations
@@ -25,18 +26,23 @@
 
 	// Subscribe to the full flat node list for this project.
 	// Convex reactively re-renders the tree whenever nodes change.
-	const nodesQuery = useQuery(api.filesystem.listNodes, { projectId });
-
-	const createNodeMutation = useMutation(api.filesystem.createNode);
-	const renameNodeMutation = useMutation(api.filesystem.renameNode);
-	const deleteNodeMutation = useMutation(api.filesystem.deleteNode);
+	const convexClient = useConvexClient();
+	const defaultNodesQuery = {
+		data: [] as FileNode[],
+		error: undefined,
+		isLoading: false,
+		isStale: false
+	};
+	const nodesQuery = projectId
+		? useQuery(api.filesystem.listNodes, { projectId })
+		: defaultNodesQuery;
 
 	// -------------------------------------------------------------------------
 	// Derived: split the flat list into root-level nodes + full list for children
 	// -------------------------------------------------------------------------
 
 	// Root nodes are those with no parentId — they sit directly under "/"
-	$: allNodes = ($nodesQuery ?? []) as FileNode[];
+	$: allNodes = (nodesQuery.data ?? []) as FileNode[];
 	$: rootNodes = allNodes
 		.filter((n) => !n.parentId)
 		.sort((a, b) => {
@@ -63,7 +69,7 @@
 	}
 
 	async function commitNewNode() {
-		if (!creating || !newNodeName.trim()) {
+		if (!projectId || !creating || !newNodeName.trim()) {
 			creating = null;
 			return;
 		}
@@ -74,7 +80,7 @@
 				? `/${name}`
 				: `${creating.parentPath}/${name}`;
 
-		await createNodeMutation({
+		await convexClient.mutation(api.filesystem.createNode, {
 			projectId,
 			path,
 			name,
@@ -100,11 +106,18 @@
 	// -------------------------------------------------------------------------
 
 	async function handleRename(e: CustomEvent<{ node: FileNode; newName: string }>) {
-		await renameNodeMutation({ id: e.detail.node._id as Id<'nodes'>, newName: e.detail.newName });
+		if (!projectId) return;
+		await convexClient.mutation(api.filesystem.renameNode, {
+			id: e.detail.node._id as Id<'nodes'>,
+			newName: e.detail.newName
+		});
 	}
 
 	async function handleDelete(e: CustomEvent<FileNode>) {
-		await deleteNodeMutation({ id: e.detail._id as Id<'nodes'> });
+		if (!projectId) return;
+		await convexClient.mutation(api.filesystem.deleteNode, {
+			id: e.detail._id as Id<'nodes'>
+		});
 	}
 
 	function handleNewFile(e: CustomEvent<{ parentId: string | undefined; parentPath: string }>) {
@@ -174,7 +187,7 @@
 	</header>
 
 	<!-- Loading state -->
-	{#if $nodesQuery === undefined}
+	{#if nodesQuery.data === undefined}
 		<div class="loading">
 			<span class="loading-bar" />
 			<span class="loading-bar" style="width: 60%; opacity: 0.5" />

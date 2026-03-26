@@ -1,2 +1,2 @@
-export * from './createChatPane.svelte.js';
-export * from './createPreview.svelte.js';
+export * from './createChatPane.svelte';
+export * from './createPreview.svelte';

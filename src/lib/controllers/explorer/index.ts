@@ -1,7 +1,6 @@
-export type { ExplorerActionContext } from './createExplorerActionHandlers.svelte.js';
-export * from './createExplorerActionHandlers.svelte.js';
-export * from './createExplorerActionsController.svelte.js';
-export * from './createExplorerActivity.svelte.js';
-export * from './createExplorerPanelController.svelte.js';
-export * from './createExplorerStateController.svelte.js';
-export * from './createFileTreeController.svelte.js';
+export type { ExplorerActionContext } from './createExplorerActionHandlers.svelte';
+export * from './createExplorerActionHandlers.svelte';
+export * from './createExplorerActionsController.svelte';
+export * from './createExplorerActivity.svelte';
+export * from './createExplorerPanelController.svelte';
+export * from './createExplorerStateController.svelte';

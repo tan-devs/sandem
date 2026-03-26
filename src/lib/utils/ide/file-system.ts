@@ -9,7 +9,7 @@ type ProjectFileWithContents = { name: string; contents: string };
  * Converts a flat Convex project.files array into a WebContainer FileSystemTree.
  * Handles nested paths like "src/App.jsx" by creating intermediate directories.
  */
-export function projectFilesToTree(files: Doc<'projects'>['files']): FileSystemTree {
+export function projectFilesToTree(files: ReadonlyArray<ProjectFileWithContents>): FileSystemTree {
 	const tree: FileSystemTree = {};
 
 	for (const file of files) {

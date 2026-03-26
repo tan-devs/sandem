@@ -61,7 +61,8 @@ export function createAutoSaver(getProject: () => PROJECT | undefined) {
 			if (!needsFallback) throw error;
 		}
 
-		const mergedFiles = mergeProjectFilesWithPatches(project.files, patches);
+		const projectFiles = project.files ?? [];
+		const mergedFiles = mergeProjectFilesWithPatches(projectFiles, patches);
 		await convexClient!.mutation(api.projects.updateProject, {
 			id: Identity,
 			files: mergedFiles
@@ -87,9 +88,10 @@ export function createAutoSaver(getProject: () => PROJECT | undefined) {
 		saveStatus = 'Saving...';
 		const snapshot = new Map(pendingSaves);
 		pendingSaves.clear();
+		const projectFiles = project.files ?? [];
 		const normalizedPatches = normalizeProjectFilePatches(
 			Array.from(snapshot.entries()).map(([name, contents]) => ({ name, contents })),
-			project.files
+			projectFiles
 		);
 
 		if (normalizedPatches.length === 0) {
@@ -130,9 +132,10 @@ export function createAutoSaver(getProject: () => PROJECT | undefined) {
 			return;
 		}
 
+		const projectFiles = project.files ?? [];
 		queuePendingSaves(
 			changes.map((change) => ({
-				fileName: resolveProjectFileName(change.fileName, project.files),
+				fileName: resolveProjectFileName(change.fileName, projectFiles),
 				content: change.content
 			}))
 		);
@@ -146,7 +149,8 @@ export function createAutoSaver(getProject: () => PROJECT | undefined) {
 	async function forceSave(fileName: string, content: string) {
 		const project = getProject();
 		if (project) {
-			queuePendingSave(resolveProjectFileName(fileName, project.files), content);
+			const projectFiles = project.files ?? [];
+			queuePendingSave(resolveProjectFileName(fileName, projectFiles), content);
 		} else {
 			queuePendingSave(fileName, content);
 		}

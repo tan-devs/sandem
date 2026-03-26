@@ -7,7 +7,7 @@
 ## createRepoController usage
 
 ```ts
-import { createRepoController } from '$lib/controllers/workspace/repoController.svelte.ts';
+import { createRepoController } from '$lib/controllers';
 
 const repo = createRepoController({
 	getInitialProjects: () => data.projects,

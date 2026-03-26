@@ -1,7 +1,8 @@
 // src/lib/context/ide/ide-context.ts
 import { setContext, getContext } from 'svelte';
 import type { WebContainer } from '@webcontainer/api';
-import type { IDEProject } from '$types/projects.js';
+import type { PROJECT } from '$types/projects.js';
+import type { EditorSync } from '$lib/controllers/LiveblocksSyncController.svelte';
 
 const IDE_CONTEXT_KEY = Symbol('IDE');
 
@@ -9,10 +10,12 @@ export interface IDEContext {
 	getWebcontainer: () => WebContainer;
 	// path is the full WC path e.g. "my-project/src/App.jsx".
 	// When omitted (e.g. before any tab is open) returns the default/first project.
-	getProject: (path?: string) => IDEProject;
+	getProject: (path?: string) => PROJECT;
 	// Returns the full WC path of the file that should be opened on first load,
 	// e.g. "demo/App.jsx" or "my-project/src/App.jsx".
 	getEntryPath: () => string;
+	// Optional external editor sync controller interface (e.g. Liveblocks).
+	editorSync?: EditorSync;
 	// Optional workspace project controls (used by Explorer in /repo).
 	getWorkspaceProjects?: () => Array<{ id: string; title: string }>;
 	getActiveProjectId?: () => string | null;

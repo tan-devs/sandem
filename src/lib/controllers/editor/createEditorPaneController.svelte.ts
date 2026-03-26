@@ -1,7 +1,7 @@
 import type { IDEContext } from '$lib/context/ide/ide-context.js';
 import { createEditorStatus, createEditorRuntime, createEditorLifecycle } from '$lib/hooks';
 import { createAutoSaver, createFileWriter } from '$lib/services';
-import { createEditorShortcuts } from '$lib/controllers/editor/createEditorShortcuts.svelte.js';
+import { createEditorShortcuts } from '$lib/controllers/editor/createEditorShortcuts.svelte';
 import {
 	getRootFolder,
 	resolveProjectFileName,
@@ -13,7 +13,7 @@ import {
 	deriveEditorTabItems,
 	shouldShowEmptyEditorState
 } from '$lib/utils';
-import type { IDEPanels } from '$lib/stores/panelStore.svelte.js';
+import type { IDEPanels } from '$lib/stores/panelStore.svelte';
 
 type CreateEditorPaneControllerOptions = {
 	ide: IDEContext;
@@ -93,7 +93,8 @@ export function createEditorPaneController(options: CreateEditorPaneControllerOp
 	let shutdownPromise: Promise<void> | null = null;
 
 	function toProjectFile(path: string): string {
-		return resolveProjectFileName(path, project.files);
+		const projectFiles = project?.files ?? [];
+		return resolveProjectFileName(path, projectFiles);
 	}
 
 	function toWebPath(projectFileName: string): string {

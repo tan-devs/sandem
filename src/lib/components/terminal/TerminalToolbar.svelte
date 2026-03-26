@@ -10,8 +10,8 @@
 		ArrowRight
 	} from '@lucide/svelte';
 	import Button from '$lib/components/ui/primitives/Button.svelte';
-	import type { TerminalPanelTab } from '$lib/controllers/workspace/createTerminalPanelController.svelte.js';
-	import type { TerminalSessionMeta } from '$lib/controllers/workspace/createTerminalSessionsController.svelte.js';
+	import type { TerminalPanelTab } from '$lib/controllers/workspace/createTerminalPanelController.svelte';
+	import type { TerminalSessionMeta } from '$lib/controllers/workspace/createTerminalSessionsController.svelte';
 
 	type Props = {
 		activeTab: TerminalPanelTab;

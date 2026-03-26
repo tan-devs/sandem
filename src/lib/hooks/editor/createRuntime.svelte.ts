@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 import type * as Monaco from 'monaco-editor';
-import type { IDEProject } from '$types/projects.js';
+import type { PROJECT } from '$types/projects.js';
 import type { EditorRuntimeDependencies } from '$types/hooks.js';
 import {
 	createCollaboration,
@@ -69,10 +69,11 @@ export function createEditorRuntime(deps: EditorRuntimeDependencies) {
 
 	function seedProjectFromConvex() {
 		if (!ydoc) return;
-		const project: IDEProject = deps.getProject();
+		const project: PROJECT = deps.getProject();
+		const projectFiles = project.files ?? [];
 
 		ydoc.transact(() => {
-			for (const file of project.files) {
+			for (const file of projectFiles) {
 				if (seeds.has(file.name)) continue;
 				const ytext = ydoc!.getText(file.name);
 				if (ytext.length === 0 && file.contents) {
@@ -85,7 +86,7 @@ export function createEditorRuntime(deps: EditorRuntimeDependencies) {
 
 	function setupOfflineModels() {
 		if (!instance || !editor) return;
-		const project: IDEProject = deps.getProject();
+		const project: PROJECT = deps.getProject();
 
 		createOfflineModels({ project, instance, bindings, toWebPath: deps.toWebPath });
 
@@ -117,20 +118,22 @@ export function createEditorRuntime(deps: EditorRuntimeDependencies) {
 	function seedPersistSignatures(nextYDoc: Y.Doc) {
 		lastPersistedByFile.clear();
 		const project = deps.getProject();
-		for (const file of project.files) {
+		const projectFiles = project.files ?? [];
+		for (const file of projectFiles) {
 			lastPersistedByFile.set(file.name, nextYDoc.getText(file.name).toString());
 		}
 	}
 
 	function persistChangedYDocFiles(nextYDoc: Y.Doc) {
 		const project = deps.getProject();
+		const projectFiles = project.files ?? [];
 		let changedFiles = 0;
 		const payloads: Array<{
 			activePath: string;
 			projectFileName: string;
 			content: string;
 		}> = [];
-		for (const file of project.files) {
+		for (const file of projectFiles) {
 			const fileName = file.name;
 			const content = nextYDoc.getText(fileName).toString();
 			const previous = lastPersistedByFile.get(fileName);
@@ -148,7 +151,7 @@ export function createEditorRuntime(deps: EditorRuntimeDependencies) {
 		return {
 			payloads,
 			changedFiles,
-			totalFiles: project.files.length
+			totalFiles: projectFiles.length
 		};
 	}
 

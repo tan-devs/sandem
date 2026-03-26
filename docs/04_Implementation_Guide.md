@@ -14,7 +14,7 @@
    - `routes/(app)/[repo]/+layout.server.ts` (currentUser, ensureLiveblocksRoomsForOwner)
    - `src/convex/filesystem.ts` (ensureUserIdentity + seedStarterProjectForOwner on auth user create)
 3. Repo controller:
-   - `createRepoController` in `src/lib/controllers/workspace/repoController.svelte.ts`
+   - `createRepoController` in `src/lib/controllers/RepoController.svelte.ts`
 4. File tree in explorer:
    - previously `createFileTreeController`, now use project+file operations in `src/lib/utils/ide/fileTreeOps.ts`
 5. Runtime manager:

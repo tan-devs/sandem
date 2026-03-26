@@ -44,14 +44,14 @@ export async function POST({ locals, request }: RequestEvent): Promise<Response>
 
 		if (room) {
 			try {
-				project = await convex.query(api.projects.openCollab, { room, owner: user._id });
+				project = await convex.query(api.projects.openCollab, { room });
 			} catch (error) {
 				console.error('Failed to fetch project for room:', room, error);
 				return new Response('Failed to authorize room', { status: 500 });
 			}
 
 			if (project) {
-				isOwner = project.owner === user._id;
+				isOwner = project.ownerId === user._id;
 				role = isOwner ? 'owner' : 'viewer';
 			}
 		}

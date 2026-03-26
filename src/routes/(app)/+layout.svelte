@@ -6,6 +6,7 @@
 
 <div class="container">
 	<AppHeader />
+
 	{@render children()}
 </div>
 

@@ -1,5 +1,6 @@
 import { mutation, query } from './_generated/server.js';
 import { v } from 'convex/values';
+import type { PROJECT_DOC, PROJECT_ID, FILE } from '$types/projects.js';
 import {
 	STARTER_PROJECT_ENTRY,
 	STARTER_PROJECT_FILES,
@@ -40,10 +41,10 @@ function generateLiveblocksRoomId(ownerId: string, projectName: string): string 
 
 async function assertProjectAccess(
 	ctx: { db: any; auth: any },
-	projectId: string,
+	projectId: PROJECT_ID,
 	level: 'read' | 'write'
-) {
-	const project = await ctx.db.get(projectId);
+): Promise<{ project: PROJECT_DOC; owner: { tokenIdentifier?: string }; isOwner: boolean }> {
+	const project = (await ctx.db.get(projectId)) as PROJECT_DOC | null;
 	if (!project) throw new Error('Project not found.');
 
 	// Resolve the caller's tokenIdentifier if they're authenticated
@@ -136,6 +137,25 @@ export const getProject = query({
  *   4. If private and not owner → throw before any file data is sent.
  *   5. If public or owner → collect nodes and return.
  */
+async function findUserByUsername(ctx: { db: any; auth: any }, username: string) {
+	return await ctx.db
+		.query('users')
+		.withIndex('by_username', (q: any) => q.eq('username', username))
+		.unique();
+}
+
+async function findProjectByOwnerAndName(
+	ctx: { db: any; auth: any },
+	ownerId: string,
+	projectName: string
+) {
+	return await ctx.db
+		.query('projects')
+		.withIndex('by_owner', (q: any) => q.eq('ownerId', ownerId))
+		.filter((q: any) => q.eq(q.field('name'), projectName))
+		.first();
+}
+
 export const getProjectFiles = query({
 	args: {
 		username: v.string(), // e.g. "prajwal"
@@ -143,39 +163,25 @@ export const getProjectFiles = query({
 	},
 	handler: async (ctx, args) => {
 		// Step 1: resolve the owner by username
-		const user = await ctx.db
-			.query('users')
-			.withIndex('by_username', (q: any) => q.eq('username', args.username))
-			.unique();
-
+		const user = await findUserByUsername(ctx, args.username);
 		if (!user) throw new Error(`User "${args.username}" not found.`);
 
-		// Step 2: find the project under that owner
-		const project = await ctx.db
-			.query('projects')
-			.withIndex('by_owner', (q: any) => q.eq('ownerId', user._id))
-			.filter((q: any) => q.eq(q.field('name'), args.projectName))
-			.first();
-
+		// Step 2: resolve project by name under owner
+		const project = await findProjectByOwnerAndName(ctx, user._id, args.projectName);
 		if (!project) throw new Error(`Project "${args.projectName}" not found.`);
 
-		// Step 3: resolve caller identity
-		const identity = await ctx.auth.getUserIdentity();
-		const isOwner = identity !== null && identity.tokenIdentifier === user.tokenIdentifier;
+		// Step 3: enforce owner/public access with shared helper
+		const { project: guardedProject, isOwner } = await assertProjectAccess(
+			ctx,
+			project._id,
+			'read'
+		);
 
-		// Step 4: gate private projects
-		if (!project.isPublic && !isOwner) {
-			throw new Error('Private project: you do not have access.');
-		}
-
-		// Step 5: return project metadata + all file/folder nodes
-		const nodes = await ctx.db
-			.query('nodes')
-			.withIndex('by_project_path', (q: any) => q.eq('projectId', project._id))
-			.collect();
+		// Step 4: collect tree nodes for the project
+		const nodes = await getNodesForProject(ctx, project._id);
 
 		return {
-			project,
+			project: guardedProject,
 			nodes,
 			// Let the UI know so it can disable the Save button for guests
 			isOwner
@@ -214,7 +220,8 @@ export const updateProject = mutation({
 		name: v.optional(v.string()),
 		entry: v.optional(v.string()),
 		room: v.optional(v.string()),
-		isPublic: v.optional(v.boolean())
+		isPublic: v.optional(v.boolean()),
+		files: v.optional(v.array(v.object({ name: v.string(), contents: v.string() })))
 	},
 	handler: async (ctx, args) => {
 		await assertProjectAccess(ctx, args.id, 'write');
@@ -251,6 +258,164 @@ export const deleteProject = mutation({
 // Seeding & backfill
 // ---------------------------------------------------------------------------
 
+const SYSTEM_TEMPLATE_USERNAME = 'sandem-system';
+
+/**
+ * Normalize a path to an absolute node path: '/src/App.jsx'.
+ */
+function normalizeNodePath(path: string): string {
+	if (!path) return '/';
+	return path.startsWith('/') ? path : `/${path}`;
+}
+
+/**
+ * Get the parent path, e.g. '/src/App.jsx' -> '/src'. Root-level files return ''.
+ */
+function getParentNodePath(path: string): string {
+	const normalized = normalizeNodePath(path);
+	if (normalized === '/' || normalized === '') return '';
+	const lastSlash = normalized.lastIndexOf('/');
+	if (lastSlash <= 0) return '';
+	return normalized.substring(0, lastSlash);
+}
+
+async function ensureSystemTemplateUser(ctx: { db: any; auth: any }) {
+	let systemUser = await ctx.db
+		.query('users')
+		.withIndex('by_username', (q: any) => q.eq('username', SYSTEM_TEMPLATE_USERNAME))
+		.unique();
+
+	if (!systemUser) {
+		const now = Date.now();
+		const systemUserId = await ctx.db.insert('users', {
+			tokenIdentifier: SYSTEM_TEMPLATE_USERNAME,
+			username: SYSTEM_TEMPLATE_USERNAME,
+			isGuest: false,
+			createdAt: now,
+			lastSeen: now
+		});
+
+		systemUser = await ctx.db.get(systemUserId);
+	}
+
+	return systemUser;
+}
+
+async function getNodesForProject(ctx: { db: any; auth: any }, projectId: string) {
+	return await ctx.db
+		.query('nodes')
+		.withIndex('by_project_path', (q: any) => q.eq('projectId', projectId))
+		.collect();
+}
+
+/**
+ * Insert a full file/folder tree into a project, with computed parentId links.
+ */
+async function insertProjectNodes(
+	ctx: { db: any; auth: any },
+	projectId: string,
+	nodes: Array<{ path: string; type: 'file' | 'folder'; content?: string; file?: FILE }>
+) {
+	const now = Date.now();
+	const normalizedNodes = new Map<
+		string,
+		{ path: string; type: 'file' | 'folder'; content?: string }
+	>();
+
+	for (const node of nodes) {
+		const path = normalizeNodePath(node.path);
+		normalizedNodes.set(path, { path, type: node.type, content: node.content });
+
+		// Ensure all folder ancestors exist in the map (for tree consistency)
+		if (node.type === 'file' || node.type === 'folder') {
+			const parts = path.replace(/^\//, '').split('/').filter(Boolean);
+			let prefix = '';
+			for (let i = 0; i < parts.length - 1; i++) {
+				prefix += `/${parts[i]}`;
+				if (!normalizedNodes.has(prefix)) {
+					normalizedNodes.set(prefix, { path: prefix, type: 'folder' });
+				}
+			}
+		}
+	}
+
+	// Sort by path depth (folders before deeper files) so parent nodes exist first.
+	const sortedPaths = Array.from(normalizedNodes.keys()).sort((a, b) => {
+		const aDepth = a.split('/').filter(Boolean).length;
+		const bDepth = b.split('/').filter(Boolean).length;
+		if (aDepth !== bDepth) return aDepth - bDepth;
+		const aType = normalizedNodes.get(a)?.type === 'folder' ? 0 : 1;
+		const bType = normalizedNodes.get(b)?.type === 'folder' ? 0 : 1;
+		if (aType !== bType) return aType - bType;
+		return a.localeCompare(b);
+	});
+
+	const pathToNodeId = new Map<string, string>();
+
+	for (const path of sortedPaths) {
+		const node = normalizedNodes.get(path);
+		if (!node) continue;
+
+		const parentPath = getParentNodePath(path);
+		const parentId = parentPath ? pathToNodeId.get(parentPath) : undefined;
+		const name = path.split('/').pop() ?? '';
+
+		const insertedNode = await ctx.db.insert('nodes', {
+			projectId,
+			path,
+			name,
+			type: node.type,
+			content: node.type === 'file' ? (node.content ?? '') : undefined,
+			parentId,
+			createdAt: now,
+			updatedAt: now
+		});
+
+		pathToNodeId.set(path, insertedNode._id);
+	}
+}
+
+async function ensureSystemTemplateProject(ctx: { db: any; auth: any }) {
+	const systemUser = await ensureSystemTemplateUser(ctx);
+	if (!systemUser) throw new Error('Failed to create system template user.');
+
+	const existingTemplateProject = await ctx.db
+		.query('projects')
+		.withIndex('by_owner', (q: any) => q.eq('ownerId', systemUser._id))
+		.filter((q: any) => q.eq(q.field('name'), STARTER_PROJECT_TITLE))
+		.first();
+
+	if (existingTemplateProject) {
+		return existingTemplateProject;
+	}
+
+	const now = Date.now();
+	const projectId = await ctx.db.insert('projects', {
+		ownerId: systemUser._id,
+		name: STARTER_PROJECT_TITLE,
+		isPublic: true,
+		room: generateLiveblocksRoomId(systemUser._id, STARTER_PROJECT_TITLE),
+		entry: STARTER_PROJECT_ENTRY,
+		createdAt: now,
+		updatedAt: now
+	});
+
+	await insertProjectNodes(
+		ctx,
+		projectId,
+		STARTER_PROJECT_FILES.map((file: { name: string; contents: string }) => ({
+			path: normalizeNodePath(file.name),
+			type: 'file',
+			content: file.contents
+		}))
+	);
+
+	const createdProject = await ctx.db.get(projectId);
+	if (!createdProject) throw new Error('Failed to create system template project.');
+
+	return createdProject;
+}
+
 /**
  * Seed a starter project for a brand-new user.
  * Uses projectSeedState to guarantee exactly-once behaviour.
@@ -282,6 +447,8 @@ export async function seedStarterProjectForOwner(
 	let projectId: string | null = null;
 
 	if (!existing) {
+		const systemTemplateProject = await ensureSystemTemplateProject(ctx);
+
 		projectId = await ctx.db.insert('projects', {
 			ownerId,
 			name: STARTER_PROJECT_TITLE,
@@ -292,18 +459,32 @@ export async function seedStarterProjectForOwner(
 			updatedAt: now
 		});
 
-		// Seed starter files as nodes
-		for (const file of STARTER_PROJECT_FILES as Array<{ name: string; contents: string }>) {
-			const path = file.name.startsWith('/') ? file.name : `/${file.name}`;
-			await ctx.db.insert('nodes', {
+		if (!projectId) {
+			throw new Error('Failed to create starter project for owner.');
+		}
+
+		const templateNodes = await getNodesForProject(ctx, systemTemplateProject._id);
+
+		if (templateNodes && templateNodes.length > 0) {
+			await insertProjectNodes(
+				ctx,
 				projectId,
-				path,
-				name: file.name.split('/').pop() ?? file.name,
-				type: 'file',
-				content: file.contents,
-				createdAt: now,
-				updatedAt: now
-			});
+				templateNodes.map((node: { path: string; type: 'file' | 'folder'; content?: string }) => ({
+					path: node.path,
+					type: node.type,
+					content: node.content
+				}))
+			);
+		} else {
+			await insertProjectNodes(
+				ctx,
+				projectId,
+				STARTER_PROJECT_FILES.map((file: { name: string; contents: string }) => ({
+					path: file.name,
+					type: 'file',
+					content: file.contents
+				}))
+			);
 		}
 	}
 
@@ -340,7 +521,7 @@ export const ensureLiveblocksRoomsForOwner = mutation({
 
 		const projects = await ctx.db
 			.query('projects')
-			.withIndex('by_owner', (q: any) => q.eq('ownerId', args.ownerId))
+			.withIndex('by_owner', (q) => q.eq('ownerId', args.ownerId))
 			.collect();
 
 		let patched = 0;
