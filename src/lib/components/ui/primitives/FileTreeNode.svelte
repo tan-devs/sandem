@@ -117,7 +117,7 @@
 </script>
 
 <!-- Click-away to close context menu -->
-<svelte:window on:click={closeContextMenu} />
+<svelte:window onclick={closeContextMenu} />
 
 <li
 	class="tree-node"
@@ -131,7 +131,7 @@
 	<!-- Node row -->
 	<button
 		class="node-row"
-		on:click={handleClick}
+		onclick={handleClick}
 		on:contextmenu={handleContextMenu}
 		tabindex="0"
 		aria-expanded={isFolder ? open : undefined}
@@ -182,7 +182,7 @@
 				class="rename-input"
 				on:blur={commitRename}
 				on:keydown={handleRenameKey}
-				on:click|stopPropagation
+				onclick|stopPropagation
 			/>
 		{:else}
 			<span class="node-name">{node.name}</span>
@@ -193,13 +193,13 @@
 	{#if contextMenuVisible && isOwner}
 		<menu class="context-menu" style="top: {contextMenuY}px; left: {contextMenuX}px" role="menu">
 			{#if isFolder}
-				<li role="menuitem"><button on:click={handleNewFile}>New File</button></li>
-				<li role="menuitem"><button on:click={handleNewFolder}>New Folder</button></li>
+				<li role="menuitem"><button onclick={handleNewFile}>New File</button></li>
+				<li role="menuitem"><button onclick={handleNewFolder}>New Folder</button></li>
 				<li class="divider" role="separator" />
 			{/if}
-			<li role="menuitem"><button on:click={startRename}>Rename</button></li>
+			<li role="menuitem"><button onclick={startRename}>Rename</button></li>
 			<li role="menuitem" class="danger">
-				<button on:click={handleDelete}>Delete</button>
+				<button onclick={handleDelete}>Delete</button>
 			</li>
 		</menu>
 	{/if}

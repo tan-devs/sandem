@@ -187,12 +187,12 @@ export function createEditorRuntime(deps: EditorRuntimeDependencies) {
 		}, 900);
 	}
 
-	function setupCollaborativeModels() {
+	async function setupCollaborativeModels() {
 		if (!instance || !editor) return;
 		const project = deps.getProject();
 		if (!project.room) return;
 
-		session = createCollaboration({
+		session = await createCollaboration({
 			project,
 			editor,
 			instance,
@@ -233,7 +233,7 @@ export function createEditorRuntime(deps: EditorRuntimeDependencies) {
 			return;
 		}
 
-		setupCollaborativeModels();
+		await setupCollaborativeModels();
 	}
 
 	function cleanup() {

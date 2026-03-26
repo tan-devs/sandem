@@ -45,7 +45,8 @@
 			compact
 		>
 			{#snippet actions()}
-				<Button size="sm" variant="ghost" onclick={() => onRetry(sessionId)}>Retry terminal</Button>
+				<Button size="sm" variant="ghost" onclick={() => onRetry(sessionId)}>Retry terminal</Button
+				>
 			{/snippet}
 		</ErrorPanel>
 	{:else if !canExecute}

@@ -1,6 +1,5 @@
 import { getLiveblocksClient } from '$lib/liveblocks.config.js';
 import * as Y from 'yjs';
-import { MonacoBinding } from 'y-monaco';
 import { LiveblocksYjsProvider } from '@liveblocks/yjs';
 import type * as Monaco from 'monaco-editor';
 import type { Awareness } from 'y-protocols/awareness.js';
@@ -65,13 +64,14 @@ function toProjectPath(model: Monaco.editor.ITextModel | null | undefined) {
 	return path.replace(/^\/+/, '');
 }
 
-export function createCollaboration(
+export async function createCollaboration(
 	options: SetupCollaborationOptions
-): CollaborationSession | null {
-	if (!options.project.room) {
+): Promise<CollaborationSession | null> {
+	if (!options.project.room || typeof window === 'undefined') {
 		return null;
 	}
 
+	const { MonacoBinding } = await import('y-monaco');
 	const client = getLiveblocksClient();
 	const { room, leave } = client.enterRoom(options.project.room, {
 		initialPresence: { cursor: null, selection: null }

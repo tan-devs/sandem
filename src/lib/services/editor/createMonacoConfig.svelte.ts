@@ -1,5 +1,13 @@
-import loader from '@monaco-editor/loader';
 import type * as Monaco from 'monaco-editor';
+
+async function getMonacoLoader() {
+	if (typeof window === 'undefined') {
+		throw new Error('Monaco editor cannot be initialized during SSR');
+	}
+
+	const module = await import('@monaco-editor/loader');
+	return module.default;
+}
 
 function toUrlPath(basePath: string, suffix: string) {
 	const normalizedBase = basePath.endsWith('/') ? basePath : `${basePath}/`;
@@ -13,12 +21,10 @@ function getMonacoVsCandidates() {
 }
 
 async function initMonacoWithVsPath(vsPath: string) {
-	(loader as unknown as { config: (cfg: object) => void }).config({
-		paths: { vs: vsPath }
-	});
+	const loader = await getMonacoLoader();
+	loader.config({ paths: { vs: vsPath } });
 
-	const rawLoader = loader as unknown as { init: () => Promise<typeof Monaco> };
-	return rawLoader.init();
+	return loader.init();
 }
 
 export const MONACO_OPTIONS: Monaco.editor.IStandaloneEditorConstructionOptions = {

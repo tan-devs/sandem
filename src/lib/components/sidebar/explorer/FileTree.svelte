@@ -138,7 +138,7 @@
 				<button
 					class="icon-btn"
 					title="New File"
-					on:click={() => openCreator(undefined, '/', 'file')}
+					onclick={() => openCreator(undefined, '/', 'file')}
 					aria-label="New file at root"
 				>
 					<!-- File+ icon -->
@@ -164,7 +164,7 @@
 				<button
 					class="icon-btn"
 					title="New Folder"
-					on:click={() => openCreator(undefined, '/', 'folder')}
+					onclick={() => openCreator(undefined, '/', 'folder')}
 					aria-label="New folder at root"
 				>
 					<!-- Folder+ icon -->
@@ -199,7 +199,7 @@
 		<div class="empty">
 			<p>No files yet.</p>
 			{#if isOwner}
-				<button class="empty-cta" on:click={() => openCreator(undefined, '/', 'file')}>
+				<button class="empty-cta" onclick={() => openCreator(undefined, '/', 'file')}>
 					Create a file
 				</button>
 			{/if}
