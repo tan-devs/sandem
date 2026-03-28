@@ -25,7 +25,7 @@ async function assertProjectWriteAccess(
 		throw new Error('Read-only: only the project owner can modify files.');
 }
 
-// ─── Folder-path creator (shared by upsertFile) ───────────────────────────────
+// ─── Folder-path creator ──────────────────────────────────────────────────────
 
 /**
  * Walk `parentPath` segments and ensure every ancestor folder node exists.
@@ -37,7 +37,7 @@ async function ensureFolderPath(
 	parentPath: string,
 	now: number
 ): Promise<Id<'nodes'> | undefined> {
-	// Fast path: parent folder already exists
+	// Fast path: parent folder already exists.
 	const existingParent = await ctx.db
 		.query('nodes')
 		.withIndex('by_project_path', (q) => q.eq('projectId', projectId).eq('path', parentPath))
@@ -45,7 +45,7 @@ async function ensureFolderPath(
 
 	if (existingParent) return existingParent._id;
 
-	// Slow path: walk the segments and create any missing folders
+	// Slow path: walk the segments and create any missing folders.
 	let lastId: Id<'nodes'> | undefined;
 	let accumPath = '';
 
@@ -90,6 +90,10 @@ export const createNode = mutation({
 		parentId: v.optional(v.id('nodes'))
 	},
 	handler: async (ctx, args) => {
+		const project = await ctx.db.get(args.projectId);
+		if (!project) throw new Error('Project not found.');
+		await assertProjectWriteAccess(ctx, project);
+
 		const existing = await ctx.db
 			.query('nodes')
 			.withIndex('by_project_path', (q) => q.eq('projectId', args.projectId).eq('path', args.path))
@@ -119,87 +123,58 @@ export const updateNodeContent = mutation({
 		if (!node) throw new Error('Node not found.');
 		if (node.type !== 'file') throw new Error('Cannot set content on a folder node.');
 
+		const project = await ctx.db.get(node.projectId);
+		if (!project) throw new Error('Project not found.');
+		await assertProjectWriteAccess(ctx, project);
+
 		await ctx.db.patch(args.id, { content: args.content, updatedAt: Date.now() });
 		return true;
 	}
 });
 
 /**
- * Upsert a file by workspace-relative path.
+ * Upsert a file by its project-relative path.
  *
- * Path format: `<project-folder>/<file-path>` e.g. `my-app-abc123/src/App.tsx`
+ * `projectId` is required — the caller always has it and passing it avoids
+ * any full-table scan. The path should be relative to the project root,
+ * e.g. `src/App.tsx` or `/src/App.tsx` (leading slash is normalised away).
  *
- * Prefer passing `projectId` when the caller already has it — this skips the
- * folder-name lookup entirely and is significantly faster.
- *
- * Called by createLiveblocksEditorSync on every lazy Convex persist (3 s debounce).
+ * Called by the Liveblocks editor sync on every debounced persist (~3 s).
  */
 export const upsertFile = mutation({
 	args: {
+		projectId: v.id('projects'),
 		path: v.string(),
-		content: v.string(),
-		/** Skip the folder-name scan by passing the project ID directly. */
-		projectId: v.optional(v.id('projects'))
+		content: v.string()
 	},
 	handler: async (ctx, args) => {
 		const now = Date.now();
 
-		// ── Resolve project ───────────────────────────────────────────────────
-		type ProjectReference = { _id: Id<'projects'>; ownerId: Id<'users'>; name?: string };
-		let project: ProjectReference | null = null;
-		let projectRelativePath: string;
+		const project = await ctx.db.get(args.projectId);
+		if (!project) throw new Error(`Project "${args.projectId}" not found.`);
 
-		if (args.projectId) {
-			// Fast path: caller supplied the projectId — no scan needed.
-			const fetched = await ctx.db.get(args.projectId);
-			if (!fetched) throw new Error(`Project "${args.projectId}" not found.`);
-			project = fetched as ProjectReference;
-
-			// Strip the leading folder segment if it was included in the path.
-			const normalized = args.path.replace(/^\/+/g, '');
-			const parts = normalized.split('/').filter(Boolean);
-			const expectedFolder = folderNameFromProject(project);
-			projectRelativePath = parts[0] === expectedFolder ? parts.slice(1).join('/') : normalized;
-		} else {
-			// Slow path: derive project from the folder-name prefix in the path.
-			// Avoid this in hot paths — pass projectId instead.
-			const normalized = args.path.replace(/^\/+/, '');
-			const parts = normalized.split('/').filter(Boolean);
-
-			if (parts.length < 2) {
-				throw new Error('upsertFile: path must include a project folder prefix and a file path.');
-			}
-
-			const folderName = parts[0];
-			const allProjects = await ctx.db
-				.query('projects')
-				.withIndex('by_owner', (q) => q.gte('ownerId', '' as Id<'users'>))
-				.collect();
-
-			const match = allProjects.find((p) => folderNameFromProject(p) === folderName);
-			if (!match) throw new Error(`No project found for folder "${folderName}".`);
-
-			project = match as ProjectReference;
-			projectRelativePath = parts.slice(1).join('/');
-		}
-
-		if (!projectRelativePath) throw new Error('upsertFile: empty file path after project prefix.');
-		if (!project) throw new Error('upsertFile: project resolution failed.');
-
-		// ── Auth check ────────────────────────────────────────────────────────
 		await assertProjectWriteAccess(ctx, project);
 
-		// ── Ensure ancestor folders ───────────────────────────────────────────
-		const nodePath = normalizeNodePath(projectRelativePath);
+		// Strip any workspace folder prefix the caller may have included,
+		// then normalise to a leading-slash absolute path for storage.
+		const stripped = args.path.replace(/^\/+/g, '');
+		const parts = stripped.split('/').filter(Boolean);
+		const expectedFolder = folderNameFromProject(project);
+
+		// Drop the folder prefix if the path was passed workspace-rooted.
+		const relativeParts = parts[0] === expectedFolder ? parts.slice(1) : parts;
+		if (relativeParts.length === 0)
+			throw new Error('upsertFile: empty file path after stripping project prefix.');
+
+		const nodePath = normalizeNodePath(relativeParts.join('/'));
 		const parentPath = getParentNodePath(nodePath);
 		const parentId = parentPath
 			? await ensureFolderPath(ctx, project._id, parentPath, now)
 			: undefined;
 
-		// ── Upsert the file node ──────────────────────────────────────────────
 		const existingFile = await ctx.db
 			.query('nodes')
-			.withIndex('by_project_path', (q) => q.eq('projectId', project!._id).eq('path', nodePath))
+			.withIndex('by_project_path', (q) => q.eq('projectId', project._id).eq('path', nodePath))
 			.first();
 
 		if (existingFile) {
@@ -223,12 +198,19 @@ export const upsertFile = mutation({
 	}
 });
 
-/** Rename a node and cascade the path update to all descendants. */
+/**
+ * Rename a node and cascade the path update to all descendants.
+ * Only the project owner may rename.
+ */
 export const renameNode = mutation({
 	args: { id: v.id('nodes'), newName: v.string() },
 	handler: async (ctx, args) => {
 		const node = await ctx.db.get(args.id);
 		if (!node) throw new Error('Node not found.');
+
+		const project = await ctx.db.get(node.projectId);
+		if (!project) throw new Error('Project not found.');
+		await assertProjectWriteAccess(ctx, project);
 
 		const parentPath = node.path.substring(0, node.path.lastIndexOf('/'));
 		const newPath = `${parentPath}/${args.newName}`;
@@ -257,12 +239,19 @@ export const renameNode = mutation({
 	}
 });
 
-/** Delete a node and cascade to all descendants if it is a folder. */
+/**
+ * Delete a node and cascade to all descendants if it is a folder.
+ * Only the project owner may delete.
+ */
 export const deleteNode = mutation({
 	args: { id: v.id('nodes') },
 	handler: async (ctx, args) => {
 		const node = await ctx.db.get(args.id);
 		if (!node) throw new Error('Node not found.');
+
+		const project = await ctx.db.get(node.projectId);
+		if (!project) throw new Error('Project not found.');
+		await assertProjectWriteAccess(ctx, project);
 
 		await ctx.db.delete(args.id);
 

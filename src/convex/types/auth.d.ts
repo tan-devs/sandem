@@ -4,7 +4,7 @@ import { query } from '../_generated/server.js';
 export declare const authComponent: ReturnType<typeof createClient<DataModel>>;
 export declare const createAuth: (ctx: GenericCtx<DataModel>) => import('better-auth').Auth<{
 	baseURL: string;
-	database: any;
+	database: unknown;
 	emailAndPassword: {
 		enabled: true;
 		requireEmailVerification: false;
@@ -74,7 +74,7 @@ export declare const createAuth: (ctx: GenericCtx<DataModel>) => import('better-
 													token: string;
 													ipAddress?: string | null | undefined;
 													userAgent?: string | null | undefined;
-												} & Record<string, any>;
+												} & Record<string, unknown>;
 												user: {
 													id: string;
 													createdAt: Date;
@@ -83,7 +83,7 @@ export declare const createAuth: (ctx: GenericCtx<DataModel>) => import('better-
 													emailVerified: boolean;
 													name: string;
 													image?: string | null | undefined;
-												} & Record<string, any>;
+												} & Record<string, unknown>;
 											} | null;
 											session: {
 												session: {
@@ -95,7 +95,7 @@ export declare const createAuth: (ctx: GenericCtx<DataModel>) => import('better-
 													token: string;
 													ipAddress?: string | null | undefined;
 													userAgent?: string | null | undefined;
-												} & Record<string, any>;
+												} & Record<string, unknown>;
 												user: {
 													id: string;
 													createdAt: Date;
@@ -104,7 +104,7 @@ export declare const createAuth: (ctx: GenericCtx<DataModel>) => import('better-
 													emailVerified: boolean;
 													name: string;
 													image?: string | null | undefined;
-												} & Record<string, any>;
+												} & Record<string, unknown>;
 											} | null;
 											setNewSession: (
 												session: {
@@ -117,7 +117,7 @@ export declare const createAuth: (ctx: GenericCtx<DataModel>) => import('better-
 														token: string;
 														ipAddress?: string | null | undefined;
 														userAgent?: string | null | undefined;
-													} & Record<string, any>;
+													} & Record<string, unknown>;
 													user: {
 														id: string;
 														createdAt: Date;
@@ -126,7 +126,7 @@ export declare const createAuth: (ctx: GenericCtx<DataModel>) => import('better-
 														emailVerified: boolean;
 														name: string;
 														image?: string | null | undefined;
-													} & Record<string, any>;
+													} & Record<string, unknown>;
 												} | null
 											) => void;
 											socialProviders: import('better-auth').OAuthProvider[];
@@ -193,8 +193,8 @@ export declare const createAuth: (ctx: GenericCtx<DataModel>) => import('better-
 											runMigrations: () => Promise<void>;
 											publishTelemetry: (event: {
 												type: string;
-												anonymousId?: string | undefined;
-												payload: Record<string, any>;
+												anunknownmousId?: string | undefined;
+												payload: Record<string, unknown>;
 											}) => Promise<void>;
 											skipOriginCheck: boolean | string[];
 											skipCSRFCheck: boolean;
@@ -315,7 +315,7 @@ export declare const createAuth: (ctx: GenericCtx<DataModel>) => import('better-
 							};
 						};
 					},
-					any[]
+					unknown[]
 				>;
 				rotateKeys: import('better-auth').StrictEndpoint<
 					'/convex/rotate-keys',
@@ -329,7 +329,7 @@ export declare const createAuth: (ctx: GenericCtx<DataModel>) => import('better-
 							};
 						};
 					},
-					any[]
+					unknown[]
 				>;
 				getToken: import('better-auth').StrictEndpoint<
 					'/convex/token',
@@ -342,7 +342,7 @@ export declare const createAuth: (ctx: GenericCtx<DataModel>) => import('better-
 							>
 						) => Promise<{
 							session: {
-								session: Record<string, any> & {
+								session: Record<string, unknown> & {
 									id: string;
 									createdAt: Date;
 									updatedAt: Date;
@@ -352,7 +352,7 @@ export declare const createAuth: (ctx: GenericCtx<DataModel>) => import('better-
 									ipAddress?: string | null | undefined;
 									userAgent?: string | null | undefined;
 								};
-								user: Record<string, any> & {
+								user: Record<string, unknown> & {
 									id: string;
 									createdAt: Date;
 									updatedAt: Date;

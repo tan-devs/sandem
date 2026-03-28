@@ -1,6 +1,5 @@
 // src/lib/utils/project/filesystem.ts
 import type { FileSystemTree } from '@webcontainer/api';
-import type { Doc } from '$convex/_generated/dataModel.js';
 
 type ProjectFileLike = { name: string };
 type ProjectFileWithContents = { name: string; contents: string };

@@ -1,12 +1,8 @@
 import { useConvexClient } from 'convex-svelte';
 import { api } from '$convex/_generated/api.js';
-import {
-	mergeProjectFilesWithPatches,
-	normalizeProjectFilePatches,
-	resolveProjectFileName
-} from '$lib/utils/ide/file-system.js';
-import type { PROJECT, Identity } from '$types/projects.js';
-import { isPersistedProject } from '$lib/utils/ide/guards.js';
+import type { Doc, Id } from '$convex/_generated/dataModel.js';
+
+type ProjectDoc = Doc<'projects'>;
 
 export type AutoSaveStatus =
 	| 'Saved'
@@ -15,7 +11,11 @@ export type AutoSaveStatus =
 	| 'Session only'
 	| 'Save failed';
 
-export function createAutoSaver(getProject: () => PROJECT | undefined) {
+/**
+ * The autoSaver only needs the project's _id to call `upsertFile`.
+ * Pass the full ProjectSummary so callers don't have to unwrap it.
+ */
+export function createAutoSaver(getProject: () => ProjectDoc | undefined) {
 	// Gracefully degrade when there is no ConvexProvider in the tree
 	// (e.g. the /shop demo route). In that case every call is a no-op and
 	// the status stays 'Saved' so the Editor UI looks clean.
@@ -29,58 +29,31 @@ export function createAutoSaver(getProject: () => PROJECT | undefined) {
 	let saveStatus = $state<AutoSaveStatus>('Saved');
 	let saveTimeout: ReturnType<typeof setTimeout> | undefined;
 
-	// Track in-flight saves to avoid clobbering with stale data
-	const pendingSaves = new Map<string, string>(); // fileName -> latest content to save
+	// path -> latest content to save. Last-write-wins within a debounce window.
+	const pendingSaves = new Map<string, string>();
 
-	function queuePendingSave(fileName: string, content: string) {
-		pendingSaves.set(fileName, content);
+	function queuePendingSave(path: string, content: string) {
+		pendingSaves.set(path, content);
 	}
 
-	function queuePendingSaves(next: ReadonlyArray<{ fileName: string; content: string }>) {
-		for (const item of next) {
-			queuePendingSave(item.fileName, item.content);
+	function queuePendingSaveBatch(changes: ReadonlyArray<{ path: string; content: string }>) {
+		for (const { path, content } of changes) {
+			queuePendingSave(path, content);
 		}
-	}
-
-	async function persistProjectFilePatches(
-		Identity: Identity,
-		patches: ReadonlyArray<{ name: string; contents: string }>,
-		project: PROJECT
-	) {
-		try {
-			await convexClient!.mutation(api.projects.updateProject, {
-				id: Identity,
-				files: [...patches]
-			});
-			return;
-		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error);
-			const needsFallback =
-				message.includes('Could not find public function') ||
-				message.includes('updateProjectFiles');
-			if (!needsFallback) throw error;
-		}
-
-		const projectFiles = project.files ?? [];
-		const mergedFiles = mergeProjectFilesWithPatches(projectFiles, patches);
-		await convexClient!.mutation(api.projects.updateProject, {
-			id: Identity,
-			files: mergedFiles
-		});
 	}
 
 	async function flushPendingSaves() {
 		const project = getProject();
-		const Identity = isPersistedProject(project) ? project._id : undefined;
+		const projectId: Id<'projects'> | undefined = project?._id;
 
 		// No-op in demo/guest mode (no persisted project)
-		if (!convexClient || !Identity) {
+		if (!convexClient || !projectId) {
 			pendingSaves.clear();
 			saveStatus = 'Session only';
 			return;
 		}
 
-		if (!project || pendingSaves.size === 0) {
+		if (pendingSaves.size === 0) {
 			saveStatus = 'Saved';
 			return;
 		}
@@ -88,27 +61,23 @@ export function createAutoSaver(getProject: () => PROJECT | undefined) {
 		saveStatus = 'Saving...';
 		const snapshot = new Map(pendingSaves);
 		pendingSaves.clear();
-		const projectFiles = project.files ?? [];
-		const normalizedPatches = normalizeProjectFilePatches(
-			Array.from(snapshot.entries()).map(([name, contents]) => ({ name, contents })),
-			projectFiles
-		);
-
-		if (normalizedPatches.length === 0) {
-			saveStatus = 'Saved';
-			return;
-		}
 
 		try {
-			await persistProjectFilePatches(Identity as Identity, normalizedPatches, project);
+			// Fire all upserts in parallel — filesystem.upsertFile handles
+			// insert-or-update and parent folder creation server-side.
+			await Promise.all(
+				Array.from(snapshot.entries()).map(([path, content]) =>
+					convexClient!.mutation(api.filesystem.upsertFile, { projectId, path, content })
+				)
+			);
 
 			saveStatus = 'Saved';
 		} catch (err) {
-			console.error('Save failed', err);
+			console.error('[AutoSaver] Save failed', err);
 			// Re-queue failed saves — don't overwrite if a newer save came in during the flight
-			for (const patch of normalizedPatches) {
-				if (!pendingSaves.has(patch.name)) {
-					pendingSaves.set(patch.name, patch.contents);
+			for (const [path, content] of snapshot) {
+				if (!pendingSaves.has(path)) {
+					pendingSaves.set(path, content);
 				}
 			}
 			saveStatus = 'Save failed';
@@ -116,29 +85,20 @@ export function createAutoSaver(getProject: () => PROJECT | undefined) {
 	}
 
 	/** Call only on local user input (not remote Yjs syncs). */
-	function triggerAutoSave(fileName: string, content: string) {
-		triggerAutoSaveBatch([{ fileName, content }]);
+	function triggerAutoSave(path: string, content: string) {
+		triggerAutoSaveBatch([{ path, content }]);
 	}
 
 	/** Call when a sync cycle produces multiple touched files. */
-	function triggerAutoSaveBatch(changes: ReadonlyArray<{ fileName: string; content: string }>) {
+	function triggerAutoSaveBatch(changes: ReadonlyArray<{ path: string; content: string }>) {
 		if (changes.length === 0) return;
 
-		const project = getProject();
-		const Identity = isPersistedProject(project) ? project._id : undefined;
-
-		if (!convexClient || !Identity || !project) {
+		if (!convexClient || !getProject()?._id) {
 			saveStatus = 'Session only';
 			return;
 		}
 
-		const projectFiles = project.files ?? [];
-		queuePendingSaves(
-			changes.map((change) => ({
-				fileName: resolveProjectFileName(change.fileName, projectFiles),
-				content: change.content
-			}))
-		);
+		queuePendingSaveBatch(changes);
 
 		saveStatus = 'Unsaved changes';
 		clearTimeout(saveTimeout);
@@ -146,14 +106,8 @@ export function createAutoSaver(getProject: () => PROJECT | undefined) {
 	}
 
 	/** Force an immediate save — useful on tab switch or beforeunload. */
-	async function forceSave(fileName: string, content: string) {
-		const project = getProject();
-		if (project) {
-			const projectFiles = project.files ?? [];
-			queuePendingSave(resolveProjectFileName(fileName, projectFiles), content);
-		} else {
-			queuePendingSave(fileName, content);
-		}
+	async function forceSave(path: string, content: string) {
+		queuePendingSave(path, content);
 		clearTimeout(saveTimeout);
 		await flushPendingSaves();
 	}

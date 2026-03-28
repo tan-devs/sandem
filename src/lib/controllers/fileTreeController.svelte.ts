@@ -4,7 +4,7 @@ import {
 	readDirRecursive,
 	createSignature,
 	pruneExpandedState as pruneExpandedStatePure
-} from '$lib/utils/ide/fileTreeOps.js';
+} from '$lib/utils/file-tree.js';
 
 export type { FileNode } from '$types/editor.js';
 

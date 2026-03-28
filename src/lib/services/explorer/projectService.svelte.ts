@@ -1,38 +1,167 @@
 import { useConvexClient } from 'convex-svelte';
+import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex/server';
+import type { Doc, Id } from '$convex/_generated/dataModel.js';
 import { api } from '$convex/_generated/api.js';
-import { resolveProjectFileName } from '$lib/utils/ide/file-system.js';
-import type { PROJECT, Identity, Files } from '$types/projects.js';
 import type { WebContainer } from '@webcontainer/api';
 import { getLiveblocksClient } from '$lib/liveblocks.config.js';
 import { appendTerminalAudit, collaborationPermissionsStore } from '$lib/stores';
 
-type MutableProject = { files: Files[] };
+// ---------------------------------------------------------------------------
+// Types — straight from the generated dataModel, no hand-written duplicates
+// ---------------------------------------------------------------------------
+
+type ProjectDoc = Doc<'projects'>;
+type NodeDoc = Doc<'nodes'>;
+
+// ---------------------------------------------------------------------------
+// Shared Convex client type (re-exported so RepoProjectsController can import it)
+// ---------------------------------------------------------------------------
+
+export type ConvexOperations = {
+	mutation: <M extends FunctionReference<'mutation'>>(
+		ref: M,
+		args: FunctionArgs<M>
+	) => Promise<FunctionReturnType<M>>;
+	query: <Q extends FunctionReference<'query'>>(
+		ref: Q,
+		args: FunctionArgs<Q>
+	) => Promise<FunctionReturnType<Q>>;
+};
+
+// ---------------------------------------------------------------------------
+// Project manager (CRUD on project cards in the sidebar)
+// ---------------------------------------------------------------------------
+
+type ProjectManagerOptions = {
+	getProjects: () => ProjectDoc[];
+	setProjects: (projects: ProjectDoc[]) => void;
+	getActiveProjectId: () => string | null;
+	setActiveProjectId: (projectId: string | null) => void;
+	ownerId: () => string;
+	convexClient: ConvexOperations;
+	onError: (err: Error, cause?: unknown) => void;
+};
+
+export function createRepoProjectManager(options: ProjectManagerOptions) {
+	let creatingProject = false;
+	let mutatingProjectId: string | null = null;
+
+	async function createProjectCard() {
+		if (creatingProject) return;
+		creatingProject = true;
+		try {
+			const projectId = await options.convexClient.mutation(api.projects.createProject, {
+				ownerId: options.ownerId() as Id<'users'>,
+				name: 'Untitled Project',
+				isPublic: false
+			});
+
+			const project = await options.convexClient.query(api.projects.getProject, {
+				id: projectId
+			});
+
+			if (project) {
+				options.setProjects([...options.getProjects(), project]);
+				options.setActiveProjectId(projectId);
+			}
+		} catch (err) {
+			options.onError(err instanceof Error ? err : new Error(String(err)), err);
+		} finally {
+			creatingProject = false;
+		}
+	}
+
+	async function commitRename(projectId: string, nextName: string) {
+		if (mutatingProjectId) return;
+		mutatingProjectId = projectId;
+		try {
+			await options.convexClient.mutation(api.projects.updateProject, {
+				id: projectId as Id<'projects'>,
+				name: nextName
+			});
+
+			options.setProjects(
+				options.getProjects().map((p) => (p._id === projectId ? { ...p, name: nextName } : p))
+			);
+		} catch (err) {
+			options.onError(err instanceof Error ? err : new Error(String(err)), err);
+		} finally {
+			mutatingProjectId = null;
+		}
+	}
+
+	async function confirmDelete(projectId: string) {
+		if (mutatingProjectId) return;
+		mutatingProjectId = projectId;
+		try {
+			await options.convexClient.mutation(api.projects.deleteProject, {
+				id: projectId as Id<'projects'>
+			});
+
+			const nextProjects = options.getProjects().filter((p) => p._id !== projectId);
+			options.setProjects(nextProjects);
+
+			if (options.getActiveProjectId() === projectId) {
+				options.setActiveProjectId(nextProjects[0]?._id ?? null);
+			}
+		} catch (err) {
+			options.onError(err instanceof Error ? err : new Error(String(err)), err);
+		} finally {
+			mutatingProjectId = null;
+		}
+	}
+
+	return {
+		get creatingProject() {
+			return creatingProject;
+		},
+		get mutatingProjectId() {
+			return mutatingProjectId;
+		},
+		createProjectCard,
+		commitRename,
+		confirmDelete
+	};
+}
+
+// ---------------------------------------------------------------------------
+// Filesystem sync (nodes table ↔ WebContainer ↔ Liveblocks broadcasts)
+// ---------------------------------------------------------------------------
+
 type FsEvent = Extract<Liveblocks['RoomEvent'], { type: 'fs-op' }>;
-type Options = {
-	getProject: () => PROJECT | undefined;
-	getProjectForPath?: (path: string) => PROJECT | undefined;
+
+type FileSyncOptions = {
+	/** Returns the currently active project. */
+	getProject: () => ProjectDoc | undefined;
+	/** Optional: resolve a project by WC path prefix (multi-project workspaces). */
+	getProjectForPath?: (path: string) => ProjectDoc | undefined;
 	getWebcontainer: () => WebContainer;
 	onRemoteOperationApplied?: () => Promise<void> | void;
 };
 
-export function projectFilesSync(options: Options) {
+export function projectFilesSync(options: FileSyncOptions) {
+	// Convex client — unavailable in demo/guest mode (no provider).
 	let convexClient: ReturnType<typeof useConvexClient> | null = null;
 	try {
 		convexClient = useConvexClient();
 	} catch {
-		// No provider (demo/guest mode)
+		// No ConvexProvider — demo or guest session.
 	}
 
+	// Collaboration permission state.
 	let permissions = { canWrite: true, roomId: null as string | null };
 	const unsubPermissions = collaborationPermissionsStore.subscribe((value) => {
 		permissions = value;
 	});
 
+	// Liveblocks room state.
 	let leaveRoom: (() => void) | undefined;
 	let roomRef: ReturnType<ReturnType<typeof getLiveblocksClient>['enterRoom']>['room'] | undefined;
 	let unsubscribeEvents: (() => void) | undefined;
 	let currentRoomId: string | null = null;
 	const seenOperationIds = new Set<string>();
+
+	// ── Helpers ──────────────────────────────────────────────────────────────
 
 	function canWrite() {
 		return permissions.canWrite;
@@ -42,21 +171,29 @@ export function projectFilesSync(options: Options) {
 		return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 	}
 
-	function getProjectId(project: PROJECT | undefined): Identity | null {
-		const id = (project as { _id?: Identity } | undefined)?._id;
-		return id ?? null;
-	}
-
-	function resolveProject(path?: string): PROJECT | undefined {
+	function resolveProject(path?: string): ProjectDoc | undefined {
 		if (path) {
 			const byPath = options.getProjectForPath?.(path);
 			if (byPath) return byPath;
 		}
-
 		return options.getProject();
 	}
 
-	function ensureRoomForProject(project: PROJECT | undefined) {
+	/**
+	 * Strip the workspace folder prefix from a WebContainer path to get
+	 * the project-relative path to send to upsertFile/renameNode/deleteNode.
+	 * The server handles both rooted (/src/App.tsx) and bare (src/App.tsx) forms.
+	 */
+	function toNodePath(wcPath: string): string {
+		const stripped = wcPath.replace(/^\/+/, '');
+		const parts = stripped.split('/').filter(Boolean);
+		// Drop the leading folder segment (the project folder name).
+		return parts.length > 1 ? parts.slice(1).join('/') : stripped;
+	}
+
+	// ── Liveblocks room management ────────────────────────────────────────────
+
+	function ensureRoomForProject(project: ProjectDoc | undefined) {
 		if (!project?.room) return;
 		if (currentRoomId === project.room && roomRef) return;
 
@@ -76,40 +213,49 @@ export function projectFilesSync(options: Options) {
 		currentRoomId = project.room;
 
 		unsubscribeEvents = roomRef.subscribe('event', ({ event }) => {
-			if (isFsEvent(event)) {
-				void applyRemoteFsOperation(event);
-			}
+			if (isFsEvent(event)) void applyRemoteFsOperation(event);
 		});
 	}
 
 	function isFsEvent(value: unknown): value is FsEvent {
 		if (!value || typeof value !== 'object') return false;
-		const candidate = value as {
-			type?: unknown;
-			op?: unknown;
-			path?: unknown;
-			opId?: unknown;
-		};
+		const c = value as { type?: unknown; op?: unknown; path?: unknown; opId?: unknown };
 		return (
-			candidate.type === 'fs-op' &&
-			(candidate.op === 'create' || candidate.op === 'rename' || candidate.op === 'delete') &&
-			typeof candidate.path === 'string' &&
-			typeof candidate.opId === 'string'
+			c.type === 'fs-op' &&
+			(c.op === 'create' || c.op === 'rename' || c.op === 'delete') &&
+			typeof c.path === 'string' &&
+			typeof c.opId === 'string'
 		);
 	}
 
-	async function persistProjectFiles(nextFiles: Files[], project?: PROJECT) {
+	async function broadcastFsOperation(event: FsEvent, project?: ProjectDoc) {
 		const targetProject = project ?? options.getProject();
-		const projectId = getProjectId(targetProject);
-		if (!convexClient || !targetProject || !projectId) return;
+		ensureRoomForProject(targetProject);
+		if (!targetProject?.room || !roomRef) return;
 
-		await convexClient.mutation(api.projects.updateProject, {
-			id: projectId as Identity,
-			files: nextFiles
+		seenOperationIds.add(event.opId);
+		roomRef.broadcastEvent(event);
+		appendTerminalAudit({
+			at: Date.now(),
+			command: `fs:${event.op} ${event.path}${event.nextPath ? ` -> ${event.nextPath}` : ''}`,
+			allowed: true,
+			roomId: targetProject.room
 		});
-
-		(targetProject as unknown as MutableProject).files = nextFiles;
 	}
+
+	// ── Node lookup helper ────────────────────────────────────────────────────
+
+	async function findNodeByWcPath(
+		projectId: Id<'projects'>,
+		wcPath: string
+	): Promise<NodeDoc | undefined> {
+		const nodes = await convexClient!.query(api.filesystem.listNodes, { projectId });
+		const nodePath = toNodePath(wcPath);
+		// Nodes are stored with a leading slash: /src/App.tsx
+		return nodes.find((n) => n.path === `/${nodePath}` || n.path === nodePath);
+	}
+
+	// ── Remote operation handler ──────────────────────────────────────────────
 
 	async function applyRemoteFsOperation(event: FsEvent) {
 		if (seenOperationIds.has(event.opId)) return;
@@ -118,7 +264,6 @@ export function projectFilesSync(options: Options) {
 		const wc = options.getWebcontainer();
 		const project = resolveProject(event.path);
 		if (!project) return;
-		const projectFiles = project.files ?? [];
 
 		if (event.op === 'create') {
 			if (event.isDirectory) {
@@ -131,43 +276,149 @@ export function projectFilesSync(options: Options) {
 				}
 				await wc.fs.writeFile(event.path, content, 'utf-8');
 
-				const projectFiles = project.files ?? [];
-				const fileName = resolveProjectFileName(event.path, projectFiles);
-				const nextFiles = projectFiles.some((f: Files) => f.name === fileName)
-					? projectFiles.map((f: Files) =>
-							f.name === fileName ? { ...f, contents: content } : { ...f }
-						)
-					: [...projectFiles.map((f: Files) => ({ ...f })), { name: fileName, contents: content }];
-
-				await persistProjectFiles(nextFiles, project);
+				if (convexClient) {
+					await convexClient.mutation(api.filesystem.upsertFile, {
+						projectId: project._id,
+						path: toNodePath(event.path),
+						content
+					});
+				}
 			}
 		}
 
 		if (event.op === 'rename' && event.nextPath) {
 			await wc.fs.rename(event.path, event.nextPath);
 
-			const projectFiles = project.files ?? [];
-			const fromName = resolveProjectFileName(event.path, projectFiles);
-			const toName = resolveProjectFileName(event.nextPath, projectFiles);
-			const nextFiles = projectFiles.map((file: Files) =>
-				file.name === fromName ? { ...file, name: toName } : { ...file }
-			);
-
-			await persistProjectFiles(nextFiles, project);
+			if (convexClient) {
+				const node = await findNodeByWcPath(project._id, event.path);
+				if (node) {
+					await convexClient.mutation(api.filesystem.renameNode, {
+						id: node._id,
+						newName: event.nextPath.split('/').pop() ?? ''
+					});
+				}
+			}
 		}
 
 		if (event.op === 'delete') {
 			await wc.fs.rm(event.path, { recursive: true, force: true });
 
-			const deleted = resolveProjectFileName(event.path, projectFiles);
-			const nextFiles = projectFiles
-				.filter((file: Files) => file.name !== deleted)
-				.map((f: Files) => ({ ...f }));
-			await persistProjectFiles(nextFiles, project);
+			if (convexClient) {
+				const node = await findNodeByWcPath(project._id, event.path);
+				if (node) {
+					await convexClient.mutation(api.filesystem.deleteNode, { id: node._id });
+				}
+			}
 		}
 
 		await options.onRemoteOperationApplied?.();
 	}
+
+	// ── Public file operations ────────────────────────────────────────────────
+
+	async function upsertFile(path: string, content: string, project?: ProjectDoc) {
+		const targetProject = project ?? resolveProject(path);
+		if (!convexClient || !targetProject) return;
+
+		await convexClient.mutation(api.filesystem.upsertFile, {
+			projectId: targetProject._id,
+			path: toNodePath(path),
+			content
+		});
+	}
+
+	async function createFile(path: string, contents: string) {
+		if (!canWrite()) return;
+		const project = resolveProject(path);
+		if (!project) return;
+
+		await upsertFile(path, contents, project);
+
+		await broadcastFsOperation(
+			{
+				type: 'fs-op',
+				opId: operationId('create-file'),
+				actorId: String(project.ownerId),
+				op: 'create',
+				path,
+				contents,
+				isDirectory: false,
+				ts: Date.now()
+			},
+			project
+		);
+	}
+
+	async function createDirectory(path: string) {
+		if (!canWrite()) return;
+		const project = resolveProject(path);
+		if (!project) return;
+
+		await broadcastFsOperation(
+			{
+				type: 'fs-op',
+				opId: operationId('create-dir'),
+				actorId: String(project.ownerId),
+				op: 'create',
+				path,
+				isDirectory: true,
+				ts: Date.now()
+			},
+			project
+		);
+	}
+
+	async function renamePath(path: string, nextPath: string) {
+		if (!canWrite()) return;
+		const project = resolveProject(path) ?? resolveProject(nextPath);
+		if (!project || !convexClient) return;
+
+		const node = await findNodeByWcPath(project._id, path);
+		if (node) {
+			await convexClient.mutation(api.filesystem.renameNode, {
+				id: node._id,
+				newName: nextPath.split('/').pop() ?? ''
+			});
+		}
+
+		await broadcastFsOperation(
+			{
+				type: 'fs-op',
+				opId: operationId('rename'),
+				actorId: String(project.ownerId),
+				op: 'rename',
+				path,
+				nextPath,
+				ts: Date.now()
+			},
+			project
+		);
+	}
+
+	async function deletePath(path: string) {
+		if (!canWrite()) return;
+		const project = resolveProject(path);
+		if (!project || !convexClient) return;
+
+		const node = await findNodeByWcPath(project._id, path);
+		if (node) {
+			await convexClient.mutation(api.filesystem.deleteNode, { id: node._id });
+		}
+
+		await broadcastFsOperation(
+			{
+				type: 'fs-op',
+				opId: operationId('delete'),
+				actorId: String(project.ownerId),
+				op: 'delete',
+				path,
+				ts: Date.now()
+			},
+			project
+		);
+	}
+
+	// ── Lifecycle ─────────────────────────────────────────────────────────────
 
 	function start() {
 		ensureRoomForProject(options.getProject());
@@ -183,147 +434,14 @@ export function projectFilesSync(options: Options) {
 		unsubPermissions();
 	}
 
-	async function broadcastFsOperation(event: FsEvent, project?: PROJECT) {
-		const targetProject = project ?? options.getProject();
-		ensureRoomForProject(targetProject);
-		if (!targetProject?.room || !roomRef) return;
-
-		seenOperationIds.add(event.opId);
-		roomRef.broadcastEvent(event);
-		appendTerminalAudit({
-			at: Date.now(),
-			command: `fs:${event.op} ${event.path}${event.nextPath ? ` -> ${event.nextPath}` : ''}`,
-			allowed: true,
-			roomId: targetProject.room
-		});
-	}
-
-	async function upsertFile(path: string, contents: string) {
-		const project = resolveProject(path);
-		const projectId = getProjectId(project);
-		if (!convexClient || !project || !projectId) return;
-
-		const projectFiles = project.files ?? [];
-		const fileName = resolveProjectFileName(path, projectFiles);
-		const nextFiles = projectFiles.map((file: Files) =>
-			file.name === fileName ? { ...file, contents } : file
-		);
-
-		if (!nextFiles.some((file: Files) => file.name === fileName)) {
-			nextFiles.push({ name: fileName, contents });
-		}
-
-		await convexClient.mutation(api.projects.updateProject, {
-			id: projectId as Identity,
-			files: nextFiles
-		});
-
-		(project as unknown as MutableProject).files = nextFiles;
-	}
-
-	async function createFile(path: string, contents: string) {
-		if (!canWrite()) return;
-		const project = resolveProject(path);
-		if (!project) return;
-		await upsertFile(path, contents);
-
-		const actorId = String((project as { ownerId?: string } | undefined)?.ownerId ?? 'unknown');
-		await broadcastFsOperation(
-			{
-				type: 'fs-op',
-				opId: operationId('create-file'),
-				actorId,
-				op: 'create',
-				path,
-				contents,
-				isDirectory: false,
-				ts: Date.now()
-			},
-			project
-		);
-	}
-
-	async function createDirectory(path: string) {
-		if (!canWrite()) return;
-		const project = resolveProject(path);
-		if (!project) return;
-		const actorId = String((project as { ownerId?: string } | undefined)?.ownerId ?? 'unknown');
-		await broadcastFsOperation(
-			{
-				type: 'fs-op',
-				opId: operationId('create-dir'),
-				actorId,
-				op: 'create',
-				path,
-				isDirectory: true,
-				ts: Date.now()
-			},
-			project
-		);
-	}
-
-	async function renamePath(path: string, nextPath: string) {
-		if (!canWrite()) return;
-		const project = resolveProject(path) ?? resolveProject(nextPath);
-		if (!project) return;
-
-		const projectFiles = project.files ?? [];
-		const fromName = resolveProjectFileName(path, projectFiles);
-		const toName = resolveProjectFileName(nextPath, projectFiles);
-		const nextFiles = projectFiles.map((file: Files) =>
-			file.name === fromName ? { ...file, name: toName } : { ...file }
-		);
-		await persistProjectFiles(nextFiles, project);
-
-		const actorId = String((project as { ownerId?: string } | undefined)?.ownerId ?? 'unknown');
-		await broadcastFsOperation(
-			{
-				type: 'fs-op',
-				opId: operationId('rename'),
-				actorId,
-				op: 'rename',
-				path,
-				nextPath,
-				ts: Date.now()
-			},
-			project
-		);
-	}
-
-	async function deletePath(path: string) {
-		if (!canWrite()) return;
-		const project = resolveProject(path);
-		if (!project) return;
-
-		const projectFiles = project.files ?? [];
-		const deleted = resolveProjectFileName(path, projectFiles);
-		const nextFiles = projectFiles
-			.filter((file: Files) => file.name !== deleted)
-			.map((f: Files) => ({ ...f }));
-		await persistProjectFiles(nextFiles, project);
-
-		const actorId = String((project as { owner?: string } | undefined)?.owner ?? 'unknown');
-		await broadcastFsOperation(
-			{
-				type: 'fs-op',
-				opId: operationId('delete'),
-				actorId,
-				op: 'delete',
-				path,
-				ts: Date.now()
-			},
-			project
-		);
-	}
-
 	return {
 		start,
 		stop,
 		canWrite,
+		upsertFile,
 		createFile,
 		createDirectory,
 		renamePath,
-		deletePath,
-		upsertFile
+		deletePath
 	};
 }

@@ -6,7 +6,7 @@ import {
 	getRootFolder,
 	resolveProjectFileName,
 	toWebContainerPath
-} from '$lib/utils/ide/file-system.js';
+} from '$lib/utils/file-system.js';
 import {
 	EDITOR_QUICK_ACTIONS,
 	deriveEditorSaveStatusVariant,
@@ -73,7 +73,7 @@ export function createEditorPaneController(options: CreateEditorPaneControllerOp
 
 			autoSaver.triggerAutoSaveBatch(
 				payloads.map((payload) => ({
-					fileName: payload.projectFileName,
+					path: payload.projectFileName,
 					content: payload.content
 				}))
 			);

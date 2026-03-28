@@ -1,50 +1,64 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
+	import Self from './FileTreeNode.svelte';
 	import { slide } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
 	import type { FileNode } from '$types/filesystem.js';
-	import { activeFilePath, activeFileId } from '$lib/stores';
 
-	export let node: FileNode;
-	export let depth: number = 0;
+	type Props = {
+		node: FileNode;
+		depth?: number;
+		allNodes?: FileNode[];
+		isOwner?: boolean;
+		activeNodeId?: string | null;
+		onselect?: (node: FileNode) => void;
+		onrename?: (node: FileNode, newName: string) => void;
+		ondelete?: (node: FileNode) => void;
+		onnewFile?: (parentId: string | undefined, parentPath: string) => void;
+		onnewFolder?: (parentId: string | undefined, parentPath: string) => void;
+	};
 
-	// Children passed in from the parent — avoids each node re-querying Convex.
-	// The root SidebarTree builds the full flat list once and slices it per node.
-	export let allNodes: FileNode[] = [];
-	export let isOwner: boolean = false;
-
-	const dispatch = createEventDispatcher<{
-		select: FileNode;
-		rename: { node: FileNode; newName: string };
-		delete: FileNode;
-		newFile: { parentId: string | undefined; parentPath: string };
-		newFolder: { parentId: string | undefined; parentPath: string };
-	}>();
+	let {
+		node,
+		depth = 0,
+		allNodes = [],
+		isOwner = false,
+		activeNodeId = null,
+		onselect,
+		onrename,
+		ondelete,
+		onnewFile,
+		onnewFolder
+	}: Props = $props();
 
 	// -------------------------------------------------------------------------
 	// State
 	// -------------------------------------------------------------------------
 
-	let open = false;
-	let renaming = false;
-	let renameValue = node.name;
-	let renameInput: HTMLInputElement;
-	let contextMenuVisible = false;
-	let contextMenuX = 0;
-	let contextMenuY = 0;
+	let open = $state(false);
+	let renaming = $state(false);
+	let renameValue = $state('');
+	$effect(() => {
+		renameValue = node.name;
+	});
+	let renameInput = $state<HTMLInputElement | undefined>(undefined);
+	let contextMenuVisible = $state(false);
+	let contextMenuX = $state(0);
+	let contextMenuY = $state(0);
 
-	$: isActive = $activeFileId === node._id;
-	$: isFolder = node.type === 'folder';
+	const isActive = $derived(activeNodeId === node._id);
+	const isFolder = $derived(node.type === 'folder');
 
 	// Direct children of this node — O(n) over the flat list, fast enough for
 	// typical project sizes (<1000 nodes). For very large trees, pass a Map.
-	$: children = allNodes
-		.filter((n) => n.parentId === node._id)
-		.sort((a, b) => {
-			// Folders first, then alphabetical
-			if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
-			return a.name.localeCompare(b.name);
-		});
+	const children = $derived(
+		allNodes
+			.filter((n) => n.parentId === node._id)
+			.sort((a, b) => {
+				// Folders first, then alphabetical
+				if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
+				return a.name.localeCompare(b.name);
+			})
+	);
 
 	// -------------------------------------------------------------------------
 	// Handlers
@@ -54,9 +68,7 @@
 		if (isFolder) {
 			open = !open;
 		} else {
-			activeFilePath.set(node.path);
-			activeFileId.set(node._id);
-			dispatch('select', node);
+			onselect?.(node);
 		}
 	}
 
@@ -83,7 +95,7 @@
 	function commitRename() {
 		const trimmed = renameValue.trim();
 		if (trimmed && trimmed !== node.name) {
-			dispatch('rename', { node, newName: trimmed });
+			onrename?.(node, trimmed);
 		}
 		renaming = false;
 	}
@@ -95,24 +107,19 @@
 
 	function handleDelete() {
 		contextMenuVisible = false;
-		dispatch('delete', node);
+		ondelete?.(node);
 	}
 
 	function handleNewFile() {
 		contextMenuVisible = false;
 		open = true;
-		dispatch('newFile', { parentId: node._id, parentPath: node.path });
+		onnewFile?.(node._id, node.path);
 	}
 
 	function handleNewFolder() {
 		contextMenuVisible = false;
 		open = true;
-		dispatch('newFolder', { parentId: node._id, parentPath: node.path });
-	}
-
-	// Bubble events from nested children up to the root
-	function relay(e: CustomEvent) {
-		dispatch(e.type as any, e.detail);
+		onnewFolder?.(node._id, node.path);
 	}
 </script>
 
@@ -132,13 +139,13 @@
 	<button
 		class="node-row"
 		onclick={handleClick}
-		on:contextmenu={handleContextMenu}
+		oncontextmenu={handleContextMenu}
 		tabindex="0"
 		aria-expanded={isFolder ? open : undefined}
 	>
 		<!-- Indentation track lines -->
-		{#each Array(depth) as _}
-			<span class="indent-guide" aria-hidden="true" />
+		{#each Array(depth)}
+			<span class="indent-guide" aria-hidden="true"></span>
 		{/each}
 
 		<!-- Icon -->
@@ -166,7 +173,7 @@
 					{/if}
 				</svg>
 			{:else}
-				<!-- File dot -->
+				<!-- File icon -->
 				<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
 					<rect x="3" y="1" width="8" height="10" rx="1" stroke="currentColor" stroke-width="1.2" />
 					<path d="M7 1v4h4" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" />
@@ -180,9 +187,8 @@
 				bind:this={renameInput}
 				bind:value={renameValue}
 				class="rename-input"
-				on:blur={commitRename}
-				on:keydown={handleRenameKey}
-				onclick|stopPropagation
+				onblur={commitRename}
+				onkeydown={handleRenameKey}
 			/>
 		{:else}
 			<span class="node-name">{node.name}</span>
@@ -195,7 +201,7 @@
 			{#if isFolder}
 				<li role="menuitem"><button onclick={handleNewFile}>New File</button></li>
 				<li role="menuitem"><button onclick={handleNewFolder}>New Folder</button></li>
-				<li class="divider" role="separator" />
+				<li class="divider" role="separator"></li>
 			{/if}
 			<li role="menuitem"><button onclick={startRename}>Rename</button></li>
 			<li role="menuitem" class="danger">
@@ -208,16 +214,17 @@
 	{#if isFolder && open && children.length > 0}
 		<ul class="children" role="group" transition:slide={{ duration: 140, easing: quintOut }}>
 			{#each children as child (child._id)}
-				<svelte:self
+				<Self
 					node={child}
 					{allNodes}
 					{isOwner}
+					{activeNodeId}
 					depth={depth + 1}
-					on:select={relay}
-					on:rename={relay}
-					on:delete={relay}
-					on:newFile={relay}
-					on:newFolder={relay}
+					{onselect}
+					{onrename}
+					{ondelete}
+					{onnewFile}
+					{onnewFolder}
 				/>
 			{/each}
 		</ul>

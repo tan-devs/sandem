@@ -2,7 +2,6 @@
 	import { DropdownMenu, type WithoutChild } from 'bits-ui';
 	import type { Snippet } from 'svelte';
 	import type { Tone, Variant } from '$types/ui';
-	import { toneMap } from '$types/ui';
 
 	type MenuItem = { label: string; value: string };
 	type MenuGroup = {
@@ -52,7 +51,7 @@
 			data-variant={variant}
 			data-tone={tone}
 			aria-label={label}
-			style={`--dropdown-tone: ${toneMap[tone]};`}
+			style={`--dropdown-tone: $[tone];`}
 		>
 			{@render children()}
 		</DropdownMenu.Trigger>
@@ -62,7 +61,7 @@
 				{...contentProps}
 				class="dropdown-content"
 				data-variant={variant}
-				style={`--dropdown-tone: ${toneMap[tone]};`}
+				style={`--dropdown-tone: $[tone];`}
 			>
 				{#each resolvedGroups as group}
 					<DropdownMenu.Group aria-label={group.ariaLabel}>

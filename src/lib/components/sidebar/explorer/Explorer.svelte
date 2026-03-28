@@ -11,11 +11,11 @@
 	} from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
-	import { requireIDEContext } from '$lib/context';
+	import { requireIDEContext } from '$lib/context/ide';
 	import { editorStore } from '$lib/stores';
 	import { activity } from '$lib/stores';
-	import { projectFolderName } from '$lib/utils/ide/projects.js';
-	import { findNodeByPath } from '$lib/utils/ide/fileTreeOps.js';
+	import { projectFolderName } from '$lib/utils/projects.js';
+	import { findNodeByPath } from '$lib/utils/file-tree.js';
 	import { filterNodesByQuery, getPathsToExpand } from '$lib/utils/ide/explorerTreeOps.js';
 	import type { FileNode } from '$types/editor';
 	import type { PROJECT } from '$types/projects';

@@ -1,4 +1,8 @@
-import type { FileSystemTree } from '@webcontainer/api';
+import type { FileSystemTree, DirectoryNode, FileNode, SymlinkNode } from '@webcontainer/api';
+
+function isDirectoryNode(node: DirectoryNode | FileNode | SymlinkNode): node is DirectoryNode {
+	return 'directory' in node;
+}
 
 export function buildFileSystemTree(
 	nodes: Array<{ path: string; type: 'file' | 'folder'; content?: string }>
@@ -7,11 +11,12 @@ export function buildFileSystemTree(
 
 	for (const node of nodes) {
 		const parts = node.path.replace(/^\//, '').split('/').filter(Boolean);
-		let cursor: any = tree;
+		let cursor: FileSystemTree = tree;
 
 		for (let i = 0; i < parts.length; i++) {
 			const part = parts[i];
 			const isLeaf = i === parts.length - 1;
+
 			if (isLeaf) {
 				if (node.type === 'file') {
 					cursor[part] = { file: { contents: node.content ?? '' } };
@@ -20,7 +25,14 @@ export function buildFileSystemTree(
 				}
 			} else {
 				cursor[part] = cursor[part] ?? { directory: {} };
-				cursor = cursor[part].directory;
+				const nextNode = cursor[part];
+				if (isDirectoryNode(nextNode)) {
+					cursor = nextNode.directory;
+				} else {
+					// Existing file node was found in path; coerce to directory to continue tree creation
+					cursor[part] = { directory: {} };
+					cursor = cursor[part].directory;
+				}
 			}
 		}
 	}
@@ -38,15 +50,15 @@ export function mergeFileSystemTrees(
 			continue;
 		}
 
-		const baseNode = base[key] as { directory?: FileSystemTree; file?: { contents: string } };
-		const overlayNode = overlay[key] as { directory?: FileSystemTree; file?: { contents: string } };
+		const baseNode = base[key];
+		const overlayNode = overlay[key];
 
-		if (baseNode.directory && overlayNode.directory) {
+		if (isDirectoryNode(baseNode) && isDirectoryNode(overlayNode)) {
 			mergeFileSystemTrees(baseNode.directory, overlayNode.directory);
-		} else if (overlayNode.directory) {
+		} else if (isDirectoryNode(overlayNode)) {
 			base[key] = { directory: overlayNode.directory };
-		} else if (overlayNode.file) {
-			base[key] = { file: overlayNode.file };
+		} else if (!isDirectoryNode(overlayNode)) {
+			base[key] = overlayNode;
 		}
 	}
 

@@ -1,17 +1,18 @@
 import { untrack } from 'svelte';
 import { createError } from '$lib/sveltekit/index.js';
 import { createRuntimeManager } from '$lib/services/runtime/createRuntimeManager.svelte';
+import { createRepoProjectManager } from '$lib/services/explorer/ProjectService.svelte';
+import type { Doc } from '$convex/_generated/dataModel.js';
 import type { FileSystemTree } from '@webcontainer/api';
-import { createRepoProjectManager } from '$lib/services/runtime/createRepoProjectManager.svelte';
 import { VITE_REACT_TEMPLATE } from '$lib/utils/ide/template.js';
-import { areProjectsEqual, projectFolderName, uniqueProjects } from '$lib/utils/ide/projects.js';
-import type { PROJECT } from '$types/projects.js';
+import { areProjectsEqual, projectFolderName, uniqueProjects } from '$lib/utils/projects.js';
 import type { RepoLayoutData } from '$types/routes.js';
+import type { ConvexOperations } from '$lib/services/explorer/ProjectService.svelte';
 
-type ConvexLikeClient = {
-	mutation: (mutationRef: unknown, args: Record<string, unknown>) => Promise<unknown>;
-	query: (queryRef: unknown, args: Record<string, unknown>) => Promise<unknown>;
-};
+type ProjectDoc = Doc<'projects'>;
+
+// Re-export so callers can import from one place.
+export type { ConvexOperations };
 
 type Options = {
 	getInitialProjects: () => RepoLayoutData['projects'];
@@ -19,24 +20,27 @@ type Options = {
 	isDemo: () => boolean;
 	isGuest: () => boolean;
 	ownerId: () => string;
-	convexClient: ConvexLikeClient;
+	convexClient: ConvexOperations;
 };
 
 const DEMO_FOLDER = 'demo';
 
-export function RepoController(options: Options) {
+export function createRepoController(options: Options) {
+	// The demo project has no Convex ID — it is never persisted.
 	const demoProject = {
 		files: VITE_REACT_TEMPLATE.files,
 		room: undefined
-	} as unknown as PROJECT;
+	} as unknown as ProjectDoc;
 
-	// UI State
-	let projects = $state<RepoLayoutData['projects']>([]);
+	// ── UI state ──────────────────────────────────────────────────────────────
+
+	let projects = $state<ProjectDoc[]>([]);
 	let activeProjectId = $state<string | null>(null);
 	let renamingProjectId = $state<string | null>(null);
 	let pendingDeleteProjectId = $state<string | null>(null);
 
-	// Runtime Manager
+	// ── Runtime manager ───────────────────────────────────────────────────────
+
 	const runtime = createRuntimeManager({
 		isDemo: options.isDemo,
 		getProjects: () => projects,
@@ -44,7 +48,8 @@ export function RepoController(options: Options) {
 		getWorkspaceTree: options.getWorkspaceTree
 	});
 
-	// Project Manager
+	// ── Project CRUD manager ──────────────────────────────────────────────────
+
 	const projects_ = createRepoProjectManager({
 		getProjects: () => projects,
 		setProjects: (p) => {
@@ -55,22 +60,26 @@ export function RepoController(options: Options) {
 			activeProjectId = id;
 		},
 		convexClient: options.convexClient,
-		getEntryPath: () => getEntryPath(),
-		onError: (Error, error) => runtime.failRuntimeWithError(Error, error)
+		ownerId: options.ownerId,
+		onError: (err, cause) => runtime.failRuntimeWithError(err, cause)
 	});
 
+	// ── Derived state ─────────────────────────────────────────────────────────
+
+	/**
+	 * Maps project _id → workspace folder name.
+	 * Used to resolve which project owns a given WebContainer path.
+	 */
 	const folderMap = $derived(
 		new Map<string, string>(
-			options.isDemo()
-				? []
-				: projects.map((project) => [project._id, projectFolderName(project._id, project.name)])
+			options.isDemo() ? [] : projects.map((p) => [p._id, projectFolderName(p._id, p.name)])
 		)
 	);
 
 	const activeProject = $derived(
-		!options.isDemo()
-			? (projects.find((project) => project._id === activeProjectId) ?? projects[0])
-			: null
+		options.isDemo()
+			? null
+			: (projects.find((p) => p._id === activeProjectId) ?? projects[0] ?? null)
 	);
 
 	const statusText = $derived(
@@ -87,6 +96,8 @@ export function RepoController(options: Options) {
 						: '⏳ Starting sandbox runtime…'
 	);
 
+	// ── Project sync (called from reactive layout on Convex subscription updates) ──
+
 	function syncProjects(nextProjects: RepoLayoutData['projects']) {
 		const unique = uniqueProjects(nextProjects);
 
@@ -99,28 +110,29 @@ export function RepoController(options: Options) {
 			projects = unique;
 		}
 
-		const currentActiveProjectId = untrack(() => activeProjectId);
-		if (
-			!currentActiveProjectId ||
-			!unique.some((project) => project._id === currentActiveProjectId)
-		) {
-			const nextActiveProjectId = unique[0]?._id ?? null;
-			if (currentActiveProjectId !== nextActiveProjectId) {
-				activeProjectId = nextActiveProjectId;
-			}
+		const current = untrack(() => activeProjectId);
+		if (!current || !unique.some((p) => p._id === current)) {
+			const next = unique[0]?._id ?? null;
+			if (current !== next) activeProjectId = next;
 		}
 	}
 
-	function getFallbackProject(): PROJECT {
+	// ── Path helpers ──────────────────────────────────────────────────────────
+
+	function getFallbackProject(): ProjectDoc {
 		if (options.isDemo()) return demoProject;
 		return activeProject ?? projects[0] ?? demoProject;
 	}
 
-	function getProjectForPath(path?: string): PROJECT {
+	/**
+	 * Given a WebContainer path, resolve which project owns it.
+	 * Matches on the leading folder segment via folderMap.
+	 */
+	function getProjectForPath(path?: string): ProjectDoc {
 		if (options.isDemo()) return demoProject;
 		if (!path) return getFallbackProject();
 		const folder = path.split('/')[0];
-		const match = projects.find((project) => folderMap.get(project._id) === folder);
+		const match = projects.find((p) => folderMap.get(p._id) === folder);
 		return match ?? getFallbackProject();
 	}
 
@@ -136,6 +148,8 @@ export function RepoController(options: Options) {
 		const entryFile = project.entry ?? VITE_REACT_TEMPLATE.entry;
 		return `${folder}/${entryFile}`;
 	}
+
+	// ── UI action handlers ────────────────────────────────────────────────────
 
 	function selectProject(projectId: string) {
 		activeProjectId = projectId;
@@ -160,6 +174,8 @@ export function RepoController(options: Options) {
 		renamingProjectId = null;
 	}
 
+	// ── Lifecycle ─────────────────────────────────────────────────────────────
+
 	function mount() {
 		if (!options.isDemo() && projects.length === 0) {
 			projects = uniqueProjects(options.getInitialProjects().slice());
@@ -168,7 +184,7 @@ export function RepoController(options: Options) {
 
 		if (!options.isDemo()) {
 			const fromStorage = window.localStorage.getItem('sandem.activeProjectId');
-			if (fromStorage && projects.some((project) => project._id === fromStorage)) {
+			if (fromStorage && projects.some((p) => p._id === fromStorage)) {
 				activeProjectId = fromStorage;
 			}
 		}
@@ -204,8 +220,10 @@ export function RepoController(options: Options) {
 		};
 	}
 
+	// ── Public interface ──────────────────────────────────────────────────────
+
 	return {
-		// UI State
+		// UI state
 		get projects() {
 			return projects;
 		},
@@ -224,7 +242,8 @@ export function RepoController(options: Options) {
 		get mutatingProjectId() {
 			return projects_.mutatingProjectId;
 		},
-		// Runtime State
+
+		// Runtime state
 		get runtimePhase() {
 			return runtime.runtimePhase;
 		},
@@ -240,6 +259,7 @@ export function RepoController(options: Options) {
 		get activeProject() {
 			return activeProject;
 		},
+
 		// Methods
 		syncProjects,
 		getProjectForPath,
@@ -251,13 +271,13 @@ export function RepoController(options: Options) {
 		createProjectCard: projects_.createProjectCard,
 		commitRename: projects_.commitRename,
 		confirmDelete: projects_.confirmDelete,
+
 		// Runtime access
 		getWebcontainer: () => runtime.webcontainer,
-		getWorkspaceProjects: () =>
-			projects.map((project) => ({ id: project._id, title: project.name })),
+		getWorkspaceProjects: () => projects.map((p) => ({ id: p._id, title: p.name })),
 		startRuntime: () => runtime.startRuntime(),
-		failRuntimeWithError: (Error: ReturnType<typeof createError>, error?: unknown) =>
-			runtime.failRuntimeWithError(Error, error),
+		failRuntimeWithError: (err: ReturnType<typeof createError>, cause?: unknown) =>
+			runtime.failRuntimeWithError(err, cause),
 		mount
 	};
 }

@@ -1,5 +1,5 @@
 import type { WebContainer } from '@webcontainer/api';
-import { getRootFolder } from '$lib/utils/ide/file-system.js';
+import { getRootFolder } from '$lib/utils/file-system.js';
 import type { DebugActivityDeps } from '../../../types/hooks.js';
 
 export function createDebugActivity(deps: DebugActivityDeps) {

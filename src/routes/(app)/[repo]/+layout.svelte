@@ -3,18 +3,17 @@
 
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api.js';
-
 	import { PaneGroup, Pane, type PaneAPI } from 'paneforge';
 
 	import { createSvelteAuthClient, useAuth } from '$lib/svelte/index.js';
-	import { createError } from '$lib/sveltekit/index.js';
-	import { projectFolderName } from '$lib/utils/ide/projects.js';
-
-	import { authClient, setIDEContext } from '$lib/context';
-	import { createRepoController, createLiveblocksEditorSync } from '$lib/controllers';
-	import { createPanelsState, setPanelsContext } from '$lib/stores';
-
+	import { authClient } from '$lib/context/auth';
+	import {
+		setupRepoLayout,
+		syncRepoProjects
+	} from '$lib/controllers/repo/RepoLayoutController.svelte';
+	import { setPanelsContext } from '$lib/stores';
 	import type { RepoLayoutData } from '$types/routes.js';
+	import type { Id } from '$convex/_generated/dataModel.js';
 
 	import { ActivityBar } from '$lib/components/sidebar/activities';
 	import Sidebar from '$lib/components/sidebar/Sidebar.svelte';
@@ -37,118 +36,44 @@
 
 	const currentUser = $derived(currentUserResponse.data ?? data.currentUser);
 	const isGuest = $derived(!currentUser);
-	const isDemo = $derived(isGuest);
-	const ownerId = $derived(currentUser?._id ?? '');
+
+	// Typed as null when unauthenticated — the query's 'skip' guard handles the falsy case.
+	// Previously typed as Id<'users'> | '' which is misleading ('' is not a valid user ID).
+	const ownerId = $derived<Id<'users'> | null>(currentUser?._id ?? null);
 
 	// Live Convex subscription — authoritative project list.
-	// createProjectSyncController (manual polling) is now redundant and deleted.
 	const projectsResponse = useQuery(
 		api.projects.getAllProjects,
 		() => (ownerId ? { ownerId } : 'skip'),
 		() => ({ initialData: data.projects, keepPreviousData: true })
 	);
 
-	const convexOps = {
-		mutation: (mutationRef: unknown, args: Record<string, unknown>) =>
-			convexClient.mutation(mutationRef as never, args as never),
-		query: (queryRef: unknown, args: Record<string, unknown>) =>
-			convexClient.query(queryRef as never, args as never)
-	};
-
-	const repo = createRepoController({
-		getInitialProjects: () => data.projects,
-		getWorkspaceTree: () => data.workspaceTree ?? {},
-		isDemo: () => isDemo,
+	const { repo, editorSync, panels } = setupRepoLayout({
+		getData: () => data,
 		isGuest: () => isGuest,
 		ownerId: () => ownerId,
-		convexClient: convexOps
+		convexClient
 	});
 
-	// Seed from server data immediately (handles SSR initial state).
-	$effect(() => {
-		repo.syncProjects(data.projects);
-	});
-
-	// Keep project list in sync with the live Convex subscription.
-	$effect(() => {
-		if (isDemo) return;
-
-		const queryState = projectsResponse as {
-			data?: RepoLayoutData['projects'];
-			error?: unknown;
-		};
-
-		if (queryState.error) {
-			repo.failRuntimeWithError(
-				createError('Failed to load projects for this workspace.', { code: 'INTERNAL_ERROR' }),
-				queryState.error
-			);
-			return;
-		}
-
-		if (queryState.data) repo.syncProjects(queryState.data);
-		else repo.syncProjects(data.projects);
-	});
-
-	// ── Liveblocks → WebContainer → Convex write pipeline ────────────────────
-	//
-	// getWorkspaceRoot() resolves the active project's folder name using the same
-	// projectFolderName() utility that createRepoController uses internally, so
-	// paths stay consistent across the multi-project workspace layout.
-	//
-	const editorSync = createLiveblocksEditorSync({
-		getWebcontainer: () => repo.getWebcontainer(),
-		persistFile: async (path, content) => {
-			await convexClient.mutation(api.filesystem.upsertFile, { path, content });
-		},
-		getWorkspaceRoot: () => {
-			const p = repo.activeProject;
-			return p ? projectFolderName(p._id, p.title) : '';
-		},
-		onError: (target, path, err) =>
-			console.error(`[editorSync:${target}] write failed — "${path}"`, err)
-	});
-	// ─────────────────────────────────────────────────────────────────────────
-
-	const panels = createPanelsState({ activeTab: 'explorer' });
 	setPanelsContext(panels);
+
+	// Single effect handles both the initial SSR seed and live subscription updates.
+	// Previously split across two effects, causing redundant syncs on every render.
+	$effect(() => {
+		syncRepoProjects(
+			repo,
+			Boolean(isGuest),
+			projectsResponse.data,
+			projectsResponse.error,
+			data.projects
+		);
+	});
 
 	let sidebar = $state<PaneAPI>();
 
 	$effect(() => {
 		const open = panels.leftPane;
 		untrack(() => (open ? sidebar?.expand() : sidebar?.collapse()));
-	});
-
-	const runtimePhase = $derived(repo.runtimePhase);
-	const runtimeError = $derived(repo.runtimeError);
-	const ready = $derived(repo.ready);
-	const statusText = $derived(repo.statusText);
-	const activeProjectId = $derived(repo.activeProjectId);
-	const renamingProjectId = $derived(repo.renamingProjectId);
-	const pendingDeleteProjectId = $derived(repo.pendingDeleteProjectId);
-	const mutatingProjectId = $derived(repo.mutatingProjectId);
-	const creatingProject = $derived(repo.creatingProject);
-
-	setIDEContext({
-		getWebcontainer: repo.getWebcontainer,
-		getProject: repo.getProjectForPath,
-		getEntryPath: repo.getEntryPath,
-		getWorkspaceProjects: repo.getWorkspaceProjects,
-		getActiveProjectId: () => activeProjectId,
-		getRenamingProjectId: () => renamingProjectId,
-		getPendingDeleteProjectId: () => pendingDeleteProjectId,
-		getMutatingProjectId: () => mutatingProjectId,
-		isCreatingProject: () => creatingProject,
-		createProject: repo.createProjectCard,
-		selectProject: repo.selectProject,
-		startRenameProject: repo.startRename,
-		cancelRenameProject: repo.cancelRename,
-		commitRenameProject: repo.commitRename,
-		requestDeleteProject: repo.requestDelete,
-		confirmDeleteProject: repo.confirmDelete,
-		// Exposed so editor tabs can call watch/unwatch/flush directly.
-		editorSync
 	});
 
 	onMount(() => {
@@ -175,11 +100,11 @@
 				<Resizer />
 
 				<Pane>
-					{#if runtimePhase === 'failed'}
+					{#if repo.runtimePhase === 'failed'}
 						<ErrorPanel
 							title="Sandbox failed to start"
 							description="The IDE hit a WebContainer runtime error. You can recover without refreshing."
-							message={runtimeError ?? 'Unknown runtime error.'}
+							message={repo.runtimeError ?? 'Unknown runtime error.'}
 							testId="runtime-recovery-ui"
 						>
 							{#snippet actions()}
@@ -198,11 +123,11 @@
 								</button>
 							{/snippet}
 						</ErrorPanel>
-					{:else if ready}
+					{:else if repo.ready}
 						{@render children()}
 					{:else}
 						<p class="booting-msg">
-							{isDemo ? 'Spinning up demo sandbox…' : 'Loading your projects…'}
+							{isGuest ? 'Spinning up demo sandbox…' : 'Loading your projects…'}
 						</p>
 					{/if}
 				</Pane>
@@ -210,7 +135,7 @@
 		</section>
 	</main>
 
-	<Statusbar status={statusText} {isGuest} />
+	<Statusbar status={repo.statusText} {isGuest} />
 </div>
 
 <!-- /html -->

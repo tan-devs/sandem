@@ -3,7 +3,7 @@
 	import ActivityPanel from '../activities/ActivityPanel.svelte';
 	import Button from '$lib/components/ui/primitives/Button.svelte';
 	import { Accordion } from 'bits-ui';
-	import { requireIDEContext } from '$lib/context';
+	import { requireIDEContext } from '$lib/context/ide';
 	import { createDebugActivity } from '$lib/controllers';
 	import { editorStore } from '$lib/stores';
 	import { getPanelsContext } from '$lib/stores';

@@ -35,8 +35,9 @@ export default [
 		ignores: [
 			'dist/**',
 			'.svelte-kit/**',
-			'src/convex/_generated/**',
 			'src/convex/*.d.ts',
+			'src/convex/_generated/**',
+			'src/convex/functions/_generated/**',
 			'static/monaco/**'
 		]
 	}

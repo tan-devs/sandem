@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { authClient } from '$lib/context';
+	import { authClient } from '$lib/context/auth';
 	import { api } from '$convex/_generated/api.js';
 	import { useQuery } from 'convex-svelte';
 	import { useAuth } from '$lib/svelte/index.js';
+	import type { ErrorContext } from '@better-fetch/fetch';
 	import Button from '$lib/components/ui/primitives/Button.svelte';
 	import Form from '$lib/components/ui/primitives/Form.svelte';
 	import Grid from '$lib/components/ui/primitives/Grid.svelte';
@@ -38,8 +39,8 @@
 				await authClient.signIn.email(
 					{ email, password },
 					{
-						onError: (ctx) => {
-							errorMsg = ctx.error.message;
+						onError: (ctx: ErrorContext) => {
+							errorMsg = ctx.error?.message ?? 'Unable to sign in';
 						}
 					}
 				);
@@ -47,8 +48,8 @@
 				await authClient.signUp.email(
 					{ name, email, password },
 					{
-						onError: (ctx) => {
-							errorMsg = ctx.error.message;
+						onError: (ctx: ErrorContext) => {
+							errorMsg = ctx.error?.message ?? 'Unable to sign up';
 						}
 					}
 				);

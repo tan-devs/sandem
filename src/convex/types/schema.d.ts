@@ -22,9 +22,7 @@ declare const _default: import('convex/server').SchemaDefinition<
 			{
 				by_tokenIdentifier: ['tokenIdentifier', '_creationTime'];
 				by_username: ['username', '_creationTime'];
-			},
-			{},
-			{}
+			}
 		>;
 
 		projects: import('convex/server').TableDefinition<
@@ -55,9 +53,7 @@ declare const _default: import('convex/server').SchemaDefinition<
 			>,
 			{
 				by_owner: ['ownerId', '_creationTime'];
-			},
-			{},
-			{}
+			}
 		>;
 
 		nodes: import('convex/server').TableDefinition<
@@ -102,9 +98,7 @@ declare const _default: import('convex/server').SchemaDefinition<
 			{
 				by_project_path: ['projectId', 'path', '_creationTime'];
 				by_parent: ['projectId', 'parentId', '_creationTime'];
-			},
-			{},
-			{}
+			}
 		>;
 
 		projectSeedState: import('convex/server').TableDefinition<
@@ -127,9 +121,7 @@ declare const _default: import('convex/server').SchemaDefinition<
 			>,
 			{
 				by_owner: ['ownerId', '_creationTime'];
-			},
-			{},
-			{}
+			}
 		>;
 	},
 	true

@@ -1,8 +1,7 @@
 import { mutation, query, type MutationCtx, type QueryCtx } from '../_generated/server.js';
-
+import type { Doc } from '../_generated/dataModel.js';
 import { v } from 'convex/values';
 import type { GenericId } from 'convex/values';
-import type { ProjectDoc, NodeDoc, ProjectFile } from '../types/index.js';
 import { normalizeNodePath, getParentNodePath } from '../utils/paths.js';
 import { generateLiveblocksRoomId } from '../utils/project.js';
 import {
@@ -13,28 +12,28 @@ import {
 
 // ---------------------------------------------------------------------------
 // Ctx aliases
-//
-// assertProjectAccess and the read-only helpers are called from both queries
-// and mutations. DatabaseWriter extends DatabaseReader, so MutationCtx
-// satisfies QueryCtx structurally — we accept either via a union.
 // ---------------------------------------------------------------------------
 
 type AnyCtx = QueryCtx | MutationCtx;
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Types — derived from generated dataModel, never hand-written
 // ---------------------------------------------------------------------------
+
+type ProjectDoc = Doc<'projects'>;
+type NodeDoc = Doc<'nodes'>;
+
+/**
+ * Shape of entries in STARTER_PROJECT_FILES and seed arrays.
+ * Not a database type — kept local since it's only used for seeding.
+ */
+type ProjectFile = {
+	name: string;
+	contents: string;
+};
 
 // ---------------------------------------------------------------------------
 // Permission guard
-//
-// Central function used by every query/mutation that touches project data.
-// Returns the project if the caller has the requested access level,
-// throws otherwise.
-//
-// Access rules:
-//   'read'  → owner always; anyone if isPublic: true
-//   'write' → owner only, always
 // ---------------------------------------------------------------------------
 
 async function assertProjectAccess(
@@ -42,7 +41,7 @@ async function assertProjectAccess(
 	projectId: GenericId<'projects'>,
 	level: 'read' | 'write'
 ): Promise<{ project: ProjectDoc; isOwner: boolean }> {
-	const project = (await ctx.db.get(projectId)) as ProjectDoc | null;
+	const project = await ctx.db.get(projectId);
 	if (!project) throw new Error('Project not found.');
 
 	const identity = await ctx.auth.getUserIdentity();
@@ -51,8 +50,7 @@ async function assertProjectAccess(
 	const owner = await ctx.db.get(project.ownerId);
 	if (!owner) throw new Error('Project owner not found.');
 
-	const isOwner =
-		callerToken !== null && callerToken === (owner as { tokenIdentifier?: string }).tokenIdentifier;
+	const isOwner = callerToken !== null && callerToken === owner.tokenIdentifier;
 
 	if (level === 'write' && !isOwner) {
 		throw new Error('Read-only: only the project owner can make changes.');
@@ -97,12 +95,11 @@ export const createProject = mutation({
 // Read
 // ---------------------------------------------------------------------------
 
-/** List all projects owned by a user. Caller must be the owner. */
+/** List all projects owned by a user. */
 export const getAllProjects = query({
 	args: { ownerId: v.id('users') },
 	handler: async (ctx, args) => {
 		if (!args.ownerId) return [];
-
 		return await ctx.db
 			.query('projects')
 			.withIndex('by_owner', (q) => q.eq('ownerId', args.ownerId))
@@ -119,14 +116,6 @@ export const getProject = query({
 	}
 });
 
-/**
- * The main entry point for the IDE route.
- *
- * Fetches the project + all its nodes in a single call, enforcing:
- *   - Public projects  → any visitor can read
- *   - Private projects → owner only
- *   - Write access     → owner only (isOwner flag lets the UI disable Save)
- */
 async function findUserByUsername(ctx: AnyCtx, username: string) {
 	return await ctx.db
 		.query('users')
@@ -146,11 +135,12 @@ async function findProjectByOwnerAndName(
 		.first();
 }
 
+/**
+ * Primary IDE loader — resolves by username + project name.
+ * Public projects → any visitor; Private → owner only.
+ */
 export const getProjectFiles = query({
-	args: {
-		username: v.string(),
-		projectName: v.string()
-	},
+	args: { username: v.string(), projectName: v.string() },
 	handler: async (ctx, args) => {
 		const user = await findUserByUsername(ctx, args.username);
 		if (!user) throw new Error(`User "${args.username}" not found.`);
@@ -165,12 +155,7 @@ export const getProjectFiles = query({
 		);
 
 		const nodes = await getNodesForProject(ctx, project._id);
-
-		return {
-			project: guardedProject,
-			nodes,
-			isOwner
-		};
+		return { project: guardedProject, nodes, isOwner };
 	}
 });
 
@@ -188,7 +173,6 @@ export const openCollab = query({
 		if (!project) return null;
 
 		await assertProjectAccess(ctx, project._id, 'read');
-
 		return project;
 	}
 });
@@ -197,15 +181,17 @@ export const openCollab = query({
 // Update
 // ---------------------------------------------------------------------------
 
-/** Update project metadata (name, entry, room, isPublic). Owner only. */
+/**
+ * Update project metadata only (name, entry, room, isPublic).
+ * File content lives in the `nodes` table — use api.filesystem mutations.
+ */
 export const updateProject = mutation({
 	args: {
 		id: v.id('projects'),
 		name: v.optional(v.string()),
 		entry: v.optional(v.string()),
 		room: v.optional(v.string()),
-		isPublic: v.optional(v.boolean()),
-		files: v.optional(v.array(v.object({ name: v.string(), contents: v.string() })))
+		isPublic: v.optional(v.boolean())
 	},
 	handler: async (ctx, args) => {
 		await assertProjectAccess(ctx, args.id, 'write');
@@ -218,7 +204,7 @@ export const updateProject = mutation({
 // Delete
 // ---------------------------------------------------------------------------
 
-/** Delete a project and all its nodes. Owner only. */
+/** Delete a project and cascade to all its nodes. Owner only. */
 export const deleteProject = mutation({
 	args: { id: v.id('projects') },
 	handler: async (ctx, args) => {
@@ -251,15 +237,14 @@ async function ensureSystemTemplateUser(ctx: MutationCtx) {
 
 	if (!systemUser) {
 		const now = Date.now();
-		const systemUserId = await ctx.db.insert('users', {
+		const id = await ctx.db.insert('users', {
 			tokenIdentifier: SYSTEM_TEMPLATE_USERNAME,
 			username: SYSTEM_TEMPLATE_USERNAME,
 			isGuest: false,
 			createdAt: now,
 			lastSeen: now
 		});
-
-		systemUser = await ctx.db.get(systemUserId);
+		systemUser = await ctx.db.get(id);
 	}
 
 	return systemUser;
@@ -269,10 +254,10 @@ async function getNodesForProject(
 	ctx: AnyCtx,
 	projectId: GenericId<'projects'>
 ): Promise<NodeDoc[]> {
-	return (await ctx.db
+	return await ctx.db
 		.query('nodes')
 		.withIndex('by_project_path', (q) => q.eq('projectId', projectId))
-		.collect()) as NodeDoc[];
+		.collect();
 }
 
 type NodeInsert = {
@@ -282,7 +267,8 @@ type NodeInsert = {
 };
 
 /**
- * Insert a full file/folder tree into a project, with computed parentId links.
+ * Insert a full file/folder tree into a project with computed parentId links.
+ * Sorts by depth so parent folders are always inserted before their children.
  */
 async function insertProjectNodes(
 	ctx: MutationCtx,
@@ -296,7 +282,7 @@ async function insertProjectNodes(
 		const path = normalizeNodePath(node.path);
 		normalizedNodes.set(path, { path, type: node.type, content: node.content });
 
-		// Ensure all folder ancestors exist (for tree consistency)
+		// Ensure all folder ancestors exist for tree consistency.
 		const parts = path.replace(/^\//, '').split('/').filter(Boolean);
 		let prefix = '';
 		for (let i = 0; i < parts.length - 1; i++) {
@@ -307,7 +293,6 @@ async function insertProjectNodes(
 		}
 	}
 
-	// Sort by depth (folders before deeper files) so parent nodes exist first.
 	const sortedPaths = Array.from(normalizedNodes.keys()).sort((a, b) => {
 		const aDepth = a.split('/').filter(Boolean).length;
 		const bDepth = b.split('/').filter(Boolean).length;
@@ -347,13 +332,13 @@ async function ensureSystemTemplateProject(ctx: MutationCtx) {
 	const systemUser = await ensureSystemTemplateUser(ctx);
 	if (!systemUser) throw new Error('Failed to create system template user.');
 
-	const existingTemplateProject = await ctx.db
+	const existing = await ctx.db
 		.query('projects')
 		.withIndex('by_owner', (q) => q.eq('ownerId', systemUser._id))
 		.filter((q) => q.eq(q.field('name'), STARTER_PROJECT_TITLE))
 		.first();
 
-	if (existingTemplateProject) return existingTemplateProject;
+	if (existing) return existing;
 
 	const now = Date.now();
 	const projectId = await ctx.db.insert('projects', {
@@ -366,20 +351,20 @@ async function ensureSystemTemplateProject(ctx: MutationCtx) {
 		updatedAt: now
 	});
 
+	// STARTER_PROJECT_FILES are { name, contents } template entries — ProjectFile, not NodeDoc.
 	await insertProjectNodes(
 		ctx,
 		projectId,
 		(STARTER_PROJECT_FILES as ProjectFile[]).map((file) => ({
 			path: normalizeNodePath(file.name),
-			type: 'file',
+			type: 'file' as const,
 			content: file.contents
 		}))
 	);
 
-	const createdProject = await ctx.db.get(projectId);
-	if (!createdProject) throw new Error('Failed to create system template project.');
-
-	return createdProject;
+	const created = await ctx.db.get(projectId);
+	if (!created) throw new Error('Failed to create system template project.');
+	return created;
 }
 
 /**
@@ -409,7 +394,7 @@ export async function seedStarterProjectForOwner(
 	let projectId: GenericId<'projects'> | null = null;
 
 	if (!existing) {
-		const systemTemplateProject = await ensureSystemTemplateProject(ctx);
+		const templateProject = await ensureSystemTemplateProject(ctx);
 
 		projectId = await ctx.db.insert('projects', {
 			ownerId,
@@ -421,7 +406,7 @@ export async function seedStarterProjectForOwner(
 			updatedAt: now
 		});
 
-		const templateNodes = await getNodesForProject(ctx, systemTemplateProject._id);
+		const templateNodes = await getNodesForProject(ctx, templateProject._id);
 
 		if (templateNodes.length > 0) {
 			await insertProjectNodes(
@@ -434,12 +419,13 @@ export async function seedStarterProjectForOwner(
 				}))
 			);
 		} else {
+			// Fallback: seed directly from the static template array.
 			await insertProjectNodes(
 				ctx,
 				projectId,
 				(STARTER_PROJECT_FILES as ProjectFile[]).map((file) => ({
 					path: file.name,
-					type: 'file',
+					type: 'file' as const,
 					content: file.contents
 				}))
 			);
@@ -469,7 +455,7 @@ export const ensureStarterProjectForOwner = mutation({
 
 /**
  * Backfill any projects that were created without a Liveblocks room slug.
- * Safe to call on every login — patches only the rows that need it.
+ * Safe to call on every login — patches only rows that need it.
  */
 export const ensureLiveblocksRoomsForOwner = mutation({
 	args: { ownerId: v.id('users') },

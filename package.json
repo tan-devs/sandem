@@ -132,6 +132,7 @@
 	},
 	"dependencies": {
 		"@battlefieldduck/xterm-svelte": "^2.2.1",
+		"@better-fetch/fetch": "^1.1.21",
 		"@codemirror/lang-javascript": "^6.2.4",
 		"@codemirror/state": "^6.5.4",
 		"@liveblocks/client": "^3.14.0",

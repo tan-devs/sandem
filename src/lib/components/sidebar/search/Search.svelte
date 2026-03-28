@@ -3,7 +3,7 @@
 	import ActivityPanel from '../activities/ActivityPanel.svelte';
 	import Button from '$lib/components/ui/primitives/Button.svelte';
 	import SearchBar from '$lib/components/ui/primitives/SearchBar.svelte';
-	import { requireIDEContext } from '$lib/context';
+	import { requireIDEContext } from '$lib/context/ide';
 	import { createSearchActivity } from '$lib/controllers';
 	import { editorStore } from '$lib/stores';
 

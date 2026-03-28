@@ -4,7 +4,7 @@
 
 	import type { FileNode } from '$types/editor';
 	import type { PROJECT } from '$types/projects';
-	import { projectFolderName } from '$lib/utils/ide/projects.js';
+	import { projectFolderName } from '$lib/utils/projects.js';
 
 	import ExplorerOpenEditors from './ExplorerOpenEditors.svelte';
 	import ExplorerFilesSection from './ExplorerFilesSection.svelte';

@@ -7,60 +7,76 @@
 	 * Data flow:
 	 *   Convex (listNodes) → flat FileNode[] → FileTreeNode (recursive)
 	 *
-	 * This component owns all mutations (rename, delete, new file/folder) and
-	 * passes isOwner down so the tree knows when to show write controls.
+	 * This component owns:
+	 *   - active file selection state (activeNodeId)
+	 *   - all mutations (rename, delete, new file/folder)
+	 * and passes them down as callback props so FileTreeNode stays pure.
 	 */
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api.js';
-	import { FileTreeNode } from '$lib/components/ui/primitives';
-	import type { FileNode } from '$types/filesystem.js';
 	import type { Id } from '$convex/_generated/dataModel.js';
+	import FileTreeNode from '$lib/components/ui/primitives/FileTreeNode.svelte';
+	import type { FileNode } from '$types/filesystem.js';
 
-	export let projectId: Id<'projects'> | undefined = undefined;
-	export let isOwner: boolean = false;
-	export let variant: 'compact' | 'default' = 'default';
+	type Props = {
+		projectId?: Id<'projects'>;
+		isOwner?: boolean;
+		onselect?: (node: FileNode) => void;
+	};
+
+	let { projectId, isOwner = false, onselect }: Props = $props();
 
 	// -------------------------------------------------------------------------
 	// Convex subscriptions & mutations
 	// -------------------------------------------------------------------------
 
-	// Subscribe to the full flat node list for this project.
-	// Convex reactively re-renders the tree whenever nodes change.
 	const convexClient = useConvexClient();
-	const defaultNodesQuery = {
-		data: [] as FileNode[],
-		error: undefined,
-		isLoading: false,
-		isStale: false
-	};
-	const nodesQuery = projectId
-		? useQuery(api.filesystem.listNodes, { projectId })
-		: defaultNodesQuery;
+
+	const nodesQuery = $derived(
+		projectId
+			? useQuery(api.filesystem.listNodes, { projectId })
+			: { data: [] as FileNode[], isLoading: false }
+	);
 
 	// -------------------------------------------------------------------------
-	// Derived: split the flat list into root-level nodes + full list for children
+	// Derived: flat list + sorted root nodes
 	// -------------------------------------------------------------------------
 
-	// Root nodes are those with no parentId — they sit directly under "/"
-	$: allNodes = (nodesQuery.data ?? []) as FileNode[];
-	$: rootNodes = allNodes
-		.filter((n) => !n.parentId)
-		.sort((a, b) => {
-			if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
-			return a.name.localeCompare(b.name);
-		});
+	const allNodes = $derived((nodesQuery.data ?? []) as FileNode[]);
+
+	const rootNodes = $derived(
+		allNodes
+			.filter((n) => !n.parentId)
+			.sort((a, b) => {
+				if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
+				return a.name.localeCompare(b.name);
+			})
+	);
+
+	// -------------------------------------------------------------------------
+	// Active selection — owned here, passed down as activeNodeId
+	// -------------------------------------------------------------------------
+
+	let activeNodeId = $state<string | null>(null);
+
+	function handleSelect(node: FileNode) {
+		activeNodeId = node._id;
+		onselect?.(node);
+	}
 
 	// -------------------------------------------------------------------------
 	// Inline "new node" creation state
 	// -------------------------------------------------------------------------
 
-	let creating: {
+	type CreatingState = {
 		parentId: string | undefined;
 		parentPath: string;
 		type: 'file' | 'folder';
-	} | null = null;
-	let newNodeName = '';
-	let newNodeInput: HTMLInputElement;
+	};
+
+	let creating = $state<CreatingState | null>(null);
+	let newNodeName = $state('');
+	let newNodeInput = $state<HTMLInputElement | undefined>(undefined);
 
 	function openCreator(parentId: string | undefined, parentPath: string, type: 'file' | 'folder') {
 		creating = { parentId, parentPath, type };
@@ -102,30 +118,31 @@
 	}
 
 	// -------------------------------------------------------------------------
-	// Event handlers bubbled up from FileTreeNode
+	// Mutation handlers — passed as callbacks into FileTreeNode
 	// -------------------------------------------------------------------------
 
-	async function handleRename(e: CustomEvent<{ node: FileNode; newName: string }>) {
+	async function handleRename(node: FileNode, newName: string) {
 		if (!projectId) return;
 		await convexClient.mutation(api.filesystem.renameNode, {
-			id: e.detail.node._id as Id<'nodes'>,
-			newName: e.detail.newName
+			id: node._id as Id<'nodes'>,
+			newName
 		});
 	}
 
-	async function handleDelete(e: CustomEvent<FileNode>) {
+	async function handleDelete(node: FileNode) {
 		if (!projectId) return;
+		if (activeNodeId === node._id) activeNodeId = null;
 		await convexClient.mutation(api.filesystem.deleteNode, {
-			id: e.detail._id as Id<'nodes'>
+			id: node._id as Id<'nodes'>
 		});
 	}
 
-	function handleNewFile(e: CustomEvent<{ parentId: string | undefined; parentPath: string }>) {
-		openCreator(e.detail.parentId, e.detail.parentPath, 'file');
+	function handleNewFile(parentId: string | undefined, parentPath: string) {
+		openCreator(parentId, parentPath, 'file');
 	}
 
-	function handleNewFolder(e: CustomEvent<{ parentId: string | undefined; parentPath: string }>) {
-		openCreator(e.detail.parentId, e.detail.parentPath, 'folder');
+	function handleNewFolder(parentId: string | undefined, parentPath: string) {
+		openCreator(parentId, parentPath, 'folder');
 	}
 </script>
 
@@ -141,7 +158,6 @@
 					onclick={() => openCreator(undefined, '/', 'file')}
 					aria-label="New file at root"
 				>
-					<!-- File+ icon -->
 					<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
 						<rect
 							x="2"
@@ -167,7 +183,6 @@
 					onclick={() => openCreator(undefined, '/', 'folder')}
 					aria-label="New folder at root"
 				>
-					<!-- Folder+ icon -->
 					<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
 						<path
 							d="M1 4a1 1 0 011-1h4l1.5 2H14a1 1 0 011 1v6a1 1 0 01-1 1H2a1 1 0 01-1-1V4z"
@@ -189,9 +204,9 @@
 	<!-- Loading state -->
 	{#if nodesQuery.data === undefined}
 		<div class="loading">
-			<span class="loading-bar" />
-			<span class="loading-bar" style="width: 60%; opacity: 0.5" />
-			<span class="loading-bar" style="width: 80%; opacity: 0.3" />
+			<span class="loading-bar"></span>
+			<span class="loading-bar" style="width: 60%; opacity: 0.5"></span>
+			<span class="loading-bar" style="width: 80%; opacity: 0.3"></span>
 		</div>
 
 		<!-- Empty state -->
@@ -209,7 +224,7 @@
 		<ul class="tree" role="tree" aria-label="Project files">
 			<!-- Root-level inline creator -->
 			{#if creating && !creating.parentId}
-				<li class="inline-creator" role="treeitem">
+				<li class="inline-creator" role="treeitem" aria-selected="false">
 					<span class="creator-icon" aria-hidden="true">
 						{creating.type === 'folder' ? '📁' : '📄'}
 					</span>
@@ -218,8 +233,8 @@
 						bind:value={newNodeName}
 						class="creator-input"
 						placeholder={creating.type === 'folder' ? 'folder-name' : 'filename.ts'}
-						on:blur={cancelNewNode}
-						on:keydown={handleNewNodeKey}
+						onblur={cancelNewNode}
+						onkeydown={handleNewNodeKey}
 					/>
 				</li>
 			{/if}
@@ -229,12 +244,13 @@
 					{node}
 					{allNodes}
 					{isOwner}
+					{activeNodeId}
 					depth={0}
-					on:select
-					on:rename={handleRename}
-					on:delete={handleDelete}
-					on:newFile={handleNewFile}
-					on:newFolder={handleNewFolder}
+					onselect={handleSelect}
+					onrename={handleRename}
+					ondelete={handleDelete}
+					onnewFile={handleNewFile}
+					onnewFolder={handleNewFolder}
 				/>
 			{/each}
 		</ul>
@@ -314,7 +330,6 @@
 		padding: 4px 0;
 		margin: 0;
 		list-style: none;
-		/* Custom scrollbar */
 		scrollbar-width: thin;
 		scrollbar-color: var(--tree-scroll, rgba(255, 255, 255, 0.1)) transparent;
 	}

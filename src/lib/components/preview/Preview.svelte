@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { requireIDEContext } from '$lib/context';
+	import { requireIDEContext } from '$lib/context/ide';
 	import { createPreview } from '$lib/hooks';
 	import ErrorPanel from '$lib/components/ui/primitives/ErrorPanel.svelte';
 	import { createErrorReporter } from '$lib/sveltekit/index.js';

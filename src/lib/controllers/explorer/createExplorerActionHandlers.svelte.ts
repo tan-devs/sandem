@@ -6,7 +6,7 @@ import type { WebContainer } from '@webcontainer/api';
 import type { FileTreeController, ProjectSyncController } from '$types/hooks';
 import type { PROJECT } from '$types/projects';
 import type { FileNode } from '$types/editor';
-import { projectFolderName } from '$lib/utils/ide/projects.js';
+import { projectFolderName } from '$lib/utils/projects.js';
 import {
 	findNode,
 	getAllDirectoryPaths,
