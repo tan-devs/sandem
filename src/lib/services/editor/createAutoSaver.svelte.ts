@@ -12,24 +12,26 @@ export type AutoSaveStatus =
 	| 'Save failed';
 
 /**
- * The autoSaver only needs the project's _id to call `upsertFile`.
- * Pass the full ProjectSummary so callers don't have to unwrap it.
+ * Debounced Convex persistence for editor content.
+ *
+ * Gracefully degrades to 'Session only' when there is no ConvexProvider
+ * in the tree (demo / offline routes) — all calls become no-ops.
+ *
+ * Teardown: always call `drainAndCleanup()` — it flushes any pending
+ * saves before stopping the timer. Do not call it more than once.
  */
 export function createAutoSaver(getProject: () => ProjectDoc | undefined) {
-	// Gracefully degrade when there is no ConvexProvider in the tree
-	// (e.g. the /shop demo route). In that case every call is a no-op and
-	// the status stays 'Saved' so the Editor UI looks clean.
 	let convexClient: ReturnType<typeof useConvexClient> | null = null;
 	try {
 		convexClient = useConvexClient();
 	} catch {
-		// No provider — demo / offline mode
+		// No ConvexProvider — demo / offline mode
 	}
 
 	let saveStatus = $state<AutoSaveStatus>('Saved');
 	let saveTimeout: ReturnType<typeof setTimeout> | undefined;
 
-	// path -> latest content to save. Last-write-wins within a debounce window.
+	// path → latest content. Last-write-wins within a debounce window.
 	const pendingSaves = new Map<string, string>();
 
 	function queuePendingSave(path: string, content: string) {
@@ -46,7 +48,6 @@ export function createAutoSaver(getProject: () => ProjectDoc | undefined) {
 		const project = getProject();
 		const projectId: Id<'projects'> | undefined = project?._id;
 
-		// No-op in demo/guest mode (no persisted project)
 		if (!convexClient || !projectId) {
 			pendingSaves.clear();
 			saveStatus = 'Session only';
@@ -63,18 +64,15 @@ export function createAutoSaver(getProject: () => ProjectDoc | undefined) {
 		pendingSaves.clear();
 
 		try {
-			// Fire all upserts in parallel — filesystem.upsertFile handles
-			// insert-or-update and parent folder creation server-side.
 			await Promise.all(
 				Array.from(snapshot.entries()).map(([path, content]) =>
 					convexClient!.mutation(api.filesystem.upsertFile, { projectId, path, content })
 				)
 			);
-
 			saveStatus = 'Saved';
 		} catch (err) {
 			console.error('[AutoSaver] Save failed', err);
-			// Re-queue failed saves — don't overwrite if a newer save came in during the flight
+			// Re-queue failed saves without overwriting newer in-flight content
 			for (const [path, content] of snapshot) {
 				if (!pendingSaves.has(path)) {
 					pendingSaves.set(path, content);
@@ -84,7 +82,7 @@ export function createAutoSaver(getProject: () => ProjectDoc | undefined) {
 		}
 	}
 
-	/** Call only on local user input (not remote Yjs syncs). */
+	/** Call only on local user input — not on remote Yjs syncs. */
 	function triggerAutoSave(path: string, content: string) {
 		triggerAutoSaveBatch([{ path, content }]);
 	}
@@ -99,26 +97,21 @@ export function createAutoSaver(getProject: () => ProjectDoc | undefined) {
 		}
 
 		queuePendingSaveBatch(changes);
-
 		saveStatus = 'Unsaved changes';
 		clearTimeout(saveTimeout);
 		saveTimeout = setTimeout(flushPendingSaves, 1500);
 	}
 
-	/** Force an immediate save — useful on tab switch or beforeunload. */
+	/** Force an immediate flush — useful on tab switch or beforeunload. */
 	async function forceSave(path: string, content: string) {
 		queuePendingSave(path, content);
 		clearTimeout(saveTimeout);
 		await flushPendingSaves();
 	}
 
-	function cleanup() {
-		clearTimeout(saveTimeout);
-	}
-
 	/**
-	 * Flushes queued autosave mutations and stops the timer.
-	 * Intended for deterministic teardown paths.
+	 * Flushes any queued saves and stops the debounce timer.
+	 * This is the single correct teardown call — use it in `shutdown()`.
 	 */
 	async function drainAndCleanup() {
 		clearTimeout(saveTimeout);
@@ -132,7 +125,6 @@ export function createAutoSaver(getProject: () => ProjectDoc | undefined) {
 		triggerAutoSave,
 		triggerAutoSaveBatch,
 		forceSave,
-		drainAndCleanup,
-		cleanup
+		drainAndCleanup
 	};
 }

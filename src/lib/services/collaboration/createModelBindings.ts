@@ -6,7 +6,7 @@ import { getLanguage } from '$lib/utils/ide/language.js';
 import type { EditorRuntimeDependencies } from '$types/hooks.js';
 import type { ModelBinding } from '$lib/utils';
 
-export type BindingsContext = {
+export type ModelBindingsContext = {
 	files: Array<{ name: string; contents: string }>;
 	ydoc: Y.Doc;
 	provider: LiveblocksYjsProvider;
@@ -19,22 +19,15 @@ export type BindingsContext = {
 /**
  * Creates Monaco ↔ Yjs bindings for every file in the project.
  *
- * For each file:
- *   1. Resolves the web path via `toWebPath`.
- *   2. Gets (or creates) the corresponding Yjs text type.
- *   3. Creates a Monaco model with the correct language.
- *   4. Binds them together with `MonacoBinding`.
- *   5. Registers the binding in the shared `bindings` map so the editor
- *      controller can switch models.
+ * For each file: resolves the web path, gets the Yjs text type, creates a
+ * Monaco model, and binds them with MonacoBinding. Registers each binding in
+ * the shared `bindings` map so the editor can switch active models.
  *
- * Injected: `BindingsContext` — all dependencies explicit, no module singletons.
- * Returns `dispose` — destroys all bindings and disposes models.
- *
- * Note: `MonacoBinding` is loaded dynamically because `y-monaco` must run
- * client-side only; this function is therefore async.
+ * `MonacoBinding` is loaded dynamically — `y-monaco` must run client-side only.
+ * Returns `dispose` — destroys all bindings and clears the map entries.
  */
-export async function createCollaborationBindings(
-	ctx: BindingsContext
+export async function bindEditorModels(
+	ctx: ModelBindingsContext
 ): Promise<{ dispose: () => void }> {
 	const { MonacoBinding } = await import('y-monaco');
 	const cleanups: Array<() => void> = [];
@@ -44,7 +37,7 @@ export async function createCollaborationBindings(
 		const ytext = ctx.ydoc.getText(file.name);
 		const model = ctx.instance.editor.createModel('', getLanguage(fullPath));
 
-		const monacoBinding = new MonacoBinding(
+		const binding = new MonacoBinding(
 			ytext,
 			model,
 			new Set([ctx.editor]),
@@ -54,15 +47,15 @@ export async function createCollaborationBindings(
 		ctx.bindings.set(fullPath, {
 			model,
 			destroy: () => {
-				monacoBinding.destroy();
+				binding.destroy();
 				model.dispose();
 			}
 		});
 
 		cleanups.push(() => {
-			const binding = ctx.bindings.get(fullPath);
-			if (binding) {
-				binding.destroy();
+			const b = ctx.bindings.get(fullPath);
+			if (b) {
+				b.destroy();
 				ctx.bindings.delete(fullPath);
 			}
 		});

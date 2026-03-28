@@ -11,14 +11,15 @@
    - `routes/(app)/+layout.svelte`
    - `routes/(app)/[repo]/+layout.svelte`
 2. Auth / projects load:
-   - `routes/(app)/[repo]/+layout.server.ts` (currentUser, ensureLiveblocksRoomsForOwner)
-   - `src/convex/filesystem.ts` (ensureUserIdentity + seedStarterProjectForOwner on auth user create)
+   - `routes/(app)/[repo]/+layout.server.ts` (currentUser, loadRepoLayoutAuthenticated/loadRepoLayoutGuest)
+   - `src/lib/controllers/repo/RepoLoaderController.svelte.ts` (workspace project + identity resolution)
+   - `src/convex/functions/projects.ts` and `src/convex/functions/filesystem.ts` (user/project CRUD + node persistence)
 3. Repo controller:
-   - `createRepoController` in `src/lib/controllers/RepoController.svelte.ts`
+   - `createRepoController` in `src/lib/controllers/repo/RepoProjectsController.svelte.ts`
 4. File tree in explorer:
-   - previously `createFileTreeController`, now use project+file operations in `src/lib/utils/ide/fileTreeOps.ts`
+   - built from `src/lib/utils/file-tree.ts` and runtime FS reads, not a separate `createFileTreeController` abstraction
 5. Runtime manager:
-   - `src/lib/services/runtime/createRepoRuntimeManager.svelte.ts`
+   - `src/lib/services/runtime/createRuntimeManager.svelte.ts`
 
 ## Cairo Monaco SSR fix
 

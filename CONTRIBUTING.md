@@ -16,11 +16,13 @@ Before changing architecture-heavy areas, read:
 
 If you are working on explorer/project synchronization, also review:
 
-- [src/lib/controllers/explorer/createFileTreeController.svelte.ts](src/lib/controllers/explorer/createFileTreeController.svelte.ts)
-- [src/lib/hooks/explorer/createProjectSyncController.svelte.ts](src/lib/hooks/explorer/createProjectSyncController.svelte.ts)
-- [src/lib/controllers/explorer/createExplorerActionsController.svelte.ts](src/lib/controllers/explorer/createExplorerActionsController.svelte.ts)
-- [src/lib/utils/editor/fileTreeOps.ts](src/lib/utils/editor/fileTreeOps.ts)
-- [src/lib/utils/editor/projectFolderSync.ts](src/lib/utils/editor/projectFolderSync.ts)
+- `src/lib/controllers/explorer/createExplorerActionHandlers.svelte.ts`
+- `src/lib/controllers/explorer/createExplorerActionsController.svelte.ts`
+- `src/lib/controllers/explorer/createExplorerStateController.svelte.ts`
+- `src/lib/controllers/explorer/createExplorerPanelController.svelte.ts`
+- `src/lib/hooks/explorer/createProjectSyncController.svelte.ts`
+- `src/lib/utils/file-tree.ts`
+- `src/lib/utils/project/filesystem.ts`
 
 ## Prerequisites
 

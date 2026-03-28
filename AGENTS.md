@@ -35,11 +35,12 @@ After completing the code, ask the user if they want a playground link. Only cal
 5. **`/repo` Auth Gating**: Demo mode is guest-only. If authenticated, always run repo workspace flow; do not gate by project count.
 6. **Starter Seed on First Visit**: For authenticated owners with zero projects, rely on `ensureStarterProjectForOwner` to create starter content.
 7. **Keep this file current**: Whenever `AGENTS.md` is read during work, update it as needed so it accurately reflects the app’s current behavior, architecture, scripts, and known status.
-8. **Explorer Multi-root Contract**: In authenticated `/repo`, the WebContainer root is a multi-project workspace (folder names are slugified from each Convex project title). Explorer tree should treat those folders as the canonical top-level roots.
-9. **Explorer Sync Status**: Treat Convex ↔ Explorer sync as foundational/in-progress unless explicitly wired in the active `/repo` shell. Avoid documenting it as fully shipped if delete/rename root actions are still scaffolded.
-10. **Explorer Startup Sync**: Explorer must not require manual refresh to reveal project root folders; keep silent polling + bootstrap retries active so post-boot mount races self-heal.
-11. **Project Selection Sync**: Selecting a root project folder should re-target sync context immediately (room/subscription and tree refresh behavior should follow selected project).
-12. **Explorer Action UX**: Use non-blocking in-panel dialogs (create/rename/delete intents) instead of `window.prompt`/`window.confirm` in the active Explorer flow.
+8. **Agent docs ownership**: Agents must update architecture docs, README, and AGENTS.md whenever significant refactors are made, especially when key controller/service paths change.
+9. **Explorer Multi-root Contract**: In authenticated `/repo`, the WebContainer root is a multi-project workspace (folder names are slugified from each Convex project title). Explorer tree should treat those folders as the canonical top-level roots.
+10. **Explorer Sync Status**: Treat Convex ↔ Explorer sync as foundational/in-progress unless explicitly wired in the active `/repo` shell. Avoid documenting it as fully shipped if delete/rename root actions are still scaffolded.
+11. **Explorer Startup Sync**: Explorer must not require manual refresh to reveal project root folders; keep silent polling + bootstrap retries active so post-boot mount races self-heal.
+12. **Project Selection Sync**: Selecting a root project folder should re-target sync context immediately (room/subscription and tree refresh behavior should follow selected project).
+13. **Explorer Action UX**: Use non-blocking in-panel dialogs (create/rename/delete intents) instead of `window.prompt`/`window.confirm` in the active Explorer flow.
 
 ## Styling Architecture (The "Svelte.dev" Way)
 
@@ -125,9 +126,9 @@ Use this checklist when picking up the project in a new session to get productiv
 - Card component shell: `src/lib/components/ui/primitives/Card.svelte`
 - Theme switcher: `src/lib/components/ui/theme/ThemeSwitcher.svelte`
 - IDE route shell: `src/routes/(app)/[repo]/+layout.svelte`, `src/routes/(app)/[repo]/+layout.server.ts`
-- Repo workspace controller (runtime + project orchestration): `src/lib/controllers/workspace/createRepoController.svelte.ts`
-- Explorer tree controller (polling until runtime available): `src/lib/controllers/explorer/createFileTreeController.svelte.ts`
-- Explorer pure tree ops: `src/lib/utils/editor/fileTreeOps.ts`
+- Repo workspace controller (runtime + project orchestration): `src/lib/controllers/repo/RepoLayoutController.svelte.ts` and `src/lib/controllers/repo/RepoProjectsController.svelte.ts`
+- Explorer controller suite (with action + state + panel controllers): `src/lib/controllers/explorer/*.svelte.ts`
+- Explorer file-tree utilities: `src/lib/utils/file-tree.ts` (along with `src/lib/utils/project/filesystem.ts` for persistent node conversion)
 - Git activity controller (real repository ops via isomorphic-git + WebContainer FS): `src/lib/controllers/activity/createGitActivity.svelte.ts`
 - Shell process controller (terminal bootstrap + git command shim aliasing): `src/lib/services/runtime/createShellProcess.svelte.ts`
 - Terminal panel/session UI controllers + split presentation: `src/lib/controllers/workspace/createTerminal*Controller.svelte.ts`, `src/lib/components/ide/workspace/Terminal*.svelte`

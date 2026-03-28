@@ -6,11 +6,13 @@
 
 ## Key source files
 
-- `src/lib/controllers/RepoController.svelte.ts`
-- `src/lib/services/runtime/createRuntimeManager.svelte.ts`
-- `src/lib/services/runtime/createRepoProjectManager.svelte.ts`
-- `src/lib/utils/ide/projects.ts`
-- `src/lib/controllers/LiveblocksSyncController.svelte.ts`
+- `src/routes/(app)/[repo]/+layout.svelte` (repo shell orchestration)
+- `src/routes/(app)/[repo]/+layout.server.ts` (authenticated/guest repo load path)
+- `src/lib/controllers/repo/RepoLayoutController.svelte.ts` (setupRepoLayout + syncRepoProjects)
+- `src/lib/controllers/repo/RepoProjectsController.svelte.ts` (`createRepoController` implementation)
+- `src/lib/services/runtime/createRuntimeManager.svelte.ts` (WebContainer runtime lifecycle)
+- `src/lib/utils/projects.ts` (project folder slug name, URL helpers)
+- `src/lib/controllers/LiveblocksSyncController.svelte.ts` (editor collaboration sync)
 
 ## Data models
 

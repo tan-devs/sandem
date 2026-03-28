@@ -11,7 +11,7 @@
 		setupRepoLayout,
 		syncRepoProjects
 	} from '$lib/controllers/repo/RepoLayoutController.svelte';
-	import { setPanelsContext } from '$lib/stores';
+
 	import type { RepoLayoutData } from '$types/routes.js';
 	import type { Id } from '$convex/_generated/dataModel.js';
 
@@ -20,6 +20,8 @@
 	import Statusbar from '$lib/components/workspace/Statusbar.svelte';
 	import Resizer from '$lib/components/ui/primitives/Resizer.svelte';
 	import ErrorPanel from '$lib/components/ui/primitives/ErrorPanel.svelte';
+
+	import { setPanelsContext } from '$lib/stores';
 
 	let { children, data }: { children: Snippet; data: RepoLayoutData } = $props();
 
@@ -54,7 +56,6 @@
 		ownerId: () => ownerId,
 		convexClient
 	});
-
 	setPanelsContext(panels);
 
 	// Single effect handles both the initial SSR seed and live subscription updates.

@@ -1,5 +1,5 @@
 import type * as Monaco from 'monaco-editor';
-import type { EditorStatusStore } from '../../../types/hooks.js';
+import type { EditorStatusStore } from '$types/hooks.js';
 
 export function getPrimaryModifierKeyLabel(platform?: string): 'Ctrl' | 'Cmd' {
 	const value = (platform ?? '').toLowerCase();

@@ -1,7 +1,16 @@
 import type { IDEContext } from '$lib/context/ide/ide-context.js';
-import { createEditorStatus, createEditorRuntime, createEditorLifecycle } from '$lib/hooks';
-import { createAutoSaver, createFileWriter } from '$lib/services';
-import { createEditorShortcuts } from '$lib/controllers/editor/createEditorShortcuts.svelte';
+
+import {
+	createAutoSaver,
+	createFileWriter,
+	createEditorStatus,
+	createEditorRuntime,
+	createEditorShortcuts
+} from '$lib/services';
+
+// Lifecycle lives in hooks — pure composition, not a service
+import { useEditorLifecycle } from '$lib/hooks';
+
 import {
 	getRootFolder,
 	resolveProjectFileName,
@@ -38,6 +47,14 @@ type CreateEditorPaneControllerOptions = {
 	getCanWrite: () => boolean;
 };
 
+/**
+ * Orchestrates the editor pane: Monaco lifecycle, auto-save, WebContainer
+ * writes, keyboard shortcuts, and derived UI state.
+ *
+ * ⚠️  Must be instantiated inside a Svelte 5 rune context (component body
+ * or $effect.root). The $derived calls will produce stale values or throw
+ * if called outside one.
+ */
 export function createEditorPaneController(options: CreateEditorPaneControllerOptions) {
 	const project = $derived(options.ide.getProject(options.editorStore.activeTabPath ?? undefined));
 	const rootFolder = $derived(
@@ -85,11 +102,10 @@ export function createEditorPaneController(options: CreateEditorPaneControllerOp
 		onStatusSync: () => lifecycle.syncEditorStatusFromModel()
 	});
 
-	const lifecycle = createEditorLifecycle({
-		runtime,
-		status
-	});
+	const lifecycle = useEditorLifecycle({ runtime, status });
 
+	// Shutdown is one-way: once started it cannot be re-used. The component
+	// that owns this controller must be fully remounted to get a fresh instance.
 	let shutdownPromise: Promise<void> | null = null;
 
 	function toProjectFile(path: string): string {

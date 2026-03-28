@@ -21,7 +21,7 @@ const repo = createRepoController({
 ## projectFolderName helper
 
 ```ts
-import { projectFolderName } from '$lib/utils/ide/projects.js';
+import { projectFolderName } from '$lib/utils/projects.js';
 const folder = projectFolderName(project._id, project.name);
 ```
 

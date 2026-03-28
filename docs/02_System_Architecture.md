@@ -9,7 +9,7 @@
 - UI (Explorer, editor, terminal) -> Repo controller actions (createProjectCard, selectProject, etc.)
 - Repo controller -> Convex client (mutations/queries)
 - Convex -> project list, active project selection
-- WebContainer -> project file mount via `createRepoRuntimeManager`
+- WebContainer -> project file mount via `createRuntimeManager` (called from repo controller)
 - Liveblocks changes in editor -> WebContainer write -> Convex upsert
 
 ## Example flow: open a repo
@@ -24,8 +24,8 @@
 ## Example flow: project selection
 
 - `repo.selectProject(projectId)` updates `activeProjectId`
-- `createRepoRuntimeManager` reflects next mount path
-- file tree and editor path calculations use `projectFolderName(project._id, project.title)`
+- `createRuntimeManager` (via repo controller/runtime service) reflects next mount path
+- file tree and editor path calculations use `projectFolderName(project._id, project.name)`
 
 ---
 

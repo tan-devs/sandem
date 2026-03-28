@@ -1,5 +1,5 @@
 import type { EditorTab } from '$lib/stores';
-import type { AutoSaveStatus } from '$lib/services/editor/autoSaver.svelte';
+import type { AutoSaveStatus } from '$lib/services/editor/createAutoSaver.svelte';
 import type { QuickAction } from '$types/editor.js';
 
 export type SaveStatusVariant = '' | 'saved' | 'saving' | 'unsaved' | 'session' | 'error';

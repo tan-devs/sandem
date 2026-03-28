@@ -1,4 +1,4 @@
-import type { CreateEditorShortcutsOptions } from '../../../types/hooks.js';
+import type { CreateEditorShortcutsOptions } from '$types/hooks.js';
 
 export function createEditorShortcuts(options: CreateEditorShortcutsOptions) {
 	function onKeyDown(event: KeyboardEvent) {

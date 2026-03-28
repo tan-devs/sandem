@@ -13,8 +13,8 @@
 ## Core controllers
 
 - `createRepoController` (source of truth for projects/workspace)
-- `createRepoRuntimeManager` (WebContainer lifecycle, mounting, and status)
-- `createRepoProjectManager` (project CRUD and active project state)
+- `createRuntimeManager` (WebContainer lifecycle, mount orchestration, and status; from `src/lib/services/runtime/createRuntimeManager.svelte.ts`)
+- `createRepoProjectManager` (project CRUD and active project state; now part of `src/lib/controllers/repo/RepoProjectsController.svelte.ts`)
 
 ## Sync and persistence
 

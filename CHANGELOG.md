@@ -41,9 +41,9 @@
 
 - docs: moved architecture/implementation materials into [`docs/`](./docs/) with ordered filenames (`00_Getting_Started.md` → `10_Next_Steps.md`) and an index-style [docs guide](./docs/README.md)
 - docs: updated root docs (`README`, `CONTRIBUTING`, `CHANGELOG`) to point to the new docs hub and current implementation status
-- explorer: extracted file-tree pure operations into [src/lib/utils/editor/fileTreeOps.ts](src/lib/utils/editor/fileTreeOps.ts)
-- explorer: improved file-tree resilience by adding WebContainer readiness checks + retry loop in [src/lib/controllers/explorer/createFileTreeController.svelte.ts](src/lib/controllers/explorer/createFileTreeController.svelte.ts)
-- explorer: added initial Convex/project sync scaffolding in [src/lib/hooks/explorer/createProjectSyncController.svelte.ts](src/lib/hooks/explorer/createProjectSyncController.svelte.ts), [src/lib/controllers/explorer/createExplorerActionsController.svelte.ts](src/lib/controllers/explorer/createExplorerActionsController.svelte.ts), and [src/lib/utils/editor/projectFolderSync.ts](src/lib/utils/editor/projectFolderSync.ts)
+- explorer: extracted file-tree pure operations into [src/lib/utils/file-tree.ts](src/lib/utils/file-tree.ts)
+- explorer: improved file-tree resilience by adding WebContainer readiness checks + retry loop in `src/lib/controllers/explorer/createExplorerActionsController.svelte.ts` and `src/lib/controllers/explorer/createExplorerStateController.svelte.ts`
+- explorer: added initial Convex/project sync scaffolding in [src/lib/hooks/explorer/createProjectSyncController.svelte.ts](src/lib/hooks/explorer/createProjectSyncController.svelte.ts), [src/lib/controllers/explorer/createExplorerActionsController.svelte.ts](src/lib/controllers/explorer/createExplorerActionsController.svelte.ts), and [src/lib/utils/project/filesystem.ts](src/lib/utils/project/filesystem.ts)
 - auth: added timeout + graceful 504 fallback in SvelteKit auth request forwarding in [src/lib/sveltekit/index.ts](src/lib/sveltekit/index.ts)
 - vite: added Monaco dev sourcemap patching plugin + optimizeDeps exclusion in [vite.config.ts](vite.config.ts)
 - ui: improved reusable token-driven component APIs for auth + showcase routes

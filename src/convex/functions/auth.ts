@@ -4,7 +4,7 @@ import { components } from '../_generated/api.js';
 import { type DataModel } from '../_generated/dataModel.js';
 import { query } from '../_generated/server.js';
 import { betterAuth } from 'better-auth';
-import authConfig from '../config/auth.config.js';
+import authConfig from '../config/auth.config';
 
 const siteUrl = process.env.SITE_URL!;
 

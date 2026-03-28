@@ -1,34 +1,29 @@
 import type * as Monaco from 'monaco-editor';
-import type { Room } from '@liveblocks/client';
+import type { CollaborationRoom } from './createRoom.js';
 
-export type EditorSyncContext = {
+export type CursorSyncContext = {
 	editor: Monaco.editor.IStandaloneCodeEditor;
-	room: Room;
+	room: CollaborationRoom;
 };
 
-function toProjectPath(model: Monaco.editor.ITextModel | null | undefined): string {
-	const path = model?.uri.path ?? '';
-	return path.replace(/^\/+/, '');
+function modelPath(model: Monaco.editor.ITextModel | null | undefined): string {
+	return (model?.uri.path ?? '').replace(/^\/+/, '');
 }
 
 /**
- * Wires Monaco editor cursor/selection/blur events to `room.updatePresence`.
+ * Wires Monaco cursor/selection/blur events to `room.updatePresence`.
+ * Returns `dispose` — call it when tearing down the session.
  *
- * Injected: `EditorSyncContext` (editor instance + Liveblocks room).
- * Returns a `dispose` function — call it when tearing down the session.
- *
- * No stores are accessed here; presence propagation is handled separately in
- * `createCollaborationPresence`.
+ * Presence propagation to stores is handled separately in `syncPresence`.
  */
-export function createCollaborationEditorSync(ctx: EditorSyncContext): { dispose: () => void } {
+export function bindEditorCursor(ctx: CursorSyncContext): { dispose: () => void } {
 	const disposables: Monaco.IDisposable[] = [];
 
 	disposables.push(
 		ctx.editor.onDidChangeCursorPosition((event) => {
-			const path = toProjectPath(ctx.editor.getModel());
 			ctx.room.updatePresence({
 				cursor: {
-					path,
+					path: modelPath(ctx.editor.getModel()),
 					line: event.position.lineNumber,
 					column: event.position.column
 				}
@@ -38,11 +33,10 @@ export function createCollaborationEditorSync(ctx: EditorSyncContext): { dispose
 
 	disposables.push(
 		ctx.editor.onDidChangeCursorSelection((event) => {
-			const path = toProjectPath(ctx.editor.getModel());
 			const { selection } = event;
 			ctx.room.updatePresence({
 				selection: {
-					path,
+					path: modelPath(ctx.editor.getModel()),
 					startLine: selection.startLineNumber,
 					startColumn: selection.startColumn,
 					endLine: selection.endLineNumber,
