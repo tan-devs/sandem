@@ -4,32 +4,43 @@ import type { WebContainer } from '@webcontainer/api';
 import type { Doc } from '$convex/_generated/dataModel.js';
 import type { EditorSync } from '$lib/controllers/LiveblocksSyncController.svelte';
 
-type ProjectDoc = Doc<'projects'>;
+export type ProjectDoc = Doc<'projects'>;
+export type NodeDoc = Doc<'nodes'>;
 
 const IDE_CONTEXT_KEY = Symbol('IDE');
 
 export interface IDEContext {
 	getWebcontainer: () => WebContainer;
+
 	// path is the full WC path e.g. "my-project/src/App.jsx".
-	// When omitted (e.g. before any tab is open) returns the default/first project.
-	getProject: (path?: string) => ProjectDoc;
-	// Returns the full WC path of the file that should be opened on first load,
-	// e.g. "demo/App.jsx" or "my-project/src/App.jsx".
-	getEntryPath: () => string;
+	// When omitted (e.g. before any tab is open) returns the active/first project.
+	getProject: (path?: string) => ProjectDoc | undefined;
+
+	// Returns the default open file path for the project.
+	// Maps to the optional `entry` field in the projects schema (e.g., "/src/index.ts").
+	getEntryPath: () => string | undefined;
+
 	// Optional external editor sync controller interface (e.g. Liveblocks).
 	editorSync?: EditorSync;
+
 	// Optional workspace project controls (used by Explorer in /repo).
-	getWorkspaceProjects?: () => Array<{ id: string; title: string }>;
+	// Updated to reflect the new schema properties: `name`, `isPublic`, and `room`.
+	getWorkspaceProjects?: () => Array<{ id: string; name: string; isPublic: boolean; room: string }>;
+
 	getActiveProjectId?: () => string | null;
 	getRenamingProjectId?: () => string | null;
 	getPendingDeleteProjectId?: () => string | null;
 	getMutatingProjectId?: () => string | null;
+
 	isCreatingProject?: () => boolean;
-	createProject?: () => Promise<void>;
+	createProject?: (name?: string, isPublic?: boolean) => Promise<void>;
 	selectProject?: (projectId: string) => void;
+
 	startRenameProject?: (projectId: string) => void;
 	cancelRenameProject?: () => void;
-	commitRenameProject?: (projectId: string, title: string) => Promise<void>;
+	// Updated from `title` to `name` to match the new schema definition
+	commitRenameProject?: (projectId: string, name: string) => Promise<void>;
+
 	requestDeleteProject?: (projectId: string) => void;
 	confirmDeleteProject?: (projectId: string) => Promise<void>;
 }

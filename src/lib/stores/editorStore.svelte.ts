@@ -23,7 +23,7 @@ const DEFAULT_EDITOR_STATUS: EditorStatus = {
 	language: 'Plain Text'
 };
 
-function createEditorStore() {
+export function createEditorStore() {
 	let openTabs = $state<EditorTab[]>([]);
 	let activeTabPath = $state<string | null>(null);
 	let status = $state<EditorStatus>({ ...DEFAULT_EDITOR_STATUS });
@@ -90,6 +90,5 @@ function createEditorStore() {
 		resetStatus
 	};
 }
-
-// Single shared instance — imported directly by Explorer and Editor
 export const editorStore = createEditorStore();
+export type EditorStore = ReturnType<typeof createEditorStore>;

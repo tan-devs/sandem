@@ -1,180 +1,131 @@
-import type { IDEContext } from '$lib/context/ide/ide-context.js';
+// src/lib/controllers/editor/EditorController.svelte.ts
 
 import {
 	createAutoSaver,
 	createFileWriter,
 	createEditorStatus,
-	createEditorRuntime,
-	createEditorShortcuts
+	createEditorRuntime
 } from '$lib/services';
-
-// Lifecycle lives in hooks — pure composition, not a service
 import { useEditorLifecycle } from '$lib/hooks';
-
 import {
-	getRootFolder,
-	resolveProjectFileName,
-	toWebContainerPath
-} from '$lib/utils/file-system.js';
-import {
-	EDITOR_QUICK_ACTIONS,
 	deriveEditorSaveStatusVariant,
 	deriveEditorTabItems,
 	shouldShowEmptyEditorState
 } from '$lib/utils';
-import type { IDEPanels } from '$lib/stores/panelStore.svelte';
+import { createEditorActionHandlers, type EditorActionContext } from '$lib/services/editor';
 
-type CreateEditorPaneControllerOptions = {
+// Import types for the options interface
+import type { IDEContext } from '$lib/context/ide/ide-context.js';
+import type { createEditorStore, IDEPanels } from '$lib/stores';
+import type { QuickAction } from '$types/editor.js';
+
+export type CreateEditorPaneControllerOptions = {
 	ide: IDEContext;
-	editorStore: {
-		activeTabPath: string | null;
-		tabs: Array<{ path: string; label: string }>;
-		isActive: (path: string) => boolean;
-		openFile: (path: string) => void;
-		closeTab: (path: string) => void;
-		updateStatus: (next: {
-			line?: number;
-			column?: number;
-			indentation?: string;
-			encoding?: string;
-			eol?: 'LF' | 'CRLF';
-			language?: string;
-		}) => void;
-		resetStatus: () => void;
-	};
-	activity: { tab: string };
+	editorStore: ReturnType<typeof createEditorStore>;
+	activity: unknown;
 	getPanels: () => IDEPanels | undefined;
 	getCanWrite: () => boolean;
 };
-
-/**
- * Orchestrates the editor pane: Monaco lifecycle, auto-save, WebContainer
- * writes, keyboard shortcuts, and derived UI state.
- *
- * ⚠️  Must be instantiated inside a Svelte 5 rune context (component body
- * or $effect.root). The $derived calls will produce stale values or throw
- * if called outside one.
- */
 export function createEditorPaneController(options: CreateEditorPaneControllerOptions) {
-	const project = $derived(options.ide.getProject(options.editorStore.activeTabPath ?? undefined));
-	const rootFolder = $derived(
-		getRootFolder(options.editorStore.activeTabPath ?? options.ide.getEntryPath())
-	);
-
-	const autoSaver = createAutoSaver(() => project);
-	const fileWriter = createFileWriter(options.ide.getWebcontainer);
+	// 1. Initialize Services
+	const autoSaver = createAutoSaver(() => options.ide.getProject());
+	const fileWriter = createFileWriter(() => options.ide.getWebcontainer());
 	const status = createEditorStatus(options.editorStore);
-	const shortcuts = createEditorShortcuts({
-		getPanels: options.getPanels,
-		onOpenSearch: () => {
-			options.activity.tab = 'search';
-		},
-		onToggleCommandPalette: () => {
-			window.dispatchEvent(new CustomEvent('app:command-palette:toggle'));
-		}
-	});
 
 	const runtime = createEditorRuntime({
-		getProject: () => project,
+		getProject: () => options.ide.getProject(),
 		getActivePath: () => options.editorStore.activeTabPath,
-		toProjectFile: (path) => toProjectFile(path),
-		toWebPath: (projectFileName) => toWebPath(projectFileName),
-		readFile: (path) => options.ide.getWebcontainer().fs.readFile(path, 'utf-8'),
-		onPersist: ({ activePath, projectFileName, content }) => {
-			if (!options.getCanWrite()) return;
-			autoSaver.triggerAutoSave(projectFileName, content);
-			fileWriter.writeFile(activePath, content);
-		},
-		onPersistBatch: (payloads) => {
-			if (!options.getCanWrite() || payloads.length === 0) return;
+		toProjectFile: (path) => path, // Using Convex paths as source of truth
+		toWebPath: (path) => path,
 
-			autoSaver.triggerAutoSaveBatch(
-				payloads.map((payload) => ({
-					path: payload.projectFileName,
-					content: payload.content
-				}))
-			);
+		// Read file contents from the WebContainer for Monaco's initial load
+		readFile: async (path) => {
+			const wc = options.ide.getWebcontainer();
+			if (!wc) return '';
 
-			for (const payload of payloads) {
-				fileWriter.writeFile(payload.activePath, payload.content);
+			try {
+				// Assuming UTF-8 encoding for standard text/code files
+				return await wc.fs.readFile(path, 'utf-8');
+			} catch (error) {
+				console.error(`[EditorController] Failed to read file at ${path}:`, error);
+				return '';
 			}
 		},
-		onStatusSync: () => lifecycle.syncEditorStatusFromModel()
+
+		onStatusSync: () => status.syncFromEditor(runtime.getEditor()),
+		onPersist: ({ projectFileName, content }) => {
+			// The Double-Write Pattern:
+			// 1. Convex (Source of Truth / Persistence)
+			autoSaver.triggerAutoSave(projectFileName, content);
+			// 2. WebContainer (Hot Runtime / Execution)
+			fileWriter.writeFile(projectFileName, content);
+		}
 	});
 
 	const lifecycle = useEditorLifecycle({ runtime, status });
 
-	// Shutdown is one-way: once started it cannot be re-used. The component
-	// that owns this controller must be fully remounted to get a fresh instance.
-	let shutdownPromise: Promise<void> | null = null;
+	// 2. Setup Context & Handlers
+	const context: EditorActionContext = {
+		ide: options.ide,
+		editorStore: options.editorStore,
+		services: { autoSaver, fileWriter, runtime, lifecycle },
+		getPanels: options.getPanels
+	};
 
-	function toProjectFile(path: string): string {
-		const projectFiles = project?.files ?? [];
-		return resolveProjectFileName(path, projectFiles);
-	}
+	const actions = createEditorActionHandlers(context);
 
-	function toWebPath(projectFileName: string): string {
-		return toWebContainerPath(rootFolder, projectFileName);
-	}
+	// 3. Derived State (UI-only)
+	const state = {
+		get saveStatusVariant() {
+			return deriveEditorSaveStatusVariant(autoSaver.status);
+		},
+		get showEmptyState() {
+			return shouldShowEmptyEditorState(
+				options.editorStore.tabs,
+				options.editorStore.activeTabPath
+			);
+		},
+		get tabs() {
+			return deriveEditorTabItems(options.editorStore.tabs, options.editorStore.isActive);
+		}
+	};
+
+	const quickActions: readonly QuickAction[] = [
+		{ label: 'Open a file', keys: ['Ctrl', 'O'] },
+		{ label: 'Switch tab', keys: ['Ctrl', 'Tab'] },
+		{ label: 'Save file', keys: ['Ctrl', 'S'] }
+	];
 
 	function mountShortcuts() {
-		return shortcuts.mount();
-	}
+		function onKeyDown(event: KeyboardEvent) {
+			if (event.defaultPrevented) return;
+			if (!(event.target instanceof HTMLElement)) return;
+			if (
+				event.target.tagName === 'INPUT' ||
+				event.target.tagName === 'TEXTAREA' ||
+				event.target.isContentEditable
+			)
+				return;
 
-	async function initializeEditor(element: HTMLDivElement) {
-		await lifecycle.initializeEditor(element);
-	}
-
-	function syncAfterActivePathChange() {
-		lifecycle.syncAfterActivePathChange();
-	}
-
-	async function shutdown() {
-		if (shutdownPromise) {
-			await shutdownPromise;
-			return;
+			if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+				event.preventDefault();
+				// Auto-saver already handles persistence; the keybinding is informational
+			}
 		}
 
-		shutdownPromise = (async () => {
-			await autoSaver.drainAndCleanup();
-			await fileWriter.drainAndDispose();
-			lifecycle.cleanup();
-		})();
-
-		await shutdownPromise;
+		window.addEventListener('keydown', onKeyDown);
+		return () => window.removeEventListener('keydown', onKeyDown);
 	}
 
-	const saveStatusVariant = $derived(deriveEditorSaveStatusVariant(autoSaver.status));
-	const showEmptyState = $derived(
-		shouldShowEmptyEditorState(options.editorStore.tabs, options.editorStore.activeTabPath)
-	);
-	const tabs = $derived(
-		deriveEditorTabItems(options.editorStore.tabs, options.editorStore.isActive)
-	);
-
 	return {
-		get project() {
-			return project;
-		},
-		get rootFolder() {
-			return rootFolder;
-		},
+		// expose properties in the shape `Editor.svelte` expects
+		...actions,
+		initializeEditor: actions.initialize,
+		...state,
+		quickActions,
 		autoSaver,
 		fileWriter,
 		lifecycle,
-		mountShortcuts,
-		initializeEditor,
-		syncAfterActivePathChange,
-		shutdown,
-		get saveStatusVariant() {
-			return saveStatusVariant;
-		},
-		get showEmptyState() {
-			return showEmptyState;
-		},
-		get tabs() {
-			return tabs;
-		},
-		quickActions: EDITOR_QUICK_ACTIONS
+		mountShortcuts
 	};
 }
