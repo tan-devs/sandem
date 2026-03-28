@@ -6,11 +6,8 @@
 	import { PaneGroup, Pane, type PaneAPI } from 'paneforge';
 
 	import { createSvelteAuthClient, useAuth } from '$lib/svelte/index.js';
-	import { authClient } from '$lib/context/auth';
-	import {
-		setupRepoLayout,
-		syncRepoProjects
-	} from '$lib/controllers/repo/RepoLayoutController.svelte';
+	import { authClient } from '$lib/context/auth-context.js';
+	import { setupRepoLayout, syncRepoProjects } from '$lib/controllers/LayoutController.svelte';
 
 	import type { RepoLayoutData } from '$types/routes.js';
 	import type { Id } from '$convex/_generated/dataModel.js';

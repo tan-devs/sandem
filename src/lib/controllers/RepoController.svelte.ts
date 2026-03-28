@@ -1,13 +1,15 @@
 import { untrack } from 'svelte';
 import { createError } from '$lib/sveltekit/index.js';
-import { createRuntimeManager } from '$lib/services/runtime/createRuntimeManager.svelte';
-import { createRepoProjectManager } from '$lib/services/explorer/ProjectService.svelte';
-import type { Doc } from '$convex/_generated/dataModel.js';
-import type { FileSystemTree } from '@webcontainer/api';
+
+import { createRuntimeManager } from '$lib/services/terminal/createRuntimeManager.svelte';
+import { createRepoProjectManager } from '$lib/services/explorer/createProjectsManager.svelte';
 import { VITE_REACT_TEMPLATE } from '$lib/utils/ide/template.js';
 import { areProjectsEqual, projectFolderName, uniqueProjects } from '$lib/utils/projects.js';
+
+import type { ConvexOperations } from '$lib/services/explorer/createProjectsManager.svelte';
+import type { Doc } from '$convex/_generated/dataModel.js';
+import type { FileSystemTree } from '@webcontainer/api';
 import type { RepoLayoutData } from '$types/routes.js';
-import type { ConvexOperations } from '$lib/services/explorer/ProjectService.svelte';
 
 type ProjectDoc = Doc<'projects'>;
 
@@ -274,7 +276,14 @@ export function createRepoController(options: Options) {
 
 		// Runtime access
 		getWebcontainer: () => runtime.webcontainer,
-		getWorkspaceProjects: () => projects.map((p) => ({ id: p._id, title: p.name })),
+		getWorkspaceProjects: () =>
+			projects.map((p) => ({
+				id: p._id,
+				name: p.name,
+				title: p.name,
+				isPublic: p.isPublic ?? false,
+				room: p.room ?? ''
+			})),
 		startRuntime: () => runtime.startRuntime(),
 		failRuntimeWithError: (err: ReturnType<typeof createError>, cause?: unknown) =>
 			runtime.failRuntimeWithError(err, cause),

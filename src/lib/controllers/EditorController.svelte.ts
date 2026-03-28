@@ -5,7 +5,7 @@ import {
 	createFileWriter,
 	createEditorStatus,
 	createEditorRuntime
-} from '$lib/services';
+} from '$lib/services/editor';
 import { useEditorLifecycle } from '$lib/hooks';
 import {
 	deriveEditorSaveStatusVariant,
@@ -15,7 +15,7 @@ import {
 import { createEditorActionHandlers, type EditorActionContext } from '$lib/services/editor';
 
 // Import types for the options interface
-import type { IDEContext } from '$lib/context/ide/ide-context.js';
+import type { IDEContext } from '$lib/context/ide-context.js';
 import type { createEditorStore, IDEPanels } from '$lib/stores';
 import type { QuickAction } from '$types/editor.js';
 

@@ -2,14 +2,14 @@
 	import { RefreshCw, Check } from '@lucide/svelte';
 	import ActivityPanel from '../activities/ActivityPanel.svelte';
 	import Button from '$lib/components/ui/primitives/Button.svelte';
-	import { requireIDEContext } from '$lib/context/ide';
+	import { requireIDEContext } from '$lib/context/ide-context.js';
 	import { createGitActivity } from '$lib/controllers';
 	import { editorStore } from '$lib/stores';
 
 	const ide = requireIDEContext();
 	const git = createGitActivity({
 		getWebcontainer: ide.getWebcontainer,
-		getEntryPath: ide.getEntryPath,
+		getEntryPath: ide.getEntryPath as () => string,
 		getActiveTabPath: () => editorStore.activeTabPath,
 		getProject: ide.getProject,
 		openFile: editorStore.openFile

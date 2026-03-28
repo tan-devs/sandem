@@ -1,6 +1,6 @@
 // src/lib/controllers/editor/createEditorActionHandlers.svelte.ts
 
-import type { IDEContext } from '$lib/context/ide/ide-context.js';
+import type { IDEContext } from '$lib/context/ide-context.js';
 import type { EditorStore } from '$lib/stores/editorStore.svelte.js'; // <-- Import the new store type
 import type { IDEPanels, PanelKey } from '$lib/stores/panelStore.svelte.js';
 

@@ -1,11 +1,12 @@
 import type { Cookies } from '@sveltejs/kit';
 import { api } from '$convex/_generated/api.js';
-import type { Id } from '$convex/_generated/dataModel.js';
 import type { RepoLayoutData } from '$types/routes.js';
-import type { PROJECT_DOC } from '$types/projects.js';
+import type { Doc, Id } from '$convex/_generated/dataModel.js';
 import type { ConvexHttpClient } from 'convex/browser';
 
 export type ConvexLikeClient = Pick<ConvexHttpClient, 'query' | 'mutation'>;
+
+type ProjectDoc = Doc<'projects'>;
 
 export function ensureGuestIdCookie(cookies: Cookies): string {
 	let guestId = cookies.get('guestId');
@@ -26,7 +27,7 @@ export async function loadRepoLayoutAuthenticated(
 	currentUser: NonNullable<RepoLayoutData['currentUser']>
 ): Promise<{
 	userIdentity: Awaited<ReturnType<ConvexLikeClient['mutation']>>;
-	projects: PROJECT_DOC[];
+	projects: ProjectDoc[];
 	workspaceTree: RepoLayoutData['workspaceTree'];
 }> {
 	const userIdentity = await client.mutation(api.identity.ensureUserIdentity, {});
@@ -47,7 +48,7 @@ export async function loadRepoLayoutAuthenticated(
 	const projects =
 		((await client.query(api.projects.getAllProjects, {
 			ownerId
-		})) as PROJECT_DOC[] | null | undefined) ?? [];
+		})) as ProjectDoc[] | null | undefined) ?? [];
 
 	return { userIdentity, projects, workspaceTree };
 }
@@ -57,7 +58,7 @@ export async function loadRepoLayoutGuest(
 	guestId: string
 ): Promise<{
 	userIdentity: Awaited<ReturnType<ConvexLikeClient['mutation']>>;
-	projects: PROJECT_DOC[];
+	projects: ProjectDoc[];
 }> {
 	const userIdentity = await client.mutation(api.identity.ensureUserIdentity, { guestId });
 	return { userIdentity, projects: [] };

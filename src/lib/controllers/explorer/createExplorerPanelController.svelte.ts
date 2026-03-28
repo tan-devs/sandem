@@ -1,6 +1,12 @@
 import type { FileNode } from '$types/editor.js';
 
-type WorkspaceProject = { id: string; title: string };
+type WorkspaceProject = {
+	id: string;
+	name: string;
+	title: string;
+	isPublic: boolean;
+	room: string;
+};
 
 type CreateExplorerPanelControllerOptions = {
 	getWorkspaceProjects: () => WorkspaceProject[];

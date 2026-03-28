@@ -57,7 +57,7 @@ export function createShellProcess(
 		);
 	}
 
-	async function initShell(terminal: Terminal) {
+	async function attach(terminal: Terminal) {
 		if (!isAllowed()) {
 			audit('init-shell', false);
 			return;
@@ -97,7 +97,7 @@ export function createShellProcess(
 		ready = true;
 	}
 
-	function writeInput(data: string) {
+	function sendInput(data: string) {
 		if (!isAllowed()) {
 			pushCommandChunks(data, false);
 			return;
@@ -107,23 +107,23 @@ export function createShellProcess(
 		shellInput?.write(data);
 	}
 
-	function clearTerminal() {
+	function clearScreen() {
 		terminalRef?.clear();
 	}
 
-	async function restartShell() {
+	async function restart() {
 		if (!isAllowed()) {
 			audit('restart-shell', false);
 			return;
 		}
 
 		if (!terminalRef) return;
-		killShell();
-		await initShell(terminalRef);
+		kill();
+		await attach(terminalRef);
 	}
 
 	/** Kill the shell process — call from onDestroy. */
-	function killShell() {
+	function kill() {
 		if (!isAllowed()) {
 			audit('kill-shell', false);
 			return;
@@ -147,10 +147,10 @@ export function createShellProcess(
 		get isReady() {
 			return ready;
 		},
-		initShell,
-		writeInput,
-		clearTerminal,
-		restartShell,
-		killShell
+		attach,
+		sendInput,
+		clearScreen,
+		restart,
+		kill
 	};
 }

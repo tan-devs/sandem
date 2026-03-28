@@ -3,14 +3,16 @@
 	import { Accordion } from 'bits-ui';
 
 	import type { FileNode } from '$types/editor';
-	import type { PROJECT } from '$types/projects';
+	import type { Doc } from '$convex/_generated/dataModel.js';
 	import { projectFolderName } from '$lib/utils/projects.js';
 
 	import ExplorerOpenEditors from './ExplorerOpenEditors.svelte';
 	import ExplorerFilesSection from './ExplorerFilesSection.svelte';
-	import ExplorerProjectInfo from './ExplorerProjectInfo.svelte';
+	import ExplorerProjectInfo from './ProjectInfo.svelte';
 	import ExplorerOutline from './ExplorerOutline.svelte';
 	import ExplorerTimeline from './ExplorerTimeline.svelte';
+
+	type ProjectDoc = Doc<'projects'>;
 
 	type ExplorerDialogIntent = 'create-file' | 'create-folder' | 'rename' | 'delete';
 
@@ -28,7 +30,7 @@
 		expandOnSearch: Set<string>;
 		treeLoading: boolean;
 		treeError: string | null;
-		activeProject: PROJECT | null;
+		activeProject: ProjectDoc | null;
 		actionMessage: string;
 		actionError: string;
 		selectedPath: string | null;

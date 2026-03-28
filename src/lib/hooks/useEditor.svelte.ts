@@ -17,7 +17,7 @@ type EditorStatus = {
  * Lives in hooks/ because it is pure lifecycle composition with no
  * runtime or persistence concerns.
  */
-export function useEditorLifecycle(options: { runtime: EditorRuntime; status: EditorStatus }) {
+export function useEditor(options: { runtime: EditorRuntime; status: EditorStatus }) {
 	let editorRuntimeError = $state<string | null>(null);
 	let editorReady = $state(false);
 	let initializingEditor = $state(false);

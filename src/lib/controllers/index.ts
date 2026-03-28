@@ -6,4 +6,6 @@ export * from './LiveblocksSyncController.svelte';
 export * from './FileTreeController.svelte';
 export * from './HeaderController.svelte';
 export * from './EditorController.svelte';
-export * from './ShortcutsController.svelte';
+export * from './RepoController.svelte';
+export * from './LoaderController.svelte';
+export * from './LayoutController.svelte';

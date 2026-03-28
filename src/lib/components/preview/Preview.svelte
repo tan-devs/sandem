@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { requireIDEContext } from '$lib/context/ide';
-	import { createPreview } from '$lib/hooks';
+	import { requireIDEContext } from '$lib/context/ide-context.js';
+	import { usePreview } from '$lib/hooks';
 	import ErrorPanel from '$lib/components/ui/primitives/ErrorPanel.svelte';
 	import { createErrorReporter } from '$lib/sveltekit/index.js';
 
 	const ide = requireIDEContext();
 
-	// createPreview (not usePreview — that export doesn't exist)
-	const preview = createPreview(ide.getWebcontainer);
+	// usePreview (not usePreview — that export doesn't exist)
+	const preview = usePreview(ide.getWebcontainer);
 	let previewError = $state<string | null>(null);
 
 	const reportPreviewError = createErrorReporter((next) => {

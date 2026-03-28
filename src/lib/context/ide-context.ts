@@ -7,6 +7,14 @@ import type { EditorSync } from '$lib/controllers/LiveblocksSyncController.svelt
 export type ProjectDoc = Doc<'projects'>;
 export type NodeDoc = Doc<'nodes'>;
 
+export type WorkspaceProject = {
+	id: string;
+	name: string;
+	title: string;
+	isPublic: boolean;
+	room: string;
+};
+
 const IDE_CONTEXT_KEY = Symbol('IDE');
 
 export interface IDEContext {
@@ -25,7 +33,7 @@ export interface IDEContext {
 
 	// Optional workspace project controls (used by Explorer in /repo).
 	// Updated to reflect the new schema properties: `name`, `isPublic`, and `room`.
-	getWorkspaceProjects?: () => Array<{ id: string; name: string; isPublic: boolean; room: string }>;
+	getWorkspaceProjects?: () => WorkspaceProject[];
 
 	getActiveProjectId?: () => string | null;
 	getRenamingProjectId?: () => string | null;

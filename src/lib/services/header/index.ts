@@ -1,1 +1,1 @@
-export * from './globalSearch.js';
+export * from './createGlobalSearch.js';

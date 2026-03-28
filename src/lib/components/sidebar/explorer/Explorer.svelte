@@ -11,17 +11,19 @@
 	} from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
-	import { requireIDEContext } from '$lib/context/ide';
+	import { requireIDEContext } from '$lib/context/ide-context';
 	import { editorStore } from '$lib/stores';
 	import { activity } from '$lib/stores';
 	import { projectFolderName } from '$lib/utils/projects.js';
 	import { findNodeByPath } from '$lib/utils/file-tree.js';
 	import { filterNodesByQuery, getPathsToExpand } from '$lib/utils/ide/explorerTreeOps.js';
 	import type { FileNode } from '$types/editor';
-	import type { PROJECT } from '$types/projects';
+	import type { Doc } from '$convex/_generated/dataModel.js';
+
+	type PROJECT = Doc<'projects'>;
 
 	import { createFileTree } from '$lib/controllers';
-	import { projectFilesSync } from '$lib/services';
+	import { projectFilesSync } from '$lib/services/explorer';
 	import { createExplorerStateController } from '$lib/controllers/explorer/createExplorerStateController.svelte';
 	import {
 		handleCreateFile,
@@ -47,7 +49,7 @@
 
 	const fileTree = createFileTree(ide.getWebcontainer, {
 		getWorkspaceRootFolders: () =>
-			(ide.getWorkspaceProjects?.() ?? []).map((p) => projectFolderName(p.id, p.title))
+			(ide.getWorkspaceProjects?.() ?? []).map((p) => projectFolderName(p.id, p.name ?? p.title))
 	});
 
 	const projectSync = projectFilesSync({
@@ -303,7 +305,7 @@
 		if (node.depth === 0) {
 			const rootFolder = node.path.split('/')[0] ?? '';
 			const project = workspaceProjects.find(
-				(p) => projectFolderName(p.id, p.title) === rootFolder
+				(p) => projectFolderName(p.id, p.name ?? p.title) === rootFolder
 			);
 			if (project) {
 				ide.selectProject?.(project.id);

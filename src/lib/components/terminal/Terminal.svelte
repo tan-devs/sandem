@@ -6,8 +6,8 @@
 		createTerminalPanelController,
 		createTerminalSessionsController
 	} from '$lib/controllers';
-	import { requireIDEContext } from '$lib/context/ide';
-	import { createShellProcess } from '$lib/services';
+	import { requireIDEContext } from '$lib/context/ide-context.js';
+	import { createShellProcess } from '$lib/services/terminal';
 	import { appendTerminalAudit, collaborationPermissionsStore } from '$lib/stores';
 	import { getPanelsContext } from '$lib/stores';
 	import TerminalPanelHeader from './TerminalPanelHeader.svelte';
@@ -15,92 +15,83 @@
 	import TerminalViewport from './TerminalViewport.svelte';
 
 	const ide = requireIDEContext();
-	const terminalPanel = createTerminalPanelController();
-	const terminalSessions = createTerminalSessionsController();
+	const panel = createTerminalPanelController();
+	const sessions = createTerminalSessionsController();
+
 	let canExecute = $state(true);
 	let roomId = $state<string | null>(null);
+
 	const unsubscribePermissions = collaborationPermissionsStore.subscribe((value) => {
 		canExecute = value.canWrite;
 		roomId = value.roomId;
 	});
 
-	const panels = getPanelsContext();
+	const layout = getPanelsContext();
 
-	const terminalWorkspace = createTerminalWorkspaceController({
-		terminalPanel,
-		terminalSessions,
+	const workspace = createTerminalWorkspaceController({
+		panel,
+		sessions,
 		createShell: ({ canExecute, onAudit }) =>
-			createShellProcess(ide.getWebcontainer, {
-				canExecute,
-				onAudit
-			}),
-		getCanExecute: () => canExecute,
+			createShellProcess(ide.getWebcontainer, { canExecute, onAudit }),
+		canExecute: () => canExecute,
 		getRoomId: () => roomId,
-		appendAudit: appendTerminalAudit,
-		getPanels: () => panels
+		recordAudit: appendTerminalAudit,
+		getLayout: () => layout
 	});
 
 	$effect(() => {
-		terminalWorkspace.syncSessionRuntimes();
+		workspace.syncRuntimes();
 	});
 
 	onMount(() => {
-		terminalSessions.hydrateState();
-		terminalWorkspace.syncSessionRuntimes();
+		sessions.restoreFromStorage();
+		workspace.syncRuntimes();
 	});
 
-	// Kill the shell process when this component is destroyed to avoid
-	// leaking the WebContainer process and the WritableStream writer.
 	onDestroy(() => {
 		unsubscribePermissions();
-		terminalWorkspace.cleanup();
+		workspace.destroy();
 	});
 </script>
 
 <div class="terminal-layout">
 	<TerminalPanelHeader
-		panelTabItems={terminalPanel.panelTabItems}
-		activeTab={terminalPanel.activeTab}
-		onTabSelect={(id) => void terminalWorkspace.handleTabClick(id)}
-		onClearTerminal={terminalWorkspace.clearTerminal}
-		onRestartTerminal={() => void terminalWorkspace.restartTerminal()}
-		onKillTerminal={terminalWorkspace.killTerminal}
-		onToggleMaximize={terminalWorkspace.toggleMaximize}
-		onClosePanel={terminalWorkspace.closePanel}
+		tabItems={panel.tabItems}
+		activeTab={panel.activeTab}
+		onTabSelect={(id) => void workspace.switchTab(id)}
+		onClear={workspace.clearActiveTerminal}
+		onRestart={() => void workspace.restartActiveShell()}
+		onKill={workspace.killActiveShell}
+		onToggleMaximize={workspace.toggleMaximize}
+		onClose={workspace.closePanel}
 	/>
 
 	<TerminalToolbar
-		activeTab={terminalPanel.activeTab}
-		isOpen={terminalPanel.isTerminalToolbarOpen}
-		sessions={terminalWorkspace.runtimeSessions.map((session) => ({
-			id: session.id,
-			label: session.label,
-			isReady: session.isReady
+		activeTab={panel.activeTab}
+		sessions={workspace.sessionViews.map((s) => ({
+			id: s.id,
+			label: s.label,
+			isReady: s.isReady
 		}))}
-		activeSessionId={terminalSessions.activeSessionId}
-		splitSessionId={terminalSessions.splitSessionId}
-		onSelectSession={(id) => void terminalWorkspace.handleSelectSession(id)}
-		onCloseSession={terminalWorkspace.handleCloseSession}
-		onEnsureShell={(id) => void terminalWorkspace.ensureShell(id)}
-		onCreateSession={() => void terminalWorkspace.handleCreateSession()}
-		onRenameSession={terminalWorkspace.handleRenameSession}
-		onMoveSession={terminalWorkspace.handleMoveSession}
-		onSplitActive={() => void terminalWorkspace.splitActiveSession()}
-		onCloseSplit={terminalSessions.closeSplitSession}
-		onSetOpen={terminalPanel.setTerminalToolbarOpen}
+		activeSessionId={sessions.activeSessionId}
+		onSelectSession={(id) => void workspace.selectSession(id)}
+		onCloseSession={workspace.closeSession}
+		onEnsureShell={(id) => void workspace.ensureShellReady(id)}
+		onCreateSession={() => void workspace.newSession()}
+		onRenameSession={workspace.renameSession}
+		onMoveSession={workspace.reorderSession}
 	/>
 
 	<TerminalViewport
-		activeTab={terminalPanel.activeTab}
-		placeholderText={terminalWorkspace.placeholderText}
-		sessions={terminalWorkspace.runtimeSessions}
-		activeSessionId={terminalSessions.activeSessionId}
-		splitSessionId={terminalSessions.splitSessionId}
+		activeTab={panel.activeTab}
+		placeholderText={workspace.placeholderText}
+		sessions={workspace.sessionViews}
+		activeSessionId={sessions.activeSessionId}
 		{canExecute}
-		options={terminalPanel.options}
-		onLoad={(sessionId) => void terminalWorkspace.handleLoad(sessionId)}
-		onData={terminalWorkspace.handleTerminalInput}
-		onRetry={(sessionId) => void terminalWorkspace.ensureShell(sessionId)}
+		options={panel.xtermOptions}
+		onLoad={(sessionId) => void workspace.onTerminalMount(sessionId)}
+		onData={workspace.sendInput}
+		onRetry={(sessionId) => void workspace.ensureShellReady(sessionId)}
 	/>
 </div>
 
@@ -109,7 +100,7 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		background: color-mix(in srgb, var(--bg) 92%, black);
-		border-top: 1px solid color-mix(in srgb, var(--border) 64%, transparent);
+		background: var(--bg);
+		border-top: 1px solid var(--border);
 	}
 </style>

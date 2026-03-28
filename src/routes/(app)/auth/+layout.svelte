@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createSvelteAuthClient } from '$lib/svelte/index.js';
-	import { authClient } from '$lib/context/auth';
+	import { authClient } from '$lib/context/auth-context.js';
 	import type { AuthLayoutData } from '../../../types/routes.js';
 	import type { Snippet } from 'svelte';
 

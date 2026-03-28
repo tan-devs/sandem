@@ -5,7 +5,7 @@ import {
 	ensureGuestIdCookie,
 	loadRepoLayoutAuthenticated,
 	loadRepoLayoutGuest
-} from '$lib/controllers/repo/RepoLoaderController.svelte.js';
+} from '$lib/controllers/LoaderController.svelte.js';
 import type { RequestEvent, Cookies } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types.js';
 import type { RepoLayoutData } from '$types/routes.js';

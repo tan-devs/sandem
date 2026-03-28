@@ -11,6 +11,7 @@
 		"access": "public"
 	},
 	"scripts": {
+		"clense": "pnpm format && pnpm lint && pnpm check",
 		"dev:client": "vite dev --host",
 		"dev:frontend": "vite dev --host 127.0.0.1 --port 5173",
 		"dev:server": "npx convex dev",

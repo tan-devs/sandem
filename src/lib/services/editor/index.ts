@@ -1,4 +1,4 @@
-export * from './createActionHandlers.svelte'
+export * from './createActionHandlers.svelte';
 export * from './createAutoSaver.svelte';
 export * from './createFileWriter.svelte';
 export * from './createMonacoConfig.svelte';

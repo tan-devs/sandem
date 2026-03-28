@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { getWebContainer } from '$lib/services/runtime/webcontainer.js';
+import { getWebContainer } from '$lib/services/workspace/createWebcontainer.js';
 
 export function attachVfsSync(yText: Y.Text, filePath: string) {
 	yText.observe(async () => {

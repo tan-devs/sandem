@@ -1,89 +1,97 @@
 <script lang="ts">
-	import {
-		Plus,
-		ChevronDown,
-		ChevronUp,
-		X,
-		Columns2,
-		Pencil,
-		ArrowLeft,
-		ArrowRight
-	} from '@lucide/svelte';
+	import { Plus, X, Pencil, ArrowLeft, ArrowRight } from '@lucide/svelte';
 	import Button from '$lib/components/ui/primitives/Button.svelte';
-	import type { TerminalPanelTab } from '$lib/controllers/workspace/createTerminalPanelController.svelte';
-	import type { TerminalSessionMeta } from '$lib/controllers/workspace/createTerminalSessionsController.svelte';
+	import type { TerminalPanelTab } from '$lib/controllers/workspace/TerminalPanelController.svelte.js';
+	import type { TerminalSessionMeta } from '$lib/controllers/workspace/TerminalSessionsController.svelte.js';
 
 	type Props = {
 		activeTab: TerminalPanelTab;
-		isOpen: boolean;
 		sessions: Array<TerminalSessionMeta & { isReady: boolean }>;
 		activeSessionId: string;
-		splitSessionId: string | null;
 		onSelectSession: (id: string) => void;
 		onCloseSession: (id: string) => void;
 		onEnsureShell: (id: string) => void;
 		onCreateSession: () => void;
 		onRenameSession: (id: string, label: string) => void;
 		onMoveSession: (id: string, direction: 'left' | 'right') => void;
-		onSplitActive: () => void;
-		onCloseSplit: () => void;
-		onSetOpen: (next: boolean) => void;
 	};
 
 	let {
 		activeTab,
-		isOpen,
 		sessions,
 		activeSessionId,
-		splitSessionId,
 		onSelectSession,
 		onCloseSession,
 		onEnsureShell,
 		onCreateSession,
 		onRenameSession,
-		onMoveSession,
-		onSplitActive,
-		onCloseSplit,
-		onSetOpen
+		onMoveSession
 	}: Props = $props();
 
-	let renamingSessionId = $state<string | null>(null);
+	let renamingId = $state<string | null>(null);
 	let renameValue = $state('');
 
 	function startRename() {
-		const active = sessions.find((session) => session.id === activeSessionId);
+		const active = sessions.find((s) => s.id === activeSessionId);
 		if (!active) return;
-		renamingSessionId = active.id;
+		renamingId = active.id;
 		renameValue = active.label;
 	}
 
 	function cancelRename() {
-		renamingSessionId = null;
+		renamingId = null;
 		renameValue = '';
 	}
 
 	function confirmRename() {
-		if (!renamingSessionId) return;
-		onRenameSession(renamingSessionId, renameValue);
+		if (!renamingId) return;
+		onRenameSession(renamingId, renameValue);
 		cancelRename();
 	}
 </script>
 
-{#if activeTab === 'TERMINAL' && isOpen}
-	<div class="terminal-toolbar">
-		{#if renamingSessionId}
-			<div class="rename-strip">
+{#if activeTab === 'TERMINAL'}
+	<div class="toolbar">
+		<!-- Session tabs -->
+		<div class="sessions" role="tablist" aria-label="Terminal sessions">
+			{#each sessions as session (session.id)}
+				<div class="tab" class:active={session.id === activeSessionId}>
+					<button
+						role="tab"
+						aria-selected={session.id === activeSessionId}
+						onclick={() => {
+							onSelectSession(session.id);
+							onEnsureShell(session.id);
+						}}
+					>
+						<span class="dot" class:ready={session.isReady}></span>
+						{session.label}
+					</button>
+					<button
+						class="close"
+						aria-label={`Close ${session.label}`}
+						onclick={() => onCloseSession(session.id)}
+					>
+						<X size={10} strokeWidth={2.5} />
+					</button>
+				</div>
+			{/each}
+		</div>
+
+		<!-- Rename strip (inline) -->
+		{#if renamingId}
+			<div class="rename">
 				<input
 					type="text"
 					value={renameValue}
-					oninput={(event) => (renameValue = (event.currentTarget as HTMLInputElement).value)}
-					onkeydown={(event) => {
-						if (event.key === 'Enter') {
-							event.preventDefault();
+					oninput={(e) => (renameValue = (e.currentTarget as HTMLInputElement).value)}
+					onkeydown={(e) => {
+						if (e.key === 'Enter') {
+							e.preventDefault();
 							confirmRename();
 						}
-						if (event.key === 'Escape') {
-							event.preventDefault();
+						if (e.key === 'Escape') {
+							e.preventDefault();
 							cancelRename();
 						}
 					}}
@@ -92,220 +100,143 @@
 				<Button size="sm" variant="ghost" onclick={cancelRename}>Cancel</Button>
 			</div>
 		{/if}
-		<div class="session-tabs" role="tablist" aria-label="Terminal sessions">
-			{#each sessions as session (session.id)}
-				<div class={`session-tab ${session.id === activeSessionId ? 'active' : ''}`}>
-					<Button
-						size="sm"
-						variant="ghost"
-						title={session.label}
-						onclick={() => {
-							onSelectSession(session.id);
-							onEnsureShell(session.id);
-						}}
-					>
-						{session.label}
-					</Button>
-					<Button
-						size="icon"
-						variant="ghost"
-						class="session-close"
-						title={`Close ${session.label}`}
-						onclick={() => onCloseSession(session.id)}
-					>
-						<X size={11} strokeWidth={2} />
-					</Button>
-				</div>
-			{/each}
-		</div>
-		<div class="terminal-toolbar-actions">
-			<div class="toolbar-btn">
-				<Button
-					size="icon"
-					variant="ghost"
-					title="Move Session Left"
-					onclick={() => onMoveSession(activeSessionId, 'left')}
-				>
-					<ArrowLeft size={14} strokeWidth={1.7} />
-				</Button>
-			</div>
-			<div class="toolbar-btn">
-				<Button
-					size="icon"
-					variant="ghost"
-					title="Move Session Right"
-					onclick={() => onMoveSession(activeSessionId, 'right')}
-				>
-					<ArrowRight size={14} strokeWidth={1.7} />
-				</Button>
-			</div>
-			<div class="toolbar-btn">
-				<Button size="icon" variant="ghost" title="Rename Session" onclick={startRename}>
-					<Pencil size={14} strokeWidth={1.7} />
-				</Button>
-			</div>
-			<div class="toolbar-btn">
-				<Button
-					size="icon"
-					variant="ghost"
-					title={splitSessionId ? 'Close Split' : 'Split Terminal'}
-					onclick={splitSessionId ? onCloseSplit : onSplitActive}
-				>
-					<Columns2 size={14} strokeWidth={1.7} />
-				</Button>
-			</div>
-			<div class="toolbar-btn">
-				<Button size="icon" variant="ghost" title="New Terminal" onclick={onCreateSession}>
-					<Plus size={14} strokeWidth={1.7} />
-				</Button>
-			</div>
-			<div class="toolbar-btn">
-				<Button
-					size="icon"
-					variant="ghost"
-					title="Collapse Toolbar"
-					onclick={() => onSetOpen(false)}
-				>
-					<ChevronDown size={14} strokeWidth={1.7} />
-				</Button>
-			</div>
-		</div>
-	</div>
-{:else if activeTab === 'TERMINAL'}
-	<div class="terminal-toolbar collapsed">
-		<div class="toolbar-btn">
-			<Button size="sm" variant="ghost" title="Expand Toolbar" onclick={() => onSetOpen(true)}>
-				<ChevronUp size={14} strokeWidth={1.7} />
-				Terminal
+
+		<!-- Actions -->
+		<div class="actions">
+			<Button
+				size="icon"
+				variant="ghost"
+				title="Move Left"
+				onclick={() => onMoveSession(activeSessionId, 'left')}
+			>
+				<ArrowLeft size={13} strokeWidth={1.7} />
+			</Button>
+			<Button
+				size="icon"
+				variant="ghost"
+				title="Move Right"
+				onclick={() => onMoveSession(activeSessionId, 'right')}
+			>
+				<ArrowRight size={13} strokeWidth={1.7} />
+			</Button>
+			<Button size="icon" variant="ghost" title="Rename" onclick={startRename}>
+				<Pencil size={13} strokeWidth={1.7} />
+			</Button>
+			<Button size="icon" variant="ghost" title="New Terminal" onclick={onCreateSession}>
+				<Plus size={14} strokeWidth={1.7} />
 			</Button>
 		</div>
 	</div>
 {/if}
 
 <style>
-	.terminal-toolbar {
-		height: 30px;
+	.toolbar {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
-		padding-inline: 8px;
-		gap: 10px;
-		background: color-mix(in srgb, var(--bg) 95%, black);
-		border-bottom: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
+		height: 28px;
+		padding-inline: 6px;
+		gap: 4px;
+		border-bottom: 1px solid var(--border);
+		background: var(--bg);
+		flex-shrink: 0;
 	}
 
-	.rename-strip {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-		padding-right: 8px;
-	}
-
-	.rename-strip input {
-		height: 22px;
-		min-width: 150px;
-		padding: 0 8px;
-		border-radius: 4px;
-		border: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
-		background: color-mix(in srgb, var(--fg) 75%, var(--bg));
-		color: var(--text);
-		font-size: 11px;
-	}
-
-	.rename-strip input:focus {
-		outline: none;
-		border-color: color-mix(in srgb, var(--text) 45%, var(--border));
-	}
-
-	.terminal-toolbar::before {
-		content: 'TERMINAL';
-		font-size: 10px;
-		font-weight: 600;
-		letter-spacing: 0.08em;
-		color: color-mix(in srgb, var(--muted) 76%, var(--text));
-		margin-right: 10px;
-	}
-
-	.terminal-toolbar > :first-child {
+	.sessions {
 		display: flex;
 		align-items: center;
-		gap: 8px;
+		gap: 2px;
+		flex: 1;
 		min-width: 0;
-		overflow: auto hidden;
+		overflow: hidden;
 	}
 
-	.session-tabs {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		padding-block: 2px;
-	}
-
-	.terminal-toolbar.collapsed {
-		justify-content: flex-start;
-	}
-
-	.session-tab :global([data-button-root]) {
-		height: 22px;
-		padding: 0 8px;
-		font-size: 11px;
-		font-weight: 500;
-		letter-spacing: 0.02em;
-		border-radius: 4px;
-		background: transparent !important;
-		border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-		color: var(--muted);
-	}
-
-	.session-tab.active :global([data-button-root]) {
-		color: var(--text);
-		background: color-mix(in srgb, var(--fg) 62%, var(--bg)) !important;
-	}
-
-	.session-tab {
+	.tab {
 		display: inline-flex;
 		align-items: center;
 		gap: 2px;
-	}
-
-	.session-close :global([data-button-root]) {
+		border-radius: 4px;
+		padding: 0 2px 0 6px;
 		height: 20px;
-		min-width: 20px;
-		padding: 0;
-		border-radius: 4px;
-		color: var(--muted);
 		border: 1px solid transparent;
-	}
-
-	.session-close :global([data-button-root]:hover) {
-		color: var(--text);
-		background: color-mix(in srgb, var(--fg) 70%, var(--bg));
-		border-color: color-mix(in srgb, var(--border) 50%, transparent);
-	}
-
-	.terminal-toolbar-actions {
-		display: flex;
-		align-items: center;
-		gap: 4px;
-	}
-
-	.toolbar-btn :global([data-button-root]) {
-		height: 22px;
-		min-width: 22px;
-		padding: 0 6px;
-		font-size: 12px;
-		line-height: 1;
-		border-radius: 4px;
-		background: transparent !important;
 		color: var(--muted);
-		border: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
+	}
+
+	.tab.active {
+		color: var(--text);
+		background: color-mix(in srgb, var(--fg) 60%, var(--bg));
+		border-color: var(--border);
+	}
+
+	.tab button {
+		background: none;
+		border: none;
+		cursor: pointer;
+		font-size: 11px;
+		font-weight: 500;
+		color: inherit;
+		padding: 0;
 		display: inline-flex;
 		align-items: center;
-		gap: 0.3rem;
+		gap: 5px;
+		white-space: nowrap;
 	}
 
-	.toolbar-btn :global([data-button-root]:hover) {
+	.tab .close {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 14px;
+		height: 14px;
+		border-radius: 3px;
+		opacity: 0.5;
+	}
+
+	.tab .close:hover {
+		opacity: 1;
+		background: color-mix(in srgb, var(--fg) 75%, var(--bg));
+	}
+
+	.dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: var(--muted);
+		flex-shrink: 0;
+	}
+
+	.dot.ready {
+		background: #22c55e;
+	}
+
+	.rename {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		padding-inline: 6px;
+		border-left: 1px solid var(--border);
+	}
+
+	.rename input {
+		height: 20px;
+		width: 140px;
+		padding: 0 6px;
+		border-radius: 4px;
+		border: 1px solid var(--border);
+		background: var(--bg);
 		color: var(--text);
-		background: color-mix(in srgb, var(--fg) 70%, var(--bg));
+		font-size: 11px;
+		outline: none;
+	}
+
+	.rename input:focus {
+		border-color: color-mix(in srgb, var(--text) 40%, var(--border));
+	}
+
+	.actions {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+		margin-left: auto;
+		flex-shrink: 0;
 	}
 </style>

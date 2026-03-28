@@ -1,7 +1,7 @@
-// src/lib/hooks/runtime/createPreview.svelte.ts
+// src/lib/hooks/runtime/usePreview.svelte.ts
 import type { WebContainer } from '@webcontainer/api';
 
-export function createPreview(getWebcontainer: () => WebContainer) {
+export function usePreview(getWebcontainer: () => WebContainer) {
 	let url = $state('');
 	let reloadKey = $state(0);
 	let listening = false;

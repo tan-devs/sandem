@@ -30,7 +30,7 @@ After completing the code, ask the user if they want a playground link. Only cal
 
 1. **Svelte 5 First**: Always prefer Runes ($state, $props, $derived) over Svelte 4 store/export syntax.
 2. **Event Attributes**: Use `onclick`, `oninput`, etc., instead of `on:click` or `on:input`.
-3. **Data Injection + Pure Functions**: Use explicit dependency injection pattern where components receive props (not state) and action handlers are pure functions taking context. See `createExplorerActionHandlers.svelte.ts` for pattern.
+3. **Data Injection + Pure Functions**: Use explicit dependency injection pattern where components receive props (not state) and action handlers are pure functions taking context.
 4. **Data Injection**: Pass configuration data (like nav links) from layouts to components using props to keep components pure and reusable.
 5. **`/repo` Auth Gating**: Demo mode is guest-only. If authenticated, always run repo workspace flow; do not gate by project count.
 6. **Starter Seed on First Visit**: For authenticated owners with zero projects, rely on `ensureStarterProjectForOwner` to create starter content.
