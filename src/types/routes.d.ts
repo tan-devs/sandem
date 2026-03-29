@@ -1,5 +1,5 @@
 import type { InitialAuthState } from '$lib/sveltekit/index.js';
-import type { Document } from '$types/projects.js';
+import type { PROJECT_DOC } from '$types/projects.js';
 
 export type RouteUser = {
 	_id?: string;
@@ -19,6 +19,6 @@ export type AuthLayoutData = {
 export type RepoLayoutData = {
 	authState: InitialAuthState;
 	currentUser: RouteUser | null;
-	projects: Document[];
+	projects: PROJECT_DOC[];
 	workspaceTree?: Record<string, unknown>;
 };

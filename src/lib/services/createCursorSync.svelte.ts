@@ -1,5 +1,5 @@
 import type * as Monaco from 'monaco-editor';
-import type { CollaborationRoom } from './createRoom.js';
+import type { CollaborationRoom } from './createRoom.svelte.js';
 
 export type CursorSyncContext = {
 	editor: Monaco.editor.IStandaloneCodeEditor;

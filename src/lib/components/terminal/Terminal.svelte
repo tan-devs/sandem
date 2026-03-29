@@ -7,7 +7,7 @@
 		createTerminalSessionsController
 	} from '$lib/controllers';
 	import { requireIDEContext } from '$lib/context/ide-context.js';
-	import { createShellProcess } from '$lib/services/terminal';
+	import { createShellProcess } from '$lib/services';
 	import { appendTerminalAudit, collaborationPermissionsStore } from '$lib/stores';
 	import { getPanelsContext } from '$lib/stores';
 	import TerminalPanelHeader from './TerminalPanelHeader.svelte';

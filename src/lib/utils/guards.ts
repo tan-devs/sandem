@@ -1,5 +1,5 @@
-import type { PROJECT_DOC } from '$types/projects';
+import type { ProjectDoc } from '$lib/context';
 
-export const isPersistedProject = (project: unknown): project is PROJECT_DOC => {
-	return typeof (project as PROJECT_DOC | undefined)?._id === 'string';
+export const isPersistedProject = (project: unknown): project is ProjectDoc => {
+	return typeof (project as ProjectDoc | undefined)?._id === 'string';
 };

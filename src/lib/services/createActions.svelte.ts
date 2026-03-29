@@ -1,17 +1,16 @@
-// src/lib/controllers/editor/createEditorActionHandlers.svelte.ts
+// src/lib/services/createEditorActionHandlers.svelte.ts
 
-import type { IDEContext } from '$lib/context/ide-context.js';
-import type { EditorStore } from '$lib/stores/editorStore.svelte.js'; // <-- Import the new store type
-import type { IDEPanels, PanelKey } from '$lib/stores/panelStore.svelte.js';
+import type { IDEContext } from '$lib/context/';
+import type { IDEPanels, PanelKey, EditorStore } from '$lib/stores';
 
 export interface EditorActionContext {
 	ide: IDEContext;
-	editorStore: EditorStore; // <-- Changed from EditorStatus to EditorStore
+	editorStore: EditorStore;
 	services: {
 		autoSaver: ReturnType<typeof import('$lib/services').createAutoSaver>;
 		fileWriter: ReturnType<typeof import('$lib/services').createFileWriter>;
 		runtime: ReturnType<typeof import('$lib/services').createEditorRuntime>;
-		lifecycle: ReturnType<typeof import('$lib/hooks').useEditorLifecycle>;
+		lifecycle: ReturnType<typeof import('$lib/hooks').useEditor>;
 	};
 	getPanels: () => IDEPanels | undefined;
 }
@@ -21,26 +20,20 @@ export function createEditorActionHandlers(ctx: EditorActionContext) {
 		async initialize(element: HTMLDivElement) {
 			await ctx.services.lifecycle.initializeEditor(element);
 		},
-
 		syncAfterActivePathChange() {
 			ctx.services.lifecycle.syncAfterActivePathChange();
 		},
-
 		async shutdown() {
-			// Sequence matters: Drain persistence, then clean up runtime
 			await ctx.services.autoSaver.drainAndCleanup();
 			await ctx.services.fileWriter.drainAndDispose();
 			ctx.services.lifecycle.cleanup();
 		},
-
 		openFile(path: string) {
 			ctx.editorStore.openFile(path);
 		},
-
 		closeTab(path: string) {
 			ctx.editorStore.closeTab(path);
 		},
-
 		togglePanel(panel: PanelKey) {
 			const panels = ctx.getPanels();
 			if (panels) {

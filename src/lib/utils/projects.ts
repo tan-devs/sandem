@@ -1,19 +1,4 @@
-import type { GenericId } from 'convex/values';
-
-// ---------------------------------------------------------------------------
-// Types (mirrors the ProjectDoc shape from projects.d.ts)
-// ---------------------------------------------------------------------------
-
-export type ProjectSummary = {
-	_id: GenericId<'projects'>;
-	ownerId: GenericId<'users'>;
-	name: string;
-	isPublic: boolean;
-	room: string;
-	entry?: string;
-	createdAt: number;
-	updatedAt: number;
-};
+import type { ProjectDoc } from '$lib/context';
 
 // ---------------------------------------------------------------------------
 // Slug / name helpers
@@ -52,7 +37,7 @@ export function projectUrl(username: string, projectName: string): string {
  * e.g. project.name = "My Web App" → "my-web-app"
  */
 export function projectFolderName(
-	projectOrId: Pick<ProjectSummary, 'name'> | string,
+	projectOrId: Pick<ProjectDoc, 'name'> | string,
 	name?: string
 ): string {
 	if (typeof projectOrId === 'string') {
@@ -72,9 +57,7 @@ export function projectFolderName(
  * Remove duplicate projects by _id, preserving order.
  * Useful when merging optimistic updates with server state.
  */
-export function uniqueProjects<T extends Pick<ProjectSummary, '_id'>>(
-	items: ReadonlyArray<T>
-): T[] {
+export function uniqueProjects<T extends Pick<ProjectDoc, '_id'>>(items: ReadonlyArray<T>): T[] {
 	const seen = new Set<string>();
 	const result: T[] = [];
 	for (const project of items) {
@@ -89,7 +72,7 @@ export function uniqueProjects<T extends Pick<ProjectSummary, '_id'>>(
  * Shallow equality check by _id order.
  * Returns true only if both lists contain the same projects in the same order.
  */
-export function areProjectsEqual<T extends Pick<ProjectSummary, '_id'>>(
+export function areProjectsEqual<T extends Pick<ProjectDoc, '_id'>>(
 	left: ReadonlyArray<T>,
 	right: ReadonlyArray<T>
 ): boolean {
@@ -107,7 +90,7 @@ export function areProjectsEqual<T extends Pick<ProjectSummary, '_id'>>(
 /**
  * Returns true if the project can be read by a guest (non-owner).
  */
-export function isProjectPublic(project: Pick<ProjectSummary, 'isPublic'>): boolean {
+export function isProjectPublic(project: Pick<ProjectDoc, 'isPublic'>): boolean {
 	return project.isPublic === true;
 }
 
@@ -116,7 +99,7 @@ export function isProjectPublic(project: Pick<ProjectSummary, 'isPublic'>): bool
  *
  * e.g. "Public" | "Private"
  */
-export function projectVisibilityLabel(project: Pick<ProjectSummary, 'isPublic'>): string {
+export function projectVisibilityLabel(project: Pick<ProjectDoc, 'isPublic'>): string {
 	return project.isPublic ? 'Public' : 'Private';
 }
 
@@ -130,7 +113,7 @@ export function projectVisibilityLabel(project: Pick<ProjectSummary, 'isPublic'>
  *
  * Priority: project.entry → "/src/index.ts"
  */
-export function resolveEntryPath(project: Pick<ProjectSummary, 'entry'>): string {
+export function resolveEntryPath(project: Pick<ProjectDoc, 'entry'>): string {
 	return project.entry ?? '/src/index.ts';
 }
 
@@ -142,8 +125,8 @@ export function resolveEntryPath(project: Pick<ProjectSummary, 'entry'>): string
  * Comparator: sort projects newest-first by createdAt.
  */
 export function byNewest(
-	a: Pick<ProjectSummary, 'createdAt'>,
-	b: Pick<ProjectSummary, 'createdAt'>
+	a: Pick<ProjectDoc, 'createdAt'>,
+	b: Pick<ProjectDoc, 'createdAt'>
 ): number {
 	return b.createdAt - a.createdAt;
 }
@@ -151,6 +134,6 @@ export function byNewest(
 /**
  * Comparator: sort projects alphabetically by name (case-insensitive).
  */
-export function byName(a: Pick<ProjectSummary, 'name'>, b: Pick<ProjectSummary, 'name'>): number {
+export function byName(a: Pick<ProjectDoc, 'name'>, b: Pick<ProjectDoc, 'name'>): number {
 	return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
 }

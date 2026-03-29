@@ -1,12 +1,15 @@
 import { untrack } from 'svelte';
 import { createError } from '$lib/sveltekit/index.js';
 
-import { createRuntimeManager } from '$lib/services/terminal/createRuntimeManager.svelte';
-import { createRepoProjectManager } from '$lib/services/explorer/createProjectsManager.svelte';
-import { VITE_REACT_TEMPLATE } from '$lib/utils/ide/template.js';
-import { areProjectsEqual, projectFolderName, uniqueProjects } from '$lib/utils/projects.js';
+import {
+	createRuntimeManager,
+	createRepoProjectManager,
+	type ConvexOperations
+} from '$lib/services';
 
-import type { ConvexOperations } from '$lib/services/explorer/createProjectsManager.svelte';
+import { VITE_REACT_TEMPLATE } from '$lib/utils';
+import { areProjectsEqual, projectFolderName, uniqueProjects } from '$lib/utils';
+
 import type { Doc } from '$convex/_generated/dataModel.js';
 import type { FileSystemTree } from '@webcontainer/api';
 import type { RepoLayoutData } from '$types/routes.js';
@@ -68,10 +71,6 @@ export function createRepoController(options: Options) {
 
 	// ── Derived state ─────────────────────────────────────────────────────────
 
-	/**
-	 * Maps project _id → workspace folder name.
-	 * Used to resolve which project owns a given WebContainer path.
-	 */
 	const folderMap = $derived(
 		new Map<string, string>(
 			options.isDemo() ? [] : projects.map((p) => [p._id, projectFolderName(p._id, p.name)])
@@ -98,7 +97,7 @@ export function createRepoController(options: Options) {
 						: '⏳ Starting sandbox runtime…'
 	);
 
-	// ── Project sync (called from reactive layout on Convex subscription updates) ──
+	// ── Project sync ──────────────────────────────────────────────────────────
 
 	function syncProjects(nextProjects: RepoLayoutData['projects']) {
 		const unique = uniqueProjects(nextProjects);
@@ -126,10 +125,6 @@ export function createRepoController(options: Options) {
 		return activeProject ?? projects[0] ?? demoProject;
 	}
 
-	/**
-	 * Given a WebContainer path, resolve which project owns it.
-	 * Matches on the leading folder segment via folderMap.
-	 */
 	function getProjectForPath(path?: string): ProjectDoc {
 		if (options.isDemo()) return demoProject;
 		if (!path) return getFallbackProject();
@@ -276,13 +271,15 @@ export function createRepoController(options: Options) {
 
 		// Runtime access
 		getWebcontainer: () => runtime.webcontainer,
+		// Shape matches WorkspaceProject in ide-context exactly:
+		// { id, name, isPublic, room, entry? } — no `title` field.
 		getWorkspaceProjects: () =>
 			projects.map((p) => ({
 				id: p._id,
 				name: p.name,
-				title: p.name,
 				isPublic: p.isPublic ?? false,
-				room: p.room ?? ''
+				room: p.room ?? '',
+				entry: p.entry
 			})),
 		startRuntime: () => runtime.startRuntime(),
 		failRuntimeWithError: (err: ReturnType<typeof createError>, cause?: unknown) =>

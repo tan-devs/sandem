@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { requireIDEContext } from '$lib/context/ide';
+	import { requireIDEContext } from '$lib/context';
 	import { createChatPane } from '$lib/hooks';
 	import ErrorPanel from '$lib/components/ui/primitives/ErrorPanel.svelte';
 	import { createErrorReporter } from '$lib/sveltekit/index.js';
 
 	const ide = requireIDEContext();
-	const workspaceId = ide.getEntryPath().split('/')[0] ?? 'workspace';
+	const workspaceId = (ide.getEntryPath() ?? '').split('/')[0] || 'workspace';
 
 	const chat = createChatPane({
 		workspaceId,

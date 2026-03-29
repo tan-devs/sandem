@@ -3,7 +3,7 @@ import { createRepoController, type ConvexOperations } from './RepoController.sv
 import { createLiveblocksEditorSync } from '$lib/controllers';
 import type { EditorSync } from '$lib/controllers/LiveblocksSyncController.svelte';
 import { createPanelsState } from '$lib/stores';
-import { setIDEContext } from '$lib/context/ide-context.js';
+import { setIDEContext, type IDEContext } from '$lib/context/ide-context.js';
 import { projectFolderName } from '$lib/utils/projects.js';
 import { api } from '$convex/_generated/api.js';
 import { createError } from '$lib/sveltekit/index.js';
@@ -11,16 +11,12 @@ import type { RepoLayoutData } from '$types/routes.js';
 import type { Id } from '$convex/_generated/dataModel.js';
 import type { FileSystemTree } from '@webcontainer/api';
 
-// ConvexOperations is owned by RepoProjectsController and re-exported here
-// so layout consumers can import it from a single controller path if needed.
 export type { ConvexOperations };
 
 export type RepoLayoutContext = {
 	getData: () => RepoLayoutData;
 	isGuest: () => boolean;
 	ownerId: () => Id<'users'> | null;
-	// The convex-svelte client from useConvexClient() satisfies ConvexOperations directly.
-	// No wrapper function needed.
 	convexClient: ConvexOperations;
 };
 
@@ -46,9 +42,7 @@ export function setupRepoLayout(context: RepoLayoutContext): RepoLayoutSetup {
 		getWebcontainer: () => repo.getWebcontainer(),
 		persistFile: async (path, content) => {
 			const activeProject = repo.activeProject;
-			if (!activeProject) {
-				return;
-			}
+			if (!activeProject) return;
 
 			await context.convexClient.mutation(api.filesystem.upsertFile, {
 				projectId: activeProject._id,
@@ -74,7 +68,13 @@ export function setupRepoLayout(context: RepoLayoutContext): RepoLayoutSetup {
 		isCreatingProject: () => repo.creatingProject,
 
 		getWebcontainer: repo.getWebcontainer,
-		getProject: repo.getProjectForPath,
+
+		// IDEContext.getProject expects `(path?: string) => Project | undefined` where
+		// Project = ProjectDoc & { nodes; isOwner }. The repo controller resolves by path
+		// only — it has no per-project node list at this layer. The cast is intentional:
+		// callers that need full node data should use api.projects.getProjectFiles instead.
+		getProject: repo.getProjectForPath as IDEContext['getProject'],
+
 		getEntryPath: repo.getEntryPath,
 		getWorkspaceProjects: repo.getWorkspaceProjects,
 		createProject: repo.createProjectCard,

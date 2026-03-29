@@ -6,11 +6,13 @@
 	import type { Doc } from '$convex/_generated/dataModel.js';
 	import { projectFolderName } from '$lib/utils/projects.js';
 
-	import ExplorerOpenEditors from './ExplorerOpenEditors.svelte';
-	import ExplorerFilesSection from './ExplorerFilesSection.svelte';
-	import ExplorerProjectInfo from './ProjectInfo.svelte';
-	import ExplorerOutline from './ExplorerOutline.svelte';
-	import ExplorerTimeline from './ExplorerTimeline.svelte';
+	import {
+		ExplorerProjectInfo,
+		ExplorerFilesSection,
+		ExplorerOutline,
+		ExplorerTimeline,
+		ExplorerOpenEditors
+	} from '$lib/components/sidebar/explorer';
 
 	type ProjectDoc = Doc<'projects'>;
 
@@ -31,6 +33,8 @@
 		treeLoading: boolean;
 		treeError: string | null;
 		activeProject: ProjectDoc | null;
+		nodeCount: number | null;
+		isOwner: boolean;
 		actionMessage: string;
 		actionError: string;
 		selectedPath: string | null;
@@ -75,6 +79,8 @@
 		treeLoading,
 		treeError,
 		activeProject,
+		nodeCount,
+		isOwner,
 		actionMessage,
 		actionError,
 		selectedPath,
@@ -170,8 +176,6 @@
 		onDialogConfirm();
 	}
 
-	// Compute folder name for project info (supports both workspace summaries with `id`
-	// and full project objects with `_id`).
 	const folderName = $derived.by(() => {
 		if (!activeProject) return null;
 		const projectMeta = activeProject as { _id?: string; id?: string; title?: string };
@@ -215,7 +219,7 @@
 
 	<!-- Project Info Child Component -->
 	{#if activeProject}
-		<ExplorerProjectInfo {activeProject} projectFolderName={folderName} />
+		<ExplorerProjectInfo {activeProject} projectFolderName={folderName} {nodeCount} {isOwner} />
 	{/if}
 
 	<!-- Outline Child Component -->

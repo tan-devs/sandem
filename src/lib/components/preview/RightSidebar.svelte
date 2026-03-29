@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Preview from '$lib/components/preview/Preview.svelte';
 	import Chat from '$lib/components/preview/Chat.svelte';
-	import { createRightPaneController } from '$lib/controllers';
+	import { createRightPaneController } from '$lib/controllers/RightPaneController.svelte.js';
 	const controller = createRightPaneController();
 	let ActivePanel = $derived(controller.tab === 'chat' ? Chat : Preview);
 </script>

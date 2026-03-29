@@ -32,7 +32,7 @@ export type ChangeItem = {
 	staged?: boolean;
 };
 
-export type EditorStatusSnapshot = {
+export type StatusSnapshot = {
 	line: number;
 	column: number;
 	indentation: string;
@@ -40,11 +40,3 @@ export type EditorStatusSnapshot = {
 	encoding: string;
 	language: string;
 };
-
-export type EditorPersistPayload = {
-	activePath: string;
-	projectFileName: string;
-	content: string;
-};
-
-export type EditorPersistBatchPayload = EditorPersistPayload[];

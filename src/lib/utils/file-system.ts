@@ -1,101 +1,96 @@
-// src/lib/utils/project/filesystem.ts
 import type { FileSystemTree } from '@webcontainer/api';
+import type { NodeDoc } from '$lib/context/ide-context.js';
 
-type ProjectFileLike = { name: string };
-type ProjectFileWithContents = { name: string; contents: string };
+// ---------------------------------------------------------------------------
+// Node-shaped local types (subset of NodeDoc used in path helpers)
+// ---------------------------------------------------------------------------
 
-/**
- * Converts a flat Convex project.files array into a WebContainer FileSystemTree.
- * Handles nested paths like "src/App.jsx" by creating intermediate directories.
- */
-export function projectFilesToTree(files: ReadonlyArray<ProjectFileWithContents>): FileSystemTree {
-	const tree: FileSystemTree = {};
+type NodeLike = Pick<NodeDoc, 'path'>;
+type NodeWithContent = Pick<NodeDoc, 'path' | 'content'>;
 
-	for (const file of files) {
-		const parts = file.name.split('/');
+// ---------------------------------------------------------------------------
+// WebContainer path helpers
+// ---------------------------------------------------------------------------
 
-		if (parts.length === 1) {
-			tree[file.name] = { file: { contents: file.contents ?? '' } };
-		} else {
-			let current = tree;
-			for (let i = 0; i < parts.length - 1; i++) {
-				const segment = parts[i];
-				if (!current[segment]) {
-					current[segment] = { directory: {} };
-				}
-				current = (current[segment] as { directory: FileSystemTree }).directory;
-			}
-			const leaf = parts[parts.length - 1];
-			current[leaf] = { file: { contents: file.contents ?? '' } };
-		}
-	}
-
-	return tree;
-}
-
+/** Returns the first path segment — the WebContainer root folder name. */
 export function getRootFolder(path: string): string {
 	return path.split('/')[0] ?? '';
 }
 
-export function resolveProjectFileName(
-	path: string,
-	files: ReadonlyArray<ProjectFileLike>
-): string {
-	if (files.some((file) => file.name === path)) return path;
-
-	const [, ...rest] = path.split('/');
-	const stripped = rest.join('/');
-	if (stripped && files.some((file) => file.name === stripped)) return stripped;
-
-	// If project files are rootless (e.g. "src/App.ts") and incoming WC paths are
-	// rooted (e.g. "my-project/src/App.ts"), prefer stripping the first segment
-	// for newly created files as well.
-	const root = path.split('/')[0] ?? '';
-	const hasRootedEntries = !!root && files.some((file) => file.name.startsWith(`${root}/`));
-	if (!hasRootedEntries && stripped) return stripped;
-
-	return path;
+/**
+ * Construct a fully-qualified WebContainer path from a root folder and a
+ * project-relative node path.
+ *
+ * e.g. ("my-project", "/src/App.tsx") → "my-project/src/App.tsx"
+ */
+export function toWebContainerPath(rootFolder: string, nodePath: string): string {
+	const normalized = nodePath.replace(/^\//, '');
+	if (!rootFolder) return normalized;
+	if (normalized.startsWith(`${rootFolder}/`)) return normalized;
+	return `${rootFolder}/${normalized}`;
 }
 
-export function normalizeProjectFilePatches(
-	patches: ReadonlyArray<ProjectFileWithContents>,
-	files: ReadonlyArray<ProjectFileLike>
-): ProjectFileWithContents[] {
-	const deduped = new Map<string, string>();
-	for (const patch of patches) {
-		const normalizedName = resolveProjectFileName(patch.name, files);
-		deduped.set(normalizedName, patch.contents);
-	}
+// ---------------------------------------------------------------------------
+// Node path resolution
+// ---------------------------------------------------------------------------
 
-	return Array.from(deduped.entries()).map(([name, contents]) => ({ name, contents }));
+/**
+ * Resolve a WebContainer path back to a canonical node path.
+ *
+ * Nodes use absolute project-relative paths (e.g. "/src/App.tsx").
+ * WebContainer paths are rooted with the project folder name
+ * (e.g. "my-project/src/App.tsx").
+ *
+ * This function strips the leading folder segment when the exact path isn't
+ * found in the node list, so callers get back the key used in the `nodes` table.
+ */
+export function resolveNodePath(wcPath: string, nodes: ReadonlyArray<NodeLike>): string {
+	// Exact match (already a node path).
+	if (nodes.some((n) => n.path === wcPath)) return wcPath;
+
+	// Strip leading slash and try again.
+	const withoutLeadingSlash = wcPath.replace(/^\//, '');
+	if (nodes.some((n) => n.path === `/${withoutLeadingSlash}`)) return `/${withoutLeadingSlash}`;
+
+	// Strip first path segment (project folder prefix).
+	const [, ...rest] = wcPath.split('/');
+	const stripped = `/${rest.join('/')}`;
+	if (stripped !== '/' && nodes.some((n) => n.path === stripped)) return stripped;
+
+	// Fall back to the original path — let the caller decide.
+	return wcPath;
 }
 
-export function mergeProjectFilesWithPatches(
-	files: ReadonlyArray<ProjectFileWithContents>,
-	patches: ReadonlyArray<ProjectFileWithContents>
-): ProjectFileWithContents[] {
-	if (patches.length === 0) return [...files];
+// ---------------------------------------------------------------------------
+// FileSystemTree builders
+// ---------------------------------------------------------------------------
 
-	const byName = new Map(files.map((file) => [file.name, file.contents]));
-	for (const patch of patches) {
-		byName.set(patch.name, patch.contents);
+/**
+ * Build a WebContainer `FileSystemTree` from a flat list of file nodes.
+ * Folder nodes are implicit — they are created from the path segments of
+ * file nodes, so you don't need to pass folder nodes explicitly.
+ *
+ * Node paths must be absolute project-relative (e.g. "/src/App.tsx").
+ */
+export function nodesToFileSystemTree(nodes: ReadonlyArray<NodeWithContent>): FileSystemTree {
+	const tree: FileSystemTree = {};
+
+	for (const node of nodes) {
+		const parts = node.path.replace(/^\//, '').split('/').filter(Boolean);
+		let cursor: FileSystemTree = tree;
+
+		for (let i = 0; i < parts.length; i++) {
+			const part = parts[i]!;
+			const isLeaf = i === parts.length - 1;
+
+			if (isLeaf) {
+				cursor[part] = { file: { contents: node.content ?? '' } };
+			} else {
+				if (!cursor[part]) cursor[part] = { directory: {} };
+				cursor = (cursor[part] as { directory: FileSystemTree }).directory;
+			}
+		}
 	}
 
-	const merged = files.map((file) => ({
-		name: file.name,
-		contents: byName.get(file.name) ?? file.contents
-	}));
-
-	for (const patch of patches) {
-		if (files.some((file) => file.name === patch.name)) continue;
-		merged.push({ name: patch.name, contents: patch.contents });
-	}
-
-	return merged;
-}
-
-export function toWebContainerPath(rootFolder: string, projectFileName: string): string {
-	if (!rootFolder) return projectFileName;
-	if (projectFileName.startsWith(`${rootFolder}/`)) return projectFileName;
-	return `${rootFolder}/${projectFileName}`;
+	return tree;
 }

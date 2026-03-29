@@ -18,13 +18,11 @@
 	import { findNodeByPath } from '$lib/utils/file-tree.js';
 	import { filterNodesByQuery, getPathsToExpand } from '$lib/utils/ide/explorerTreeOps.js';
 	import type { FileNode } from '$types/editor';
-	import type { Doc } from '$convex/_generated/dataModel.js';
-
-	type PROJECT = Doc<'projects'>;
+	import type { ProjectDoc } from '$lib/context';
 
 	import { createFileTree } from '$lib/controllers';
-	import { projectFilesSync } from '$lib/services/explorer';
-	import { createExplorerStateController } from '$lib/controllers/explorer/createExplorerStateController.svelte';
+	import { projectFilesSync } from '$lib/services';
+	import { createExplorerStateController } from '$lib/controllers/StateController.svelte';
 	import {
 		handleCreateFile,
 		handleCreateFolder,
@@ -35,7 +33,7 @@
 		handleCollapseAll,
 		handleRefreshAndExpandAll,
 		type ExplorerActionContext
-	} from '$lib/controllers/explorer/createExplorerActionHandlers.svelte';
+	} from '$lib/services/createExplorer.svelte';
 
 	import ExplorerContent from './ExplorerContent.svelte';
 	import ActivityPanel from '../activities/ActivityPanel.svelte';
@@ -49,7 +47,7 @@
 
 	const fileTree = createFileTree(ide.getWebcontainer, {
 		getWorkspaceRootFolders: () =>
-			(ide.getWorkspaceProjects?.() ?? []).map((p) => projectFolderName(p.id, p.name ?? p.title))
+			(ide.getWorkspaceProjects?.() ?? []).map((p) => projectFolderName(p.id, p.name ?? p.name))
 	});
 
 	const projectSync = projectFilesSync({
@@ -281,7 +279,7 @@
 			projectSync,
 			editorOpenFile: editorStore.openFile,
 			getWebcontainer: ide.getWebcontainer,
-			getActiveProject: () => activeProject as PROJECT | undefined,
+			getActiveProject: () => activeProject as ProjectDoc | undefined,
 			tree,
 			selectedPath: explorerState.selectedPath,
 			onMessage: setActionMessage,
@@ -305,7 +303,7 @@
 		if (node.depth === 0) {
 			const rootFolder = node.path.split('/')[0] ?? '';
 			const project = workspaceProjects.find(
-				(p) => projectFolderName(p.id, p.name ?? p.title) === rootFolder
+				(p) => projectFolderName(p.id, p.name ?? p.name) === rootFolder
 			);
 			if (project) {
 				ide.selectProject?.(project.id);
@@ -548,7 +546,7 @@
 		{filteredTree}
 		{treeLoading}
 		{treeError}
-		activeProject={(activeProject as PROJECT | undefined) ?? null}
+		activeProject={(activeProject as ProjectDoc | undefined) ?? null}
 		{actionMessage}
 		{actionError}
 		selectedPath={explorerState.selectedPath}
@@ -571,5 +569,7 @@
 		onTimelineOpenPath={(path: string) => editorStore.openFile(path)}
 		onSearchChange={(query: string) => explorerState.setSearchQuery(query)}
 		onSearchClear={() => explorerState.clearSearch()}
+		{nodeCount}
+		{isOwner}
 	/>
 </ActivityPanel>

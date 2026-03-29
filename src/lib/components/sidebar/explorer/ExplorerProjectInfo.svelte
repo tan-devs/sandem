@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { Accordion } from 'bits-ui';
 	import { ChevronRight } from '@lucide/svelte';
-	import type { Doc } from '$convex/_generated/dataModel.js';
-
-	type ProjectDoc = Doc<'projects'>;
+	import type { ProjectDoc } from '$lib/context';
 
 	interface Props {
 		activeProject: ProjectDoc | null;

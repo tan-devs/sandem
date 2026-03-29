@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import type { PROJECT_WITH_FILES } from '$types/projects.js';
+import type { Project } from '$lib/context';
 import type { EditorRuntimeDependencies } from '$types/hooks.js';
 
 export type PersistPayload = {
@@ -23,11 +23,11 @@ export type PersistMetrics = {
  */
 export function seedPersistSignatures(
 	ydoc: Y.Doc,
-	project: PROJECT_WITH_FILES,
+	project: Project,
 	lastPersistedByFile: Map<string, string>
 ) {
 	lastPersistedByFile.clear();
-	const projectFiles = project.files ?? [];
+	const projectFiles = project.nodes ?? [];
 	for (const file of projectFiles) {
 		lastPersistedByFile.set(file.name, ydoc.getText(file.name).toString());
 	}
@@ -44,11 +44,11 @@ export function seedPersistSignatures(
  */
 export function diffYDocFiles(
 	ydoc: Y.Doc,
-	project: PROJECT_WITH_FILES,
+	project: Project,
 	lastPersistedByFile: Map<string, string>,
 	toWebPath: EditorRuntimeDependencies['toWebPath']
 ): PersistMetrics {
-	const projectFiles = project.files ?? [];
+	const projectFiles = project.nodes ?? [];
 	const payloads: PersistPayload[] = [];
 
 	for (const file of projectFiles) {

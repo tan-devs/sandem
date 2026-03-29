@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 import { LiveblocksYjsProvider } from '@liveblocks/yjs';
-import type { CollaborationRoom } from './createRoom.js';
+import type { CollaborationRoom } from './createRoom.svelte.js';
 
 export type YjsDocContext = {
 	room: CollaborationRoom;

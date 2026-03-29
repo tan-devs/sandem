@@ -1,7 +1,7 @@
 import type { WebContainer } from '@webcontainer/api';
 import { getRootFolder } from '$lib/utils/file-system.js';
 import type { FileNode } from '$types/editor.js';
-import type { ExplorerActivityDeps } from '../../../types/hooks.js';
+import type { ExplorerActivityDeps } from '../../types/hooks.js';
 
 export function createExplorerActivity(deps: ExplorerActivityDeps) {
 	let actionMessage = $state('');

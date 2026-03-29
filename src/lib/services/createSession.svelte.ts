@@ -8,9 +8,9 @@ import { resetCollaborationStores } from '$lib/stores';
 
 type ProjectDoc = Doc<'projects'> & { files?: Array<{ name: string; contents: string }> };
 
-import { enterRoom } from './createRoom.js';
-import { syncPresence } from './createPresence.js';
-import { bindEditorCursor } from './createCursorSync.js';
+import { enterRoom } from './createRoom.svelte.js';
+import { syncPresence } from './createPresence.svelte.js';
+import { bindEditorCursor } from './createCursorSync.svelte.js';
 import { createYjsDoc } from './createYjsDoc.js';
 import { bindEditorModels } from './createModelBindings.js';
 

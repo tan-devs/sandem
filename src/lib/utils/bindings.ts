@@ -1,14 +1,25 @@
 import type * as Monaco from 'monaco-editor';
 import { getLanguage } from '$lib/utils/ide/language.js';
-import type { PROJECT_WITH_FILES } from '$types/projects.js';
+import type { Project } from '$lib/context/ide-context.js';
 import type { EditorRuntimeDependencies } from '$types/hooks.js';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 export interface ModelBinding {
 	model: Monaco.editor.ITextModel;
 	destroy: () => void;
 }
 
-type SwapModelParams = {
+type CreateOfflineModelsParams = {
+	project: Project;
+	instance: typeof Monaco;
+	bindings: Map<string, ModelBinding>;
+	toWebPath: EditorRuntimeDependencies['toWebPath'];
+};
+
+type CreateModelForPathParams = {
 	path: string;
 	instance: typeof Monaco;
 	editor: Monaco.editor.IStandaloneCodeEditor;
@@ -16,24 +27,30 @@ type SwapModelParams = {
 	readFile: EditorRuntimeDependencies['readFile'];
 };
 
-type SeedOfflineParams = {
-	project: PROJECT_WITH_FILES;
-	instance: typeof Monaco;
-	bindings: Map<string, ModelBinding>;
-	toWebPath: EditorRuntimeDependencies['toWebPath'];
-};
+// ---------------------------------------------------------------------------
+// Functions
+// ---------------------------------------------------------------------------
 
 /**
- * Populates the bindings map with one Monaco model per project file.
+ * Populates the bindings map with one Monaco model per file node.
  * Used in offline (non-collaborative) mode where Yjs is not involved.
- * Models are seeded with file contents immediately.
+ * Models are seeded with node content immediately.
+ *
+ * Only file-type nodes are processed — folder nodes carry no content.
+ * Node paths (e.g. "/src/App.tsx") are resolved to WebContainer paths
+ * via `toWebPath` before being used as binding keys.
  */
-export function createOfflineModels({ project, instance, bindings, toWebPath }: SeedOfflineParams) {
-	const projectFiles = project.files ?? [];
-	for (const file of projectFiles) {
-		const fullPath = toWebPath(file.name);
-		const model = instance.editor.createModel(file.contents ?? '', getLanguage(fullPath));
-		bindings.set(fullPath, { model, destroy: () => model.dispose() });
+export function createOfflineModels({
+	project,
+	instance,
+	bindings,
+	toWebPath
+}: CreateOfflineModelsParams) {
+	for (const node of project.nodes) {
+		if (node.type !== 'file') continue;
+		const wcPath = toWebPath(node.path);
+		const model = instance.editor.createModel(node.content ?? '', getLanguage(wcPath));
+		bindings.set(wcPath, { model, destroy: () => model.dispose() });
 	}
 }
 
@@ -48,7 +65,7 @@ export function createModelForPath({
 	editor,
 	bindings,
 	readFile
-}: SwapModelParams) {
+}: CreateModelForPathParams) {
 	let binding = bindings.get(path);
 
 	if (!binding) {
@@ -71,6 +88,6 @@ export function createModelForPath({
  * Called during editor cleanup / session teardown.
  */
 export function destroyModelBindings(bindings: Map<string, ModelBinding>) {
-	bindings.forEach((binding) => binding.destroy());
+	bindings.forEach((b) => b.destroy());
 	bindings.clear();
 }

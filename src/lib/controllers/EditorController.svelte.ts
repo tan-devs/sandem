@@ -4,18 +4,20 @@ import {
 	createAutoSaver,
 	createFileWriter,
 	createEditorStatus,
-	createEditorRuntime
-} from '$lib/services/editor';
-import { useEditorLifecycle } from '$lib/hooks';
+	createEditorRuntime,
+	createEditorActionHandlers,
+	type EditorActionContext
+} from '$lib/services';
+
+import { useEditor } from '$lib/hooks';
+
 import {
 	deriveEditorSaveStatusVariant,
 	deriveEditorTabItems,
 	shouldShowEmptyEditorState
-} from '$lib/utils';
-import { createEditorActionHandlers, type EditorActionContext } from '$lib/services/editor';
+} from '$lib/utils/ide';
 
-// Import types for the options interface
-import type { IDEContext } from '$lib/context/ide-context.js';
+import type { IDEContext } from '$lib/context';
 import type { createEditorStore, IDEPanels } from '$lib/stores';
 import type { QuickAction } from '$types/editor.js';
 
@@ -26,6 +28,7 @@ export type CreateEditorPaneControllerOptions = {
 	getPanels: () => IDEPanels | undefined;
 	getCanWrite: () => boolean;
 };
+
 export function createEditorPaneController(options: CreateEditorPaneControllerOptions) {
 	// 1. Initialize Services
 	const autoSaver = createAutoSaver(() => options.ide.getProject());
@@ -35,16 +38,13 @@ export function createEditorPaneController(options: CreateEditorPaneControllerOp
 	const runtime = createEditorRuntime({
 		getProject: () => options.ide.getProject(),
 		getActivePath: () => options.editorStore.activeTabPath,
-		toProjectFile: (path) => path, // Using Convex paths as source of truth
+		toProjectFile: (path) => path,
 		toWebPath: (path) => path,
 
-		// Read file contents from the WebContainer for Monaco's initial load
 		readFile: async (path) => {
 			const wc = options.ide.getWebcontainer();
 			if (!wc) return '';
-
 			try {
-				// Assuming UTF-8 encoding for standard text/code files
 				return await wc.fs.readFile(path, 'utf-8');
 			} catch (error) {
 				console.error(`[EditorController] Failed to read file at ${path}:`, error);
@@ -54,15 +54,12 @@ export function createEditorPaneController(options: CreateEditorPaneControllerOp
 
 		onStatusSync: () => status.syncFromEditor(runtime.getEditor()),
 		onPersist: ({ projectFileName, content }) => {
-			// The Double-Write Pattern:
-			// 1. Convex (Source of Truth / Persistence)
 			autoSaver.triggerAutoSave(projectFileName, content);
-			// 2. WebContainer (Hot Runtime / Execution)
 			fileWriter.writeFile(projectFileName, content);
 		}
 	});
 
-	const lifecycle = useEditorLifecycle({ runtime, status });
+	const lifecycle = useEditor({ runtime, status });
 
 	// 2. Setup Context & Handlers
 	const context: EditorActionContext = {
@@ -109,7 +106,6 @@ export function createEditorPaneController(options: CreateEditorPaneControllerOp
 
 			if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
 				event.preventDefault();
-				// Auto-saver already handles persistence; the keybinding is informational
 			}
 		}
 
@@ -118,7 +114,6 @@ export function createEditorPaneController(options: CreateEditorPaneControllerOp
 	}
 
 	return {
-		// expose properties in the shape `Editor.svelte` expects
 		...actions,
 		initializeEditor: actions.initialize,
 		...state,

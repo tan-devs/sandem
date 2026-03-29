@@ -3,7 +3,7 @@
  * These trigger Convex mutations and update the file tree
  */
 
-import type { ExplorerActionContext } from './createExplorerActionHandlers.svelte';
+import type { ExplorerActionContext } from '$lib/services';
 import type { FileNode } from '$types/editor.js';
 
 export function createExplorerActionsController(context: ExplorerActionContext) {

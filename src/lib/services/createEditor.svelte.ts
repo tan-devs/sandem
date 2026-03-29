@@ -1,8 +1,8 @@
 import * as Y from 'yjs';
 import type * as Monaco from 'monaco-editor';
-import type { PROJECT_WITH_FILES } from '$types/projects.js';
+import type { Project } from '$lib/context';
 import type { EditorRuntimeDependencies } from '$types/hooks.js';
-import { createMonacoInstance, MONACO_OPTIONS } from '$lib/services/editor'; // ← or '$lib/services/editor/collaboration' if you prefer explicit
+import { createMonacoInstance, MONACO_OPTIONS } from '$lib/services';
 import {
 	type ModelBinding,
 	createOfflineModels,
@@ -10,11 +10,7 @@ import {
 	destroyModelBindings
 } from '$lib/utils';
 import { seedPersistSignatures, diffYDocFiles } from '$lib/utils';
-
-import {
-	startCollaborationSession, // ← was createCollaboration
-	type CollaborationSession
-} from '$lib/services/collaboration';
+import { startCollaborationSession, type CollaborationSession } from '$lib/services';
 
 export function createEditorRuntime(deps: EditorRuntimeDependencies) {
 	let editor: Monaco.editor.IStandaloneCodeEditor | undefined;
@@ -28,25 +24,28 @@ export function createEditorRuntime(deps: EditorRuntimeDependencies) {
 	let persistedFileCount = 0;
 
 	let synced = false;
-	const seeds = new Set<string>();
+	const seededPaths = new Set<string>();
 	const bindings = new Map<string, ModelBinding>();
 	const editorDisposables: Monaco.IDisposable[] = [];
 
-	function registerEditorDisposable(disposable: Monaco.IDisposable | undefined) {
+	// ── Disposable management ─────────────────────────────────────────────────
+
+	function registerDisposable(disposable: Monaco.IDisposable | undefined) {
 		if (!disposable) return;
 		editorDisposables.push(disposable);
 	}
 
-	function disposeEditorDisposables() {
+	function disposeAll() {
 		while (editorDisposables.length > 0) {
-			const disposable = editorDisposables.pop();
 			try {
-				disposable?.dispose();
+				editorDisposables.pop()?.dispose();
 			} catch {
-				/* ignore teardown errors */
+				// Ignore teardown errors — editor may already be gone.
 			}
 		}
 	}
+
+	// ── Editor helpers ────────────────────────────────────────────────────────
 
 	function getEditor() {
 		return editor;
@@ -62,25 +61,37 @@ export function createEditorRuntime(deps: EditorRuntimeDependencies) {
 		createModelForPath({ path: activePath, instance, editor, bindings, readFile: deps.readFile });
 	}
 
-	function seedProjectFromConvex() {
+	// ── Yjs seeding ───────────────────────────────────────────────────────────
+
+	/**
+	 * Seed the Yjs doc from Convex node data.
+	 *
+	 * Nodes use `path` (e.g. "/src/App.tsx") as the Yjs text key and
+	 * `content` as the initial string value. Only file nodes with content
+	 * are seeded; folder nodes have no content and are skipped.
+	 */
+	function seedYDocFromNodes() {
 		if (!ydoc) return;
-		const project = deps.getProject() as PROJECT_WITH_FILES;
-		const projectFiles = project?.files ?? [];
+		const project = deps.getProject() as Project;
+		const nodes = project?.nodes ?? [];
 
 		ydoc.transact(() => {
-			for (const file of projectFiles) {
-				if (seeds.has(file.name)) continue;
-				const ytext = ydoc!.getText(file.name);
-				if (ytext.length === 0 && file.contents) ytext.insert(0, file.contents);
-				seeds.add(file.name);
+			for (const node of nodes) {
+				if (node.type !== 'file') continue;
+				if (seededPaths.has(node.path)) continue;
+				const ytext = ydoc!.getText(node.path);
+				if (ytext.length === 0 && node.content) ytext.insert(0, node.content);
+				seededPaths.add(node.path);
 			}
 		}, 'seed');
 	}
 
-	function scheduleChangedFilesPersist(nextYDoc: Y.Doc) {
+	// ── Persistence ───────────────────────────────────────────────────────────
+
+	function schedulePersist(nextYDoc: Y.Doc) {
 		clearTimeout(persistTimer);
 		persistTimer = setTimeout(() => {
-			const project = deps.getProject() as PROJECT_WITH_FILES;
+			const project = deps.getProject() as Project;
 			const metrics = diffYDocFiles(nextYDoc, project, lastPersistedByFile, deps.toWebPath);
 
 			if (metrics.payloads.length > 0) {
@@ -108,13 +119,16 @@ export function createEditorRuntime(deps: EditorRuntimeDependencies) {
 		}, 900);
 	}
 
+	// ── Collaboration setup ───────────────────────────────────────────────────
+
 	async function setupCollaborativeModels() {
 		if (!instance || !editor) return;
-		const project = deps.getProject() as PROJECT_WITH_FILES;
+		const project = deps.getProject() as Project | undefined;
+
+		// `room` is required and always present on ProjectDoc (non-optional in schema).
 		if (!project?.room) return;
 
 		session = await startCollaborationSession({
-			// ← was createCollaboration
 			project,
 			editor,
 			instance,
@@ -123,12 +137,12 @@ export function createEditorRuntime(deps: EditorRuntimeDependencies) {
 			seedProjectFromConvex: () => {
 				if (synced) return;
 				synced = true;
-				seedProjectFromConvex();
+				seedYDocFromNodes();
 				seedPersistSignatures(ydoc ?? session!.ydoc, project, lastPersistedByFile);
 			},
 			onYDocUpdate: (nextYDoc: Y.Doc, origin: unknown) => {
 				if (!synced || origin === 'seed') return;
-				scheduleChangedFilesPersist(nextYDoc);
+				schedulePersist(nextYDoc);
 			}
 		});
 
@@ -138,15 +152,18 @@ export function createEditorRuntime(deps: EditorRuntimeDependencies) {
 		deps.onStatusSync();
 	}
 
+	// ── Offline setup ─────────────────────────────────────────────────────────
+
 	function setupOfflineModels() {
 		if (!instance || !editor) return;
-		const project = deps.getProject() as PROJECT_WITH_FILES;
+		const project = deps.getProject();
+		if (!project) return;
 
 		createOfflineModels({ project, instance, bindings, toWebPath: deps.toWebPath });
 		syncActiveEditorModel();
 		deps.onStatusSync();
 
-		registerEditorDisposable(
+		registerDisposable(
 			editor.onDidChangeModelContent(() => {
 				const activePath = deps.getActivePath();
 				if (!activePath || !editor) return;
@@ -160,11 +177,15 @@ export function createEditorRuntime(deps: EditorRuntimeDependencies) {
 		);
 	}
 
+	// ── Status listeners ──────────────────────────────────────────────────────
+
 	function setupStatusListeners() {
 		if (!editor) return;
-		registerEditorDisposable(editor.onDidChangeCursorPosition(() => deps.onStatusSync()));
-		registerEditorDisposable(editor.onDidChangeModel(() => deps.onStatusSync()));
+		registerDisposable(editor.onDidChangeCursorPosition(() => deps.onStatusSync()));
+		registerDisposable(editor.onDidChangeModel(() => deps.onStatusSync()));
 	}
+
+	// ── Lifecycle ─────────────────────────────────────────────────────────────
 
 	async function initialize(element: HTMLDivElement) {
 		instance = await createMonacoInstance();
@@ -182,12 +203,12 @@ export function createEditorRuntime(deps: EditorRuntimeDependencies) {
 		await setupCollaborativeModels();
 	}
 
-	function cleanup() {
+	function destroy() {
 		clearTimeout(persistTimer);
 		lastPersistedByFile.clear();
 		persistFlushCount = 0;
 		persistedFileCount = 0;
-		disposeEditorDisposables();
+		disposeAll();
 		destroyModelBindings(bindings);
 		session?.dispose();
 		session?.provider.destroy();
@@ -199,5 +220,5 @@ export function createEditorRuntime(deps: EditorRuntimeDependencies) {
 		instance = undefined;
 	}
 
-	return { initialize, getEditor, syncActiveEditorModel, cleanup };
+	return { initialize, getEditor, syncActiveEditorModel, destroy, cleanup: destroy };
 }

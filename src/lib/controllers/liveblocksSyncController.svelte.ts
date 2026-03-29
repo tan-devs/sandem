@@ -38,16 +38,16 @@ export interface EditorSyncOptions {
 
 	/**
 	 * Called (debounced 3 s) to persist file content to Convex.
-	 * Wire to: convexClient.mutation(api.filesystem.upsertFile, { path, content })
+	 * Wire to: convexClient.mutation(api.filesystem.upsertFile, { projectId, path, content })
 	 */
 	persistFile: (path: string, content: string) => Promise<void>;
 
 	/**
 	 * Returns the workspace-relative root prefix for the active project,
-	 * e.g. "my-project-abc123".  Used to resolve absolute WebContainer paths.
+	 * e.g. "my-project-abc123". Used to resolve absolute WebContainer paths.
 	 * Return '' if paths are already absolute.
 	 *
-	 * Tip: () => projectFolderName(repo.activeProject._id, repo.activeProject.title)
+	 * Tip: () => projectFolderName(repo.activeProject._id, repo.activeProject.name)
 	 */
 	getWorkspaceRoot: () => string;
 
@@ -88,10 +88,6 @@ export function createLiveblocksEditorSync(opts: EditorSyncOptions): EditorSync 
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
 
-	/**
-	 * Convention: the Monaco <-> Liveblocks/Yjs binding stores the file text
-	 * in a Y.Text named "content".  Adjust if your binding uses a different key.
-	 */
 	function getText(ydoc: Y.Doc): string {
 		return ydoc.getText('content').toString();
 	}
@@ -104,7 +100,7 @@ export function createLiveblocksEditorSync(opts: EditorSyncOptions): EditorSync 
 
 	async function writeWC(filePath: string, content: string): Promise<void> {
 		const wc = getWebcontainer();
-		if (!wc) return; // Container not ready yet — next Yjs update will retry.
+		if (!wc) return;
 
 		const path = absPath(filePath);
 		const dir = path.substring(0, path.lastIndexOf('/'));
@@ -125,7 +121,7 @@ export function createLiveblocksEditorSync(opts: EditorSyncOptions): EditorSync 
 		}
 	}
 
-	// ── Core change handler — fires on every Yjs update ───────────────────────
+	// ── Core change handler ───────────────────────────────────────────────────
 
 	function onYjsUpdate(filePath: string): void {
 		const s = watched.get(filePath);
@@ -133,16 +129,14 @@ export function createLiveblocksEditorSync(opts: EditorSyncOptions): EditorSync 
 
 		const content = getText(s.ydoc);
 
-		// Fast lane — WebContainer (75 ms debounce, fast enough for HMR)
 		if (s.wcTimer !== null) clearTimeout(s.wcTimer);
 		s.wcTimer = setTimeout(() => {
 			s.wcTimer = null;
-			if (content === s.lastWc) return; // no-op: content unchanged
+			if (content === s.lastWc) return;
 			s.lastWc = content;
 			void writeWC(filePath, content);
 		}, wcMs);
 
-		// Lazy lane — Convex (3 s debounce, only fires after user stops typing)
 		if (s.convexTimer !== null) clearTimeout(s.convexTimer);
 		s.convexTimer = setTimeout(() => {
 			s.convexTimer = null;
@@ -155,7 +149,7 @@ export function createLiveblocksEditorSync(opts: EditorSyncOptions): EditorSync 
 	// ── Public API ────────────────────────────────────────────────────────────
 
 	function watch(filePath: string, ydoc: Y.Doc): void {
-		unwatch(filePath); // idempotent: replace any existing watcher for this path
+		unwatch(filePath);
 
 		const handler = () => onYjsUpdate(filePath);
 		ydoc.on('update', handler);
@@ -169,8 +163,6 @@ export function createLiveblocksEditorSync(opts: EditorSyncOptions): EditorSync 
 			lastConvex: null
 		});
 
-		// Write immediately on open so the file exists on disk before the first
-		// HMR-triggering keystroke, and before any terminal commands run.
 		void writeWC(filePath, getText(ydoc));
 	}
 
@@ -197,7 +189,6 @@ export function createLiveblocksEditorSync(opts: EditorSyncOptions): EditorSync 
 		}
 
 		const content = getText(s.ydoc);
-		// Skip the no-op guard on explicit flush — always write.
 		s.lastWc = content;
 		s.lastConvex = content;
 		await Promise.all([writeWC(filePath, content), writeConvex(filePath, content)]);

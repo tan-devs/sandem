@@ -3,7 +3,7 @@ import {
 	setCollaborationPermissions,
 	type CollaborationRole
 } from '$lib/stores';
-import type { CollaborationRoom } from './room.js';
+import type { CollaborationRoom } from './createRoom.svelte.js';
 
 export type PresenceContext = {
 	room: CollaborationRoom;

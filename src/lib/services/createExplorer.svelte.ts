@@ -4,7 +4,7 @@
  */
 import type { WebContainer } from '@webcontainer/api';
 import type { FileTreeController, ProjectSyncController } from '$types/hooks';
-import type { PROJECT } from '$types/projects';
+import type { Doc } from '$convex/_generated/dataModel.js';
 import type { FileNode } from '$types/editor';
 import { projectFolderName } from '$lib/utils/projects.js';
 import {
@@ -13,12 +13,14 @@ import {
 	validateProjectRelativePath
 } from '$lib/utils/ide/explorerTreeOps.js';
 
+type ProjectDoc = Doc<'projects'>;
+
 export type ExplorerActionContext = {
 	fileTree: FileTreeController;
 	projectSync: ProjectSyncController;
 	editorOpenFile: (path: string) => void;
 	getWebcontainer: () => WebContainer;
-	getActiveProject: () => PROJECT | undefined;
+	getActiveProject: () => ProjectDoc | undefined;
 	tree: FileNode[];
 	selectedPath: string | null;
 	onMessage: (msg: string) => void;
@@ -223,7 +225,7 @@ export async function handleRefreshAndExpandAll(ctx: ExplorerActionContext) {
 export function normalizeToProjectPath(
 	input: string,
 	tree: FileNode[],
-	activeProject?: PROJECT
+	activeProject?: ProjectDoc
 ): string {
 	const value = validateProjectRelativePath(input);
 
@@ -237,7 +239,7 @@ export function normalizeToProjectPath(
 
 	// Otherwise, prepend the active project root
 	if (activeProject && '_id' in activeProject) {
-		const rootFolder = projectFolderName(activeProject._id, activeProject.title);
+		const rootFolder = projectFolderName(activeProject._id, activeProject.name);
 		if (!value.startsWith(`${rootFolder}/`)) {
 			return validateProjectRelativePath(`${rootFolder}/${value}`);
 		}
