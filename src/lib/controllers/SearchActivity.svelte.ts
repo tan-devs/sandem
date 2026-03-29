@@ -1,7 +1,7 @@
 import type { WebContainer } from '@webcontainer/api';
 import { getRootFolder } from '$lib/utils/file-system.js';
-import type { SearchActivityDeps } from '../../../types/hooks.js';
-import type { SearchMatch } from '../../../types/editor.js';
+import type { SearchActivityDeps } from '../../types/hooks.js';
+import type { SearchMatch } from '../../types/editor.js';
 
 const IGNORE = new Set(['.git', 'node_modules', '.svelte-kit', 'dist', '.cache']);
 const MAX_RESULTS = 200;

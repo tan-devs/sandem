@@ -18,6 +18,7 @@
 
 	let element: HTMLDivElement;
 	let canWrite = $state(true);
+
 	const unsubscribePermissions = collaborationPermissionsStore.subscribe((value) => {
 		canWrite = value.canWrite;
 	});
@@ -31,27 +32,20 @@
 	});
 
 	onMount(() => {
-		return editorPane.mountShortcuts();
-	});
+		const removeShortcuts = editorPane.mountShortcuts();
 
-	onMount(async () => {
-		await editorPane.initializeEditor(element);
-	});
-
-	onMount(() => {
-		const handlePageHide = () => {
-			void editorPane.shutdown();
-		};
-
+		const handlePageHide = () => void editorPane.shutdown();
 		window.addEventListener('pagehide', handlePageHide);
 
+		void editorPane.initializeEditor(element);
+
 		return () => {
+			removeShortcuts();
 			window.removeEventListener('pagehide', handlePageHide);
 		};
 	});
 
 	$effect(() => {
-		// Reactive dependency on activeTabPath to trigger sync when it changes
 		void editorStore.activeTabPath;
 		editorPane.syncAfterActivePathChange();
 	});
@@ -81,14 +75,14 @@
 
 	{#if editorPane.showEmptyState}
 		<EmptyEditorState quickActions={editorPane.quickActions} />
-	{:else if editorPane.lifecycle.editorRuntimeError}
+	{:else if editorPane.editorRuntimeError}
 		<ErrorPanel
 			title="Editor failed to start"
 			description="The editor runtime encountered an error. You can retry without refreshing."
-			message={editorPane.lifecycle.editorRuntimeError}
+			message={editorPane.editorRuntimeError}
 			testId="editor-runtime-error"
-			retryLabel={editorPane.lifecycle.initializingEditor ? 'Retrying…' : 'Retry editor'}
-			retryDisabled={editorPane.lifecycle.initializingEditor}
+			retryLabel={editorPane.initializingEditor ? 'Retrying…' : 'Retry editor'}
+			retryDisabled={editorPane.initializingEditor}
 			onRetry={() => void editorPane.initializeEditor(element)}
 		/>
 	{/if}
@@ -96,28 +90,25 @@
 	<!-- Monaco editor mount point -->
 	<div
 		class="editor-container"
-		class:hidden={editorPane.showEmptyState || !!editorPane.lifecycle.editorRuntimeError}
+		class:hidden={editorPane.showEmptyState || !!editorPane.editorRuntimeError}
 		bind:this={element}
 	></div>
 </div>
 
 <style>
-	/* ── Layout shell ───────────────────────────────────────── */
 	.editor-layout {
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		background: color-mix(in srgb, var(--bg) 90%, black);
-		border-left: 1px solid color-mix(in srgb, var(--border) 52%, transparent);
+		background: var(--bg);
+		border-left: 1px solid var(--border);
 		overflow: hidden;
 	}
 
-	/* ── Monaco mount ───────────────────────────────────────── */
 	.editor-container {
 		flex: 1;
 		min-height: 0;
 		overflow: hidden;
-		background: color-mix(in srgb, var(--bg) 94%, black);
 	}
 
 	.editor-container.hidden {

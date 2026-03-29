@@ -3,7 +3,7 @@ export * from './file-system';
 export * from './file-tree';
 export * from './guards';
 export * from './header';
-export * from './persistence';
+export * from './presistence';
 export * from './projects';
 export * from './vfs';
 export * from './template';

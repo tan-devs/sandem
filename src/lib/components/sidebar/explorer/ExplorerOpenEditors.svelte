@@ -1,14 +1,20 @@
 <script lang="ts">
 	import { ChevronRight } from '@lucide/svelte';
 	import { Accordion } from 'bits-ui';
-
-	import { editorStore } from '$lib/stores';
 	import Button from '$lib/components/ui/primitives/Button.svelte';
+	import type { EditorTab } from '$lib/stores/editor.store.svelte.js';
 
-	// Only render if there are open tabs
+	interface Props {
+		tabs: EditorTab[];
+		activeTabPath: string | null;
+		onOpenFile: (path: string) => void;
+		onCloseTab: (path: string) => void;
+	}
+
+	let { tabs, activeTabPath, onOpenFile, onCloseTab }: Props = $props();
 </script>
 
-{#if editorStore.tabs.length > 0}
+{#if tabs.length > 0}
 	<Accordion.Item value="open-editors" class="explorer-section">
 		<Accordion.Header>
 			<Accordion.Trigger class="section-trigger">
@@ -19,8 +25,8 @@
 			</Accordion.Trigger>
 		</Accordion.Header>
 		<Accordion.Content>
-			{#each editorStore.tabs as tab (tab.path)}
-				{@const isActive = editorStore.isActive(tab.path)}
+			{#each tabs as tab (tab.path)}
+				{@const isActive = tab.path === activeTabPath}
 				<div class="open-editor-row" title={tab.path}>
 					<Button
 						variant={isActive ? 'default' : 'ghost'}
@@ -28,7 +34,7 @@
 						size="sm"
 						justify="start"
 						class="open-editor-btn"
-						onclick={() => editorStore.openFile(tab.path)}
+						onclick={() => onOpenFile(tab.path)}
 					>
 						<span class="open-editor-dot" class:active={isActive}></span>
 						<span class="open-editor-label">{tab.label}</span>
@@ -36,9 +42,9 @@
 					<button
 						type="button"
 						class="close-editor-btn"
-						onclick={(event) => {
-							event.stopPropagation();
-							editorStore.closeTab(tab.path);
+						onclick={(e) => {
+							e.stopPropagation();
+							onCloseTab(tab.path);
 						}}
 						aria-label={`Close ${tab.label}`}
 						title={`Close ${tab.label}`}
@@ -52,7 +58,6 @@
 {/if}
 
 <style>
-	/* ── Open editors ────────────────────────────────────── */
 	.open-editor-row {
 		display: flex;
 		align-items: center;

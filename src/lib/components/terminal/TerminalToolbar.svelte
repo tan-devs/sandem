@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { Plus, X, Pencil, ArrowLeft, ArrowRight } from '@lucide/svelte';
 	import Button from '$lib/components/ui/primitives/Button.svelte';
-	import type { TerminalPanelTab } from '$lib/controllers/workspace/TerminalPanelController.svelte.js';
-	import type { TerminalSessionMeta } from '$lib/controllers/workspace/TerminalSessionsController.svelte.js';
+	import type { TerminalPanelTab } from '$lib/controllers/TerminalPanelController.svelte.js';
+	import type { TerminalSessionMeta } from '$lib/controllers/TerminalSessionsController.svelte.js';
 
 	type Props = {
 		activeTab: TerminalPanelTab;

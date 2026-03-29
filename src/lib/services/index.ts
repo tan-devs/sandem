@@ -19,3 +19,7 @@ export * from './createWebcontainer';
 export * from './createYjsDoc';
 export * from './createYjsSync.svelte';
 export * from './createActions.svelte';
+
+export * from './createTerminal.svelte';
+export * from './createTerminalSessions.svelte';
+export * from './createTerminalWorkspace.svelte';

@@ -1,5 +1,5 @@
 import type { TabId } from '$lib/stores';
-import type { CreateActivityBarControllerOptions } from '../../../types/hooks.js';
+import type { CreateActivityBarControllerOptions } from '../../types/hooks.js';
 
 const LETTER_SHORTCUTS = {
 	e: 'explorer',
@@ -24,6 +24,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
 export function createActivityBarController(options: CreateActivityBarControllerOptions) {
 	function selectTab(id: TabId) {
 		const panels = options.getPanels();
+		if (!panels) return;
 		if (options.getActiveTab() === id) {
 			panels.leftPane = !panels.leftPane;
 			return;
@@ -35,6 +36,7 @@ export function createActivityBarController(options: CreateActivityBarController
 
 	function toggleSettingsPanel() {
 		const panels = options.getPanels();
+		if (!panels) return;
 		if (typeof panels.rightPane !== 'boolean') return;
 		panels.rightPane = !panels.rightPane;
 	}

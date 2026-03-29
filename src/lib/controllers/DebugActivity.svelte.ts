@@ -1,6 +1,6 @@
 import type { WebContainer } from '@webcontainer/api';
 import { getRootFolder } from '$lib/utils/file-system.js';
-import type { DebugActivityDeps } from '../../../types/hooks.js';
+import type { DebugActivityDeps } from '../../types/hooks.js';
 
 export function createDebugActivity(deps: DebugActivityDeps) {
 	let checking = $state(false);

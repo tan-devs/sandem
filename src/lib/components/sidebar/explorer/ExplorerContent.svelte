@@ -3,8 +3,9 @@
 	import { Accordion } from 'bits-ui';
 
 	import type { FileNode } from '$types/editor';
-	import type { Doc } from '$convex/_generated/dataModel.js';
-	import { projectFolderName } from '$lib/utils/projects.js';
+	import type { ProjectDoc } from '$lib/context/ide-context.js';
+	import type { EditorTab } from '$lib/stores/editor.store.svelte.js';
+	import type { ExplorerDialogState, TimelineEvent, ContextMenuState } from '$types/explorer';
 
 	import {
 		ExplorerProjectInfo,
@@ -14,16 +15,9 @@
 		ExplorerOpenEditors
 	} from '$lib/components/sidebar/explorer';
 
-	type ProjectDoc = Doc<'projects'>;
-
-	type ExplorerDialogIntent = 'create-file' | 'create-folder' | 'rename' | 'delete';
-
-	type ExplorerDialogState = {
-		open: boolean;
-		intent: ExplorerDialogIntent | null;
-		value: string;
-		targetPath: string | null;
-	};
+	// ---------------------------------------------------------------------------
+	// Props
+	// ---------------------------------------------------------------------------
 
 	interface Props {
 		openSections: string[];
@@ -33,31 +27,24 @@
 		treeLoading: boolean;
 		treeError: string | null;
 		activeProject: ProjectDoc | null;
+		/** Slugified folder name — computed by the controller from `project.name`. */
+		activeProjectFolder: string | null;
 		nodeCount: number | null;
 		isOwner: boolean;
 		actionMessage: string;
 		actionError: string;
 		selectedPath: string | null;
 		activeFilePath: string | null;
-		timelineEvents: Array<{
-			id: string;
-			at: number;
-			kind: 'action' | 'error' | 'file-open' | 'folder-toggle';
-			label: string;
-			path?: string;
-		}>;
+		timelineEvents: TimelineEvent[];
+		tabs: EditorTab[];
 		searchQuery: string;
 		hasSearch: boolean;
 		isExpanded: (path: string) => boolean;
+		isFileActive: (path: string) => boolean;
 		onDirClick: (node: FileNode) => void;
 		onFileClick: (node: FileNode) => void;
 		onNodeContextMenu: (node: FileNode, event: MouseEvent) => void;
-		contextMenu: {
-			open: boolean;
-			x: number;
-			y: number;
-			path: string | null;
-		};
+		contextMenu: ContextMenuState;
 		onContextMenuAction: (
 			action: 'new-file' | 'new-folder' | 'rename' | 'delete' | 'refresh'
 		) => void;
@@ -65,6 +52,8 @@
 		onTimelineOpenPath: (path: string) => void;
 		onSearchChange: (query: string) => void;
 		onSearchClear: () => void;
+		onOpenFile: (path: string) => void;
+		onCloseTab: (path: string) => void;
 		dialogState: ExplorerDialogState;
 		onDialogValueChange: (value: string) => void;
 		onDialogCancel: () => void;
@@ -79,6 +68,7 @@
 		treeLoading,
 		treeError,
 		activeProject,
+		activeProjectFolder,
 		nodeCount,
 		isOwner,
 		actionMessage,
@@ -86,9 +76,11 @@
 		selectedPath,
 		activeFilePath,
 		timelineEvents,
+		tabs,
 		searchQuery,
 		hasSearch,
 		isExpanded,
+		isFileActive,
 		onDirClick,
 		onFileClick,
 		onNodeContextMenu,
@@ -98,11 +90,17 @@
 		onTimelineOpenPath,
 		onSearchChange,
 		onSearchClear,
+		onOpenFile,
+		onCloseTab,
 		dialogState,
 		onDialogValueChange,
 		onDialogCancel,
 		onDialogConfirm
 	}: Props = $props();
+
+	// ---------------------------------------------------------------------------
+	// Dialog derived state + focus
+	// ---------------------------------------------------------------------------
 
 	let dialogInput: HTMLInputElement | null = $state(null);
 
@@ -154,10 +152,7 @@
 	});
 
 	$effect(() => {
-		if (!dialogState.open || !dialogMeta.showInput) {
-			return;
-		}
-
+		if (!dialogState.open || !dialogMeta.showInput) return;
 		void tick().then(() => {
 			dialogInput?.focus();
 			dialogInput?.select();
@@ -175,28 +170,17 @@
 		event.preventDefault();
 		onDialogConfirm();
 	}
-
-	const folderName = $derived.by(() => {
-		if (!activeProject) return null;
-		const projectMeta = activeProject as { _id?: string; id?: string; title?: string };
-		const projectId = projectMeta._id ?? projectMeta.id;
-		if (!projectId) return null;
-		return projectFolderName(projectId, projectMeta.title);
-	});
 </script>
 
 <Accordion.Root type="multiple" bind:value={openSections} class="explorer-content">
-	<!-- Status Messages -->
 	{#if actionError}
 		<div class="status-msg error">{actionError}</div>
 	{:else if actionMessage}
 		<div class="status-msg success">{actionMessage}</div>
 	{/if}
 
-	<!-- Open Editors Child Component -->
-	<ExplorerOpenEditors />
+	<ExplorerOpenEditors {tabs} activeTabPath={activeFilePath} {onOpenFile} {onCloseTab} />
 
-	<!-- Files & Folders Child Component -->
 	<ExplorerFilesSection
 		{tree}
 		{filteredTree}
@@ -207,6 +191,7 @@
 		{expandOnSearch}
 		{selectedPath}
 		{isExpanded}
+		{isFileActive}
 		{onDirClick}
 		{onFileClick}
 		{onNodeContextMenu}
@@ -217,15 +202,17 @@
 		{onSearchClear}
 	/>
 
-	<!-- Project Info Child Component -->
 	{#if activeProject}
-		<ExplorerProjectInfo {activeProject} projectFolderName={folderName} {nodeCount} {isOwner} />
+		<ExplorerProjectInfo
+			{activeProject}
+			projectFolderName={activeProjectFolder}
+			{nodeCount}
+			{isOwner}
+		/>
 	{/if}
 
-	<!-- Outline Child Component -->
 	<ExplorerOutline {activeFilePath} />
 
-	<!-- Timeline Child Component -->
 	<ExplorerTimeline events={timelineEvents} onOpenPath={onTimelineOpenPath} />
 </Accordion.Root>
 
@@ -252,7 +239,7 @@
 					id="explorer-dialog-path"
 					type="text"
 					value={dialogState.value}
-					oninput={(event) => onDialogValueChange((event.currentTarget as HTMLInputElement).value)}
+					oninput={(e) => onDialogValueChange((e.currentTarget as HTMLInputElement).value)}
 					required
 				/>
 			{/if}
@@ -273,7 +260,6 @@
 {/if}
 
 <style>
-	/* ── Accordion sections (VS Code-like) ────────────────────── */
 	:global(.explorer-content) {
 		display: flex;
 		flex-direction: column;
@@ -294,7 +280,6 @@
 		flex: 1 1 0;
 		min-height: 104px;
 	}
-
 	:global(.explorer-content .explorer-section:last-child) {
 		border-bottom: 0;
 	}
@@ -350,18 +335,15 @@
 		overflow: auto;
 	}
 
-	/* ── Status messages ────────────────────────────────────– */
 	.status-msg {
 		padding: 6px 12px;
 		font-size: 11px;
 		color: var(--muted);
 		font-style: italic;
 	}
-
 	.status-msg.error {
 		color: var(--error);
 	}
-
 	.status-msg.success {
 		color: var(--success);
 	}
@@ -395,19 +377,16 @@
 		display: grid;
 		gap: 10px;
 	}
-
 	.explorer-dialog-header {
 		font-size: 13px;
 		font-weight: 700;
 		color: var(--text);
 	}
-
 	.explorer-dialog-description {
 		margin: 0;
 		font-size: 11px;
 		color: var(--muted);
 	}
-
 	.explorer-dialog-label {
 		font-size: 11px;
 		font-weight: 600;
@@ -452,13 +431,11 @@
 	.dialog-btn.secondary {
 		background: color-mix(in srgb, var(--fg) 76%, transparent);
 	}
-
 	.dialog-btn.danger {
 		background: color-mix(in srgb, var(--error) 20%, transparent);
 		border-color: color-mix(in srgb, var(--error) 48%, transparent);
 		color: var(--error);
 	}
-
 	.dialog-btn:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;

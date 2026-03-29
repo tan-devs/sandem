@@ -1,9 +1,14 @@
 import type * as Monaco from 'monaco-editor';
 import { createErrorReporter } from '$lib/sveltekit/index.js';
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
 type EditorRuntime = {
 	initialize: (element: HTMLDivElement) => Promise<void>;
-	cleanup: () => void;
+	/** Tears down the editor instance and releases all resources. */
+	destroy: () => void;
 	syncActiveEditorModel: () => void;
 	getEditor: () => Monaco.editor.IStandaloneCodeEditor | undefined;
 };
@@ -11,6 +16,10 @@ type EditorRuntime = {
 type EditorStatus = {
 	syncFromEditor: (editor: Monaco.editor.IStandaloneCodeEditor | undefined) => void;
 };
+
+// ---------------------------------------------------------------------------
+// Hook
+// ---------------------------------------------------------------------------
 
 /**
  * Composes the editor initialization + teardown lifecycle.
@@ -40,7 +49,7 @@ export function useEditor(options: { runtime: EditorRuntime; status: EditorStatu
 		editorRuntimeError = null;
 
 		try {
-			options.runtime.cleanup();
+			options.runtime.destroy();
 			await options.runtime.initialize(element);
 			syncEditorStatusFromModel();
 			editorReady = true;
@@ -64,11 +73,11 @@ export function useEditor(options: { runtime: EditorRuntime; status: EditorStatu
 		}
 	}
 
-	function cleanup() {
+	function destroy() {
 		try {
-			options.runtime.cleanup();
+			options.runtime.destroy();
 		} catch {
-			// ignore cleanup errors during unmount
+			// Ignore cleanup errors during unmount.
 		}
 	}
 
@@ -85,6 +94,6 @@ export function useEditor(options: { runtime: EditorRuntime; status: EditorStatu
 		syncEditorStatusFromModel,
 		initializeEditor,
 		syncAfterActivePathChange,
-		cleanup
+		destroy
 	};
 }

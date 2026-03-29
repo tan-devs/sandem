@@ -16,7 +16,7 @@
 	import SearchBar from '$lib/components/ui/primitives/SearchBar.svelte';
 	let globalQuery = $state('');
 
-	import { globalSearchKeydown } from '$lib/services/header';
+	import { globalSearchKeydown } from '$lib/services';
 	function handleGlobalSearchKeydown(event: KeyboardEvent) {
 		globalSearchKeydown(event, globalQuery, (path) => goto(path));
 	}

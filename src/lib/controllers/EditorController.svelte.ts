@@ -1,5 +1,3 @@
-// src/lib/controllers/editor/EditorController.svelte.ts
-
 import {
 	createAutoSaver,
 	createFileWriter,
@@ -21,6 +19,10 @@ import type { IDEContext } from '$lib/context';
 import type { createEditorStore, IDEPanels } from '$lib/stores';
 import type { QuickAction } from '$types/editor.js';
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
 export type CreateEditorPaneControllerOptions = {
 	ide: IDEContext;
 	editorStore: ReturnType<typeof createEditorStore>;
@@ -29,8 +31,13 @@ export type CreateEditorPaneControllerOptions = {
 	getCanWrite: () => boolean;
 };
 
+// ---------------------------------------------------------------------------
+// Controller
+// ---------------------------------------------------------------------------
+
 export function createEditorPaneController(options: CreateEditorPaneControllerOptions) {
-	// 1. Initialize Services
+	// ── Services ──────────────────────────────────────────────────────────────
+
 	const autoSaver = createAutoSaver(() => options.ide.getProject());
 	const fileWriter = createFileWriter(() => options.ide.getWebcontainer());
 	const status = createEditorStatus(options.editorStore);
@@ -53,15 +60,19 @@ export function createEditorPaneController(options: CreateEditorPaneControllerOp
 		},
 
 		onStatusSync: () => status.syncFromEditor(runtime.getEditor()),
-		onPersist: ({ projectFileName, content }) => {
-			autoSaver.triggerAutoSave(projectFileName, content);
-			fileWriter.writeFile(projectFileName, content);
+
+		// PersistPayload.nodePath is the absolute project-relative node path
+		// (e.g. "/src/App.tsx"). Pass it directly to autoSaver and fileWriter.
+		onPersist: ({ nodePath, content }) => {
+			autoSaver.triggerAutoSave(nodePath, content);
+			fileWriter.writeFile(nodePath, content);
 		}
 	});
 
 	const lifecycle = useEditor({ runtime, status });
 
-	// 2. Setup Context & Handlers
+	// ── Action handlers ───────────────────────────────────────────────────────
+
 	const context: EditorActionContext = {
 		ide: options.ide,
 		editorStore: options.editorStore,
@@ -71,7 +82,8 @@ export function createEditorPaneController(options: CreateEditorPaneControllerOp
 
 	const actions = createEditorActionHandlers(context);
 
-	// 3. Derived State (UI-only)
+	// ── Derived UI state ──────────────────────────────────────────────────────
+
 	const state = {
 		get saveStatusVariant() {
 			return deriveEditorSaveStatusVariant(autoSaver.status);
@@ -87,11 +99,7 @@ export function createEditorPaneController(options: CreateEditorPaneControllerOp
 		}
 	};
 
-	const quickActions: readonly QuickAction[] = [
-		{ label: 'Open a file', keys: ['Ctrl', 'O'] },
-		{ label: 'Switch tab', keys: ['Ctrl', 'Tab'] },
-		{ label: 'Save file', keys: ['Ctrl', 'S'] }
-	];
+	// ── Keyboard shortcuts ────────────────────────────────────────────────────
 
 	function mountShortcuts() {
 		function onKeyDown(event: KeyboardEvent) {
@@ -113,14 +121,39 @@ export function createEditorPaneController(options: CreateEditorPaneControllerOp
 		return () => window.removeEventListener('keydown', onKeyDown);
 	}
 
+	// ── Public API ────────────────────────────────────────────────────────────
+
+	const quickActions: readonly QuickAction[] = [
+		{ label: 'Open a file', keys: ['Ctrl', 'O'] },
+		{ label: 'Switch tab', keys: ['Ctrl', 'Tab'] },
+		{ label: 'Save file', keys: ['Ctrl', 'S'] }
+	];
+
 	return {
+		// Action handlers (openFile, closeTab, initialize, etc.)
 		...actions,
-		initializeEditor: actions.initialize,
+
+		// Lifecycle — hoisted so callers don't need to go through .lifecycle
+		initializeEditor: lifecycle.initializeEditor,
+		syncAfterActivePathChange: lifecycle.syncAfterActivePathChange,
+		/** Tears down the editor and releases all Monaco / Yjs resources. */
+		shutdown: lifecycle.destroy,
+
+		// Editor state
+		get editorRuntimeError() {
+			return lifecycle.editorRuntimeError;
+		},
+		get initializingEditor() {
+			return lifecycle.initializingEditor;
+		},
+
+		// UI derived state
 		...state,
 		quickActions,
+
+		// Services exposed for template bindings
 		autoSaver,
 		fileWriter,
-		lifecycle,
 		mountShortcuts
 	};
 }

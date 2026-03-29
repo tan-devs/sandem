@@ -14,7 +14,7 @@
 	const controller = createActivityBarController({
 		getPanels: () => panels,
 		getActiveTab: () => activity.tab,
-		setActiveTab: (tab) => {
+		setActiveTab: (tab: TabId) => {
 			activity.tab = tab;
 		}
 	});

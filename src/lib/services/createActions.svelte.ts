@@ -26,7 +26,7 @@ export function createEditorActionHandlers(ctx: EditorActionContext) {
 		async shutdown() {
 			await ctx.services.autoSaver.drainAndCleanup();
 			await ctx.services.fileWriter.drainAndDispose();
-			ctx.services.lifecycle.cleanup();
+			ctx.services.lifecycle.destroy();
 		},
 		openFile(path: string) {
 			ctx.editorStore.openFile(path);
