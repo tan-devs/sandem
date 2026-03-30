@@ -1,3 +1,13 @@
+/**
+ * Explorer assembly root.
+ *
+ * The only file allowed to instantiate FileTree + ProjectSync services
+ * and compose them with the state store. Returns a single flat API
+ * object consumed by Explorer.svelte.
+ *
+ * Renamed from `ExplorerContoller.svelte.ts` (typo fixed).
+ */
+
 import {
 	ChevronRight,
 	RefreshCw,
@@ -21,13 +31,15 @@ import type {
 	TimelineEvent
 } from '$types/explorer';
 
-import { createFileTree } from '$lib/controllers/index.js';
-import { projectFilesSync } from '$lib/services/index.js';
-import { createExplorerStateController } from '$lib/controllers/StateController.svelte.js';
-import { projectFolderName } from '$lib/utils/projects.js';
-import { findNodeByPath } from '$lib/utils/file-tree.js';
-import { filterNodesByQuery, getPathsToExpand } from '$lib/utils/ide/explorerTreeOps.js';
+import { createExplorerStateStore } from '$lib/stores/explorer';
+import { createFileTree, createProjectSync } from '$lib/services/explorer';
+
 import {
+	findNodeByPath,
+	projectFolderName,
+	filterNodesByQuery,
+	getPathsToExpand,
+	findNode,
 	handleCreateFile,
 	handleCreateFolder,
 	handleRenameNode,
@@ -37,32 +49,30 @@ import {
 	handleCollapseAll,
 	handleRefreshAndExpandAll,
 	type ExplorerActionContext
-} from '$lib/services/explorer/createExplorer.svelte.js';
+} from '$lib/utils/explorer';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export type ExplorerControllerDeps = {
 	ide: IDEContext;
 	editorStore: EditorStore;
 };
 
-// ---------------------------------------------------------------------------
-// Controller
-// ---------------------------------------------------------------------------
+export type ExplorerController = ReturnType<typeof createExplorerController>;
+
+// ─── Factory ──────────────────────────────────────────────────────────────────
 
 export function createExplorerController({ ide, editorStore }: ExplorerControllerDeps) {
-	// ── Inner controllers ─────────────────────────────────────────────────────
+	// ── Services & state ──────────────────────────────────────────────────────
 
-	const explorerState = createExplorerStateController();
+	const state = createExplorerStateStore();
 
 	const fileTree = createFileTree(ide.getWebcontainer, {
 		getWorkspaceRootFolders: () =>
 			(ide.getWorkspaceProjects?.() ?? []).map((p) => projectFolderName(p))
 	});
 
-	const projectSync = projectFilesSync({
+	const projectSync = createProjectSync({
 		getProject: () => ide.getProject(editorStore.activeTabPath ?? undefined),
 		getProjectForPath: (path: string) => ide.getProject(path),
 		getWebcontainer: ide.getWebcontainer,
@@ -71,7 +81,7 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 		}
 	});
 
-	// ── UI state ──────────────────────────────────────────────────────────────
+	// ── UI state ($state) ─────────────────────────────────────────────────────
 
 	let openSections = $state<string[]>(['files']);
 	let timelineEvents = $state<TimelineEvent[]>([]);
@@ -90,11 +100,9 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 	const tree = $derived(fileTree.tree);
 	const treeLoading = $derived(fileTree.loading);
 	const treeError = $derived(fileTree.error);
+	const filteredTree = $derived(filterNodesByQuery(tree, state.searchQuery));
+	const expandOnSearch = $derived(getPathsToExpand(filteredTree));
 
-	const filteredTree = $derived(filterNodesByQuery(tree, explorerState.searchQuery));
-	const expandOnSearch = $derived(getPathsToExpand(filteredTree, explorerState.searchQuery));
-
-	// ide.getProject() returns Project (extends ProjectDoc) — ._id and .name are safe.
 	const activeProject = $derived(ide.getProject() ?? null);
 	const activeProjectFolder = $derived(activeProject ? projectFolderName(activeProject) : null);
 	const activeTabPath = $derived(editorStore.activeTabPath);
@@ -104,7 +112,7 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 
 	// ── Feedback ──────────────────────────────────────────────────────────────
 
-	function addTimelineEvent(kind: TimelineEvent['kind'], label: string, path?: string) {
+	function addTimelineEvent(kind: TimelineEvent['kind'], label: string, path?: string): void {
 		timelineEvents = [
 			{
 				id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
@@ -117,7 +125,7 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 		].slice(0, 40);
 	}
 
-	function setActionMessage(msg: string) {
+	function setActionMessage(msg: string): void {
 		actionError = '';
 		actionMessage = msg;
 		addTimelineEvent('action', msg);
@@ -126,7 +134,7 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 		}, 3000);
 	}
 
-	function setActionError(msg: string) {
+	function setActionError(msg: string): void {
 		actionMessage = '';
 		actionError = msg;
 		addTimelineEvent('error', msg);
@@ -135,7 +143,7 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 		}, 5000);
 	}
 
-	// ── Action context ────────────────────────────────────────────────────────
+	// ── Action context (DI assembly) ──────────────────────────────────────────
 
 	function buildActionContext(overrides?: Partial<ExplorerActionContext>): ExplorerActionContext {
 		return {
@@ -145,7 +153,7 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 			getWebcontainer: ide.getWebcontainer,
 			getActiveProject: () => ide.getProject() as ProjectDoc | undefined,
 			tree,
-			selectedPath: explorerState.selectedPath,
+			selectedPath: state.selectedPath,
 			onMessage: setActionMessage,
 			onError: setActionError,
 			...overrides
@@ -155,7 +163,7 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 	// ── Dialog helpers ────────────────────────────────────────────────────────
 
 	function getSelectedDirectory(): string | null {
-		const { selectedPath } = explorerState;
+		const { selectedPath } = state;
 		if (!selectedPath) return null;
 		const node = findNodeByPath(tree, selectedPath);
 		if (!node) return null;
@@ -171,30 +179,30 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 		return dir ? `${dir}/new-folder` : 'src/new-folder';
 	}
 
-	function openCreateDialog(kind: 'file' | 'folder') {
+	function openCreateDialog(kind: 'file' | 'folder'): void {
 		dialogState = {
 			open: true,
 			intent: kind === 'file' ? 'create-file' : 'create-folder',
 			value: suggestPath(kind),
-			targetPath: explorerState.selectedPath
+			targetPath: state.selectedPath
 		};
 	}
 
-	function openRenameDialog() {
-		if (!explorerState.selectedPath) {
+	function openRenameDialog(): void {
+		if (!state.selectedPath) {
 			setActionError('Please select a file or folder first.');
 			return;
 		}
 		dialogState = {
 			open: true,
 			intent: 'rename',
-			value: explorerState.selectedPath,
-			targetPath: explorerState.selectedPath
+			value: state.selectedPath,
+			targetPath: state.selectedPath
 		};
 	}
 
-	function openDeleteDialog() {
-		if (!explorerState.selectedPath) {
+	function openDeleteDialog(): void {
+		if (!state.selectedPath) {
 			setActionError('Please select a file or folder first.');
 			return;
 		}
@@ -202,22 +210,22 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 			open: true,
 			intent: 'delete',
 			value: '',
-			targetPath: explorerState.selectedPath
+			targetPath: state.selectedPath
 		};
 	}
 
-	function closeDialog() {
+	function closeDialog(): void {
 		dialogState = { open: false, intent: null, value: '', targetPath: null };
 	}
 
-	function setDialogValue(value: string) {
+	function setDialogValue(value: string): void {
 		dialogState = { ...dialogState, value };
 	}
 
-	async function confirmDialog() {
+	async function confirmDialog(): Promise<void> {
 		if (!dialogState.open || !dialogState.intent) return;
 		const ctx = buildActionContext({
-			selectedPath: dialogState.targetPath ?? explorerState.selectedPath
+			selectedPath: dialogState.targetPath ?? state.selectedPath
 		});
 		let success = false;
 
@@ -232,11 +240,11 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 
 	// ── Context menu ──────────────────────────────────────────────────────────
 
-	function closeContextMenu() {
+	function closeContextMenu(): void {
 		contextMenu = { ...contextMenu, open: false };
 	}
 
-	function handleContextMenuAction(action: ContextMenuAction) {
+	function handleContextMenuAction(action: ContextMenuAction): void {
 		closeContextMenu();
 		if (action === 'new-file') return void openCreateDialog('file');
 		if (action === 'new-folder') return void openCreateDialog('folder');
@@ -247,17 +255,17 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 
 	// ── Node interaction ──────────────────────────────────────────────────────
 
-	function handleFileClick(node: FileNode) {
-		const clickType = explorerState.handleClick(node.path);
-		explorerState.selectNode(node.path);
+	function handleFileClick(node: FileNode): void {
+		const clickType = state.handleClick(node.path);
+		state.selectNode(node.path);
 		addTimelineEvent('file-open', `Opened ${node.name}`, node.path);
 		if (clickType === 'double' || node.type === 'file') {
 			editorStore.openFile(node.path);
 		}
 	}
 
-	function handleDirClick(node: FileNode) {
-		explorerState.selectNode(node.path);
+	function handleDirClick(node: FileNode): void {
+		state.selectNode(node.path);
 
 		if (node.depth === 0) {
 			const rootFolder = node.path.split('/')[0] ?? '';
@@ -275,13 +283,13 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 		);
 	}
 
-	function handleNodeContextMenu(node: FileNode, event: MouseEvent) {
+	function handleNodeContextMenu(node: FileNode, event: MouseEvent): void {
 		event.preventDefault();
-		explorerState.selectNode(node.path);
+		state.selectNode(node.path);
 		contextMenu = { open: true, x: event.clientX, y: event.clientY, path: node.path };
 	}
 
-	// ── Toolbar action buttons ────────────────────────────────────────────────
+	// ── Toolbar buttons ───────────────────────────────────────────────────────
 
 	const actionButtons: ActionButton[] = [
 		{ id: 'new-file', title: 'New File', icon: FilePlus, handler: () => openCreateDialog('file') },
@@ -296,14 +304,14 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 			title: 'Rename',
 			icon: FilePenLine,
 			handler: openRenameDialog,
-			disabled: () => !explorerState.selectedPath
+			disabled: () => !state.selectedPath
 		},
 		{
 			id: 'delete',
 			title: 'Delete',
 			icon: Trash2,
 			handler: openDeleteDialog,
-			disabled: () => !explorerState.selectedPath
+			disabled: () => !state.selectedPath
 		},
 		{ id: 'spacer', isSpacer: true },
 		{
@@ -334,14 +342,14 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 
 	// ── Lifecycle ─────────────────────────────────────────────────────────────
 
-	function reset() {
-		explorerState.reset();
+	function reset(): void {
+		state.reset();
 	}
 
 	// ── Public API ────────────────────────────────────────────────────────────
 
 	return {
-		// Bindable display state
+		// Sections (bindable)
 		get openSections() {
 			return openSections;
 		},
@@ -366,9 +374,13 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 			return expandOnSearch;
 		},
 
-		// File tree passthrough (used by Explorer.svelte $effects)
+		// FileTree passthrough (used by useExplorer + Explorer.svelte $effects)
+		fileTree,
 		isExpanded: (path: string) => fileTree.isExpanded(path),
 		toggleDir: (path: string) => fileTree.toggleDir(path),
+
+		// ProjectSync passthrough (used by useExplorer cleanup)
+		projectSync,
 
 		// Project info
 		get activeProject() {
@@ -384,7 +396,7 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 			return isOwner;
 		},
 
-		// Editor state passthrough
+		// Editor state
 		get activeTabPath() {
 			return activeTabPath;
 		},
@@ -395,18 +407,18 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 		openFile: (path: string) => editorStore.openFile(path),
 		closeTab: (path: string) => editorStore.closeTab(path),
 
-		// Explorer selection / search
+		// Selection / search
 		get selectedPath() {
-			return explorerState.selectedPath;
+			return state.selectedPath;
 		},
 		get searchQuery() {
-			return explorerState.searchQuery;
+			return state.searchQuery;
 		},
 		get hasSearch() {
-			return explorerState.hasSearch;
+			return state.hasSearch;
 		},
-		setSearchQuery: (q: string) => explorerState.setSearchQuery(q),
-		clearSearch: () => explorerState.clearSearch(),
+		setSearchQuery: (q: string) => state.setSearchQuery(q),
+		clearSearch: () => state.clearSearch(),
 
 		// Feedback
 		get actionMessage() {
@@ -445,13 +457,7 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 		// Toolbar
 		actionButtons,
 
-		// Services exposed for useExplorerLifecycle
-		fileTree,
-		projectSync,
-
 		// Lifecycle
 		reset
 	};
 }
-
-export type ExplorerController = ReturnType<typeof createExplorerController>;

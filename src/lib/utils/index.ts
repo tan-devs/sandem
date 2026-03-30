@@ -1,6 +1,6 @@
 export * from './bindings';
 export * from './file-system';
-export * from './file-tree';
+export * from './explorer/file-tree';
 export * from './guards';
 export * from './header';
 export * from './presistence';

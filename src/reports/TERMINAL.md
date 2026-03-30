@@ -143,7 +143,6 @@ Called by `createTerminalWorkspace` in two places:
 > Function name is `applyTerminalTheme`, not `createTerminalTheme`, to reflect
 > that it is a pure side-effectful utility, not a factory.
 
-
 ---
 
 ### Hook (`hooks/`)

@@ -54,26 +54,38 @@ After completing the code, ask the user if they want a playground link. Only cal
 - **svelte-autofixer**: Run this on EVERY code generation to ensure Svelte 5 compatibility.
 - **list-sections**: Use at the start of any new technical implementation to verify the latest API changes in the Svelte 5 docs.
 
-## Explorer Architecture (Data Injection + Pure Functions)
+## Explorer Architecture (Stores → Services → Utils → Hook → Controller → Presentation)
 
-**Pattern Overview**: Three-layer architecture with explicit data flow:
+The explorer system follows the same DI + Pure Functions pattern as the terminal. Read `EXPLORER.md` before restructuring.
 
-1. **Action Handlers** (`createExplorerActionHandlers.svelte.ts`): Pure async/sync functions taking `ExplorerActionContext` parameter. All dependencies passed as context parameters (fileTree, projectSync, editorOpenFile, getWebcontainer, getActiveProject, tree, selectedPath, onMessage, onError).
-2. **Orchestrator** (Explorer.svelte): Manages state (explorerState, fileTree, projectSync), creates ExplorerActionContext, and passes everything as props to children. Event handlers call action functions with context.
-3. **Presentation** (ExplorerContent + sub-components): Pure presentational components receiving all state/callbacks via props. No internal state management or side effects.
+**Layer overview** (bottom-up, each layer depends only on the one below it):
 
-**Key Files**:
+1. **Store** (`src/lib/stores/explorer/explorer.state.store.svelte.ts` → `createExplorerStateStore()`): Pure `$state` — selectedPath, searchQuery, openSections, double-click tracking. Zero IO. Zero service knowledge.
 
-- `src/lib/controllers/explorer/createExplorerActionHandlers.svelte.ts` - Pure action handlers (8 functions for file operations)
-- `src/lib/components/ide/activities/Explorer.svelte` - Orchestrator component managing state & context
-- `src/lib/components/ide/activities/ExplorerContent.svelte` - Orchestrator for sub-components (status, open editors, files, project info, outline, timeline)
-- `src/lib/components/ide/activities/ExplorerFilesSection.svelte` - Presentation component for file tree with search
-- `src/lib/components/ide/activities/ExplorerOpenEditors.svelte` - Presentation component for open tabs
-- `src/lib/components/ide/activities/ExplorerProjectInfo.svelte` - Presentation component for project details
-- `src/lib/components/ide/activities/ExplorerOutline.svelte` - Active-model symbol outline with line-jump navigation (heuristic parsing)
-- `src/lib/components/ide/activities/ExplorerTimeline.svelte` - Local explorer activity timeline (actions/errors/open/toggle) with file reopen shortcuts
+2. **Services** (`src/lib/services/explorer/`):
+   - `createFileTree.svelte.ts` — WebContainer FS reader; owns `tree`, `loading`, `error`, `expanded` as `$state`; adaptive auto-refresh (850 ms → 6 s back-off); signature-based change detection.
+   - `createProjectSync.svelte.ts` — Convex mutations + Liveblocks broadcast. Renamed from `projectFilesSync`. API: `canWrite()`, `createFile()`, `createDirectory()`, `renamePath()`, `deletePath()`, `stop()`.
 
-**Benefits**: All dependencies are explicit in context object, making data flow transparent. Pure functions are testable without mocking. Presentation components are reusable with any data source.
+3. **Utils** (`src/lib/utils/explorer/explorer-ops.ts`): Pure tree query functions (`filterNodesByQuery`, `getPathsToExpand`, `findNode`, `getAllDirectoryPaths`, `validateProjectRelativePath`) + pseudo-pure action handlers (`handleCreateFile`, `handleCreateFolder`, `handleRenameNode`, `handleDeleteNode`, `handleRefreshTree`, `handleExpandAll`, `handleCollapseAll`, `handleRefreshAndExpandAll`). All handlers take `ExplorerActionContext` — no closures, fully testable.
+
+4. **Hook** (`src/lib/hooks/useExplorer.svelte.ts` → `useExplorer(explorer, getActivityTab)`): Called from `Explorer.svelte` script. Registers one `$effect` (search → auto-expand dirs). Returns `mount()` for onMount: keyboard shortcuts, pointer dismissal, auto-refresh start, stabilised bootstrap loop. Returns cleanup.
+
+5. **Controller** (`src/lib/controllers/ExplorerController.svelte.ts` → `createExplorerController()`): The only composition point. Instantiates store + services, computes all `$derived` state, manages dialog/context-menu lifecycle, assembles `buildActionContext()`. Returns flat API for `Explorer.svelte`.
+
+6. **Presentation** (`src/lib/components/explorer/`): Props-in / callbacks-out. No store imports, no context reads.
+   - `Explorer.svelte` — wiring root; calls controller, calls `useExplorer`, has one `$effect` (entry-file auto-open), calls `onMount(mount)`.
+   - `ExplorerContent.svelte` — layout shell + prop router + dialog UI.
+   - Sub-components: `ExplorerFilesSection`, `ExplorerOpenEditors`, `ExplorerProjectInfo`, `ExplorerOutline`, `ExplorerTimeline`, `ExploerContextMenu`.
+
+**Deleted files** (do not re-add):
+
+| Deleted                                          | Replaced by                                      |
+| ------------------------------------------------ | ------------------------------------------------ |
+| `controllers/ExplorerContoller.svelte.ts` (typo) | `controllers/ExplorerController.svelte.ts`       |
+| `controllers/FileTreeController.svelte.ts`       | `services/explorer/createFileTree.svelte.ts`     |
+| `controllers/StateController.svelte.ts`          | `stores/explorer/explorer.state.store.svelte.ts` |
+| `services/explorer/createExplorer.svelte.ts`     | `utils/explorer/explorer-ops.ts`                 |
+| `utils/ide/explorerTreeOps.ts`                   | `utils/explorer/explorer-ops.ts`                 |
 
 ## Terminal Architecture (Stores → Services → Hook → Controller → Presentation)
 
