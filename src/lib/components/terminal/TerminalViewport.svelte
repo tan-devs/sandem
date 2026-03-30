@@ -4,7 +4,7 @@
 		ITerminalOptions,
 		Terminal
 	} from '@battlefieldduck/xterm-svelte';
-	import type { TerminalPanelTab } from '$lib/controllers/TerminalPanelController.svelte.js';
+	import type { TerminalPanelTab } from '$lib/stores/terminal';
 	import TerminalSessionPane from './TerminalSessionPane.svelte';
 
 	type TerminalSessionView = {
@@ -22,7 +22,8 @@
 		activeSessionId: string;
 		canExecute: boolean;
 		options: ITerminalOptions & ITerminalInitOnlyOptions;
-		onLoad: (sessionId: string) => Promise<void> | void;
+		/** Receives the terminal instance directly — workspace registers it on runtimes[]. */
+		onLoad: (sessionId: string, terminal: Terminal) => Promise<void> | void;
 		onData: (sessionId: string, data: string) => void;
 		onRetry: (sessionId: string) => void;
 	};
@@ -55,7 +56,6 @@
 				{onLoad}
 				{onData}
 				{onRetry}
-				bind:terminal={activeSession.terminal}
 			/>
 		{:else}
 			<div class="empty">No terminal session available.</div>

@@ -75,24 +75,94 @@ After completing the code, ask the user if they want a playground link. Only cal
 
 **Benefits**: All dependencies are explicit in context object, making data flow transparent. Pure functions are testable without mocking. Presentation components are reusable with any data source.
 
-## Terminal Architecture (Orchestrator + Controller + Presentation)
+## Terminal Architecture (Stores → Services → Hook → Controller → Presentation)
 
-**Pattern Overview**: Terminal now follows the same decomposition style as Explorer:
+The terminal system is fully refactored and stable. It is the reference implementation of the DI + Pure Functions philosophy in this codebase. Do not restructure it without reading `TERMINAL.md` first.
 
-1. **Controllers** (`createTerminalPanelController.svelte.ts`, `createTerminalSessionsController.svelte.ts`, `createTerminalWorkspaceController.svelte.ts`): Own panel/session state plus injected runtime orchestration handlers (session runtime sync, shell lifecycle, panel actions, theme sync observer).
-2. **Orchestrator** (`Terminal.svelte`): Keeps only dependency wiring (permissions subscription + controller injection), then passes controller-derived props/callbacks to children.
-3. **Presentation** (`TerminalPanelHeader.svelte`, `TerminalToolbar.svelte`, `TerminalViewport.svelte`, `TerminalSessionPane.svelte`): Stateless render components receiving data + callbacks via props; supports multi-session tabs and optional two-pane split view.
+**Layer overview** (bottom-up, each layer depends only on the one below it):
+
+1. **Stores** (`src/lib/stores/terminal/`): Pure `$state` — zero IO, zero shell knowledge. Three files: `terminal.panel.store.svelte.ts` (active tab + xterm init options), `terminal.session.store.svelte.ts` (session metadata list, starts empty for SSR safety, exposes `hydrate()` injection point), `terminal.store.svelte.ts` (composes both + permissions via `applyPermissions()`).
+
+2. **Services** (`src/lib/services/terminal/`): Shell lifecycle and theme.
+   - `createTerminalShell.svelte.ts` — owns a single `jsh` WebContainer process; enforces execute permissions; audits every command; manages `FitAddon` and a git command shim on first attach.
+   - `createTerminalTheme.ts` — **pure utility function** (`applyTerminalTheme(terminal)`). Reads CSS vars from `document.documentElement`, writes to `terminal.options`. No state, no runes, `.ts` extension (not `.svelte.ts`).
+   - `createTerminalWorkspace.svelte.ts` — orchestration layer; owns `runtimes[]` (`$state`); reconciles live shell+terminal pairs against session metadata via `syncRuntimes()` (wrapped in `untrack`); exposes all panel/session/shell actions as thin delegators.
+
+3. **Hook** (`src/lib/hooks/useTerminal.svelte.ts`): Registers two `$effect`s that must run during component initialization. Effect 1 syncs `store.sessions.sessions` → `workspace.syncRuntimes()`. Effect 2 auto-persists session state to `localStorage` (keeping IO out of the store). `mount()` handles client-side hydration, theme `MutationObserver`, and `collaborationPermissionsStore` subscription. Returns a `cleanup()` function.
+
+4. **Controller** (`src/lib/controllers/TerminalController.svelte.ts` → `createTerminalController()`): The only composition point. Instantiates workspace + hook, returns a single flat API object. Nothing else should instantiate these services directly.
+
+5. **Presentation** (`src/lib/components/terminal/`): Pure props-in / callbacks-out. No store imports, no context reads, no logic.
+   - `Terminal.svelte` — wiring root only; calls `createTerminalController`, fans props to children.
+   - `TerminalPanelHeader.svelte` — tab bar + header action buttons (Clear, Restart, Kill, Maximize, Close).
+   - `TerminalToolbar.svelte` — per-session tab buttons + rename/reorder/new. Session tab click calls only `onSelectSession` — `ensureShellReady` is handled internally by the workspace; there is no `onEnsureShell` prop.
+   - `TerminalViewport.svelte` — selects active session, delegates to `TerminalSessionPane`.
+   - `TerminalSessionPane.svelte` — owns the `Xterm` widget; holds local `terminal = $state<Terminal>()` and forwards it to `onLoad(sessionId, terminal!)` on mount so the workspace can register it directly on `runtimes[idx]` (derived state is read-only in Svelte 5 — this pattern is intentional).
 
 **Key Files**:
 
-- `src/lib/controllers/workspace/createTerminalPanelController.svelte.ts`
-- `src/lib/controllers/workspace/createTerminalSessionsController.svelte.ts`
-- `src/lib/controllers/workspace/createTerminalWorkspaceController.svelte.ts`
-- `src/lib/components/ide/workspace/Terminal.svelte`
-- `src/lib/components/ide/workspace/TerminalPanelHeader.svelte`
-- `src/lib/components/ide/workspace/TerminalToolbar.svelte`
-- `src/lib/components/ide/workspace/TerminalViewport.svelte`
-- `src/lib/components/ide/workspace/TerminalSessionPane.svelte`
+- `src/lib/stores/terminal/terminal.panel.store.svelte.ts`
+- `src/lib/stores/terminal/terminal.session.store.svelte.ts`
+- `src/lib/stores/terminal/terminal.store.svelte.ts`
+- `src/lib/stores/terminal/index.ts`
+- `src/lib/services/terminal/createTerminalShell.svelte.ts`
+- `src/lib/services/terminal/createTerminalTheme.ts`
+- `src/lib/services/terminal/createTerminalWorkspace.svelte.ts`
+- `src/lib/services/terminal/index.ts`
+- `src/lib/hooks/useTerminal.svelte.ts`
+- `src/lib/controllers/TerminalController.svelte.ts`
+- `src/lib/components/terminal/Terminal.svelte`
+- `src/lib/components/terminal/TerminalPanelHeader.svelte`
+- `src/lib/components/terminal/TerminalToolbar.svelte`
+- `src/lib/components/terminal/TerminalViewport.svelte`
+- `src/lib/components/terminal/TerminalSessionPane.svelte`
+- `src/lib/components/terminal/index.ts`
+
+**Full architecture reference**: `docs/TERMINAL.md`
+
+## Editor Architecture (Controller + Hook + Services — DI/PF in progress)
+
+> **Status: functional but not fully cleansed.** The layering is correct; several DI/PF violations remain. Do not model new features on the current Editor implementation until the gaps listed in `EDITOR.md` are resolved. Use the Terminal system as the reference instead.
+
+**Layer overview:**
+
+1. **Store** (`src/lib/stores/editor.store.svelte.ts` → `createEditorStore()`): Owns tab list, `activeTabPath`, and Monaco status (cursor, language, EOL). Singleton `editorStore` exported alongside the factory. `updateStatus` has a field-by-field equality guard to prevent spurious reactive updates.
+
+2. **Services** (`src/lib/services/editor/`):
+   - `createEditor.svelte.ts` — Monaco + Yjs runtime. No `$state`, no error reporting. Online path: Liveblocks room → Yjs → `MonacoBinding`. Offline path: direct `ITextModel` per file. Exposes `initialize`, `syncActiveEditorModel`, `destroy`.
+   - `createEditorAutoSaver.svelte.ts` — debounced Convex `upsertFile` (1500 ms).
+   - `createEditorFileWriter.svelte.ts` — debounced WebContainer `fs.writeFile` (120 ms), sequential per-file queue.
+   - `createEditorStatus.svelte.ts` — reads Monaco cursor/language state into the store.
+   - `createEditorActions.svelte.ts` — pure action functions over an injected `EditorActionContext` (`openFile`, `closeTab`, `shutdown`, `togglePanel`).
+
+3. **Hook** (`src/lib/hooks/useEditor.svelte.ts`): Wraps the runtime with `$state` for `editorRuntimeError`, `editorReady`, `initializingEditor`. Provides `initializeEditor(element)` (with retry safety via pre-init `destroy`) and `syncAfterActivePathChange()`.
+
+4. **Controller** (`src/lib/controllers/EditorController.svelte.ts` → `createEditorController()`): Assembly only. Instantiates all services + hook, computes derived UI state (`tabs`, `showEmptyState`, `saveStatusVariant`), registers keyboard shortcuts, and returns a flat API.
+
+5. **Component** (`src/lib/components/editor/Editor.svelte`): Wiring root. Calls `createEditorController`, runs `onMount`/`onDestroy`/`$effect`, renders Monaco mount point and UI chrome.
+
+**Known DI/PF gaps** (full list in `EDITOR.md`):
+
+- `getCanWrite` is accepted by `EditorControllerOptions` but never threaded into the runtime — read-only mode is not enforced at the shell level.
+- `activity` is passed as `unknown` and unused in the controller body.
+- `collaborationPermissionsStore` is subscribed manually in `Editor.svelte` with a raw `$state` variable instead of going through the controller/hook.
+- `editorStore` and `activity` are imported as module singletons in `Editor.svelte` — should eventually be injected.
+
+**Key files:**
+
+- `src/lib/stores/editor.store.svelte.ts`
+- `src/lib/services/editor/createEditor.svelte.ts`
+- `src/lib/services/editor/createEditorAutoSaver.svelte.ts`
+- `src/lib/services/editor/createEditorFileWriter.svelte.ts`
+- `src/lib/services/editor/createEditorStatus.svelte.ts`
+- `src/lib/services/editor/createEditorActions.svelte.ts`
+- `src/lib/services/editor/index.ts`
+- `src/lib/hooks/useEditor.svelte.ts`
+- `src/lib/controllers/EditorController.svelte.ts`
+- `src/lib/components/editor/Editor.svelte`
+- `src/lib/components/editor/index.ts`
+
+**Full architecture reference**: `docs/EDITOR.md`
 
 ---
 
@@ -130,19 +200,18 @@ Use this checklist when picking up the project in a new session to get productiv
 - Explorer controller suite (with action + state + panel controllers): `src/lib/controllers/explorer/*.svelte.ts`
 - Explorer file-tree utilities: `src/lib/utils/file-tree.ts` (along with `src/lib/utils/project/filesystem.ts` for persistent node conversion)
 - Git activity controller (real repository ops via isomorphic-git + WebContainer FS): `src/lib/controllers/activity/createGitActivity.svelte.ts`
-- Shell process controller (terminal bootstrap + git command shim aliasing): `src/lib/services/runtime/createShellProcess.svelte.ts`
-- Terminal panel/session UI controllers + split presentation: `src/lib/controllers/workspace/createTerminal*Controller.svelte.ts`, `src/lib/components/ide/workspace/Terminal*.svelte`
-- Editor pane orchestration controller (injected runtime + persistence wiring): `src/lib/controllers/editor/createEditorPaneController.svelte.ts`
+- Terminal system (stores → services → hook → controller → presentation): `src/lib/stores/terminal/`, `src/lib/services/terminal/`, `src/lib/hooks/useTerminal.svelte.ts`, `src/lib/controllers/TerminalController.svelte.ts`, `src/lib/components/terminal/Terminal*.svelte`
+- Editor assembly controller (services + hook wiring): `src/lib/controllers/EditorController.svelte.ts`
 - Explorer/Convex sync scaffolding: `src/lib/hooks/explorer/createProjectSyncController.svelte.ts`, `src/lib/controllers/explorer/createExplorerActionsController.svelte.ts`
 - Project folder sync helpers: `src/lib/utils/editor/projectFolderSync.ts`
 - App-level SvelteKit error helpers: `src/lib/sveltekit/errors.ts`
 - SvelteKit auth forwarding + timeout handling: `src/lib/sveltekit/index.ts`
 - Lifecycle hooks: `src/lib/hooks/*`
-- Editor pane lifecycle composition: `src/lib/hooks/editor/createEditorLifecycle.svelte.ts`
+- Editor lifecycle hook (reactive error/loading state wrapper): `src/lib/hooks/useEditor.svelte.ts`
 - Monaco loader/static asset config (build-safe): `src/lib/services/editor/createMonacoConfig.svelte.ts`, `vite.config.ts`, `static/monaco/vs/*`
 - UI command controllers: `src/lib/controllers/*`
 - Runtime/persistence services: `src/lib/services/*`
-- Editor pane pseudo-pure view helpers: `src/lib/utils/editor/editorPaneView.ts`
+- Editor derived UI helpers (pure): `src/lib/utils/ide/editorPaneView.ts`
 - Layout and pages: `src/routes/+layout.svelte`, `src/routes/(home)/*`, `src/routes/repo/*`
 - Project file-tree conversion utility: `src/lib/utils/project/filesystem.ts`
 - Docker status reference: `README.md` (compose exists, root Dockerfile currently missing)

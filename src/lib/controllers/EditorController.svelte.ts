@@ -1,11 +1,11 @@
 import {
-	createAutoSaver,
-	createFileWriter,
+	createEditorAutoSaver,
+	createEditorFileWriter,
 	createEditorStatus,
-	createEditorRuntime,
-	createEditorActionHandlers,
+	createEditor,
+	createEditorActions,
 	type EditorActionContext
-} from '$lib/services';
+} from '$lib/services/editor';
 
 import { useEditor } from '$lib/hooks';
 
@@ -23,9 +23,9 @@ import type { QuickAction } from '$types/editor.js';
 // Types
 // ---------------------------------------------------------------------------
 
-export type CreateEditorPaneControllerOptions = {
+export type EditorControllerOptions = {
 	ide: IDEContext;
-	editorStore: ReturnType<typeof createEditorStore>;
+	store: ReturnType<typeof createEditorStore>;
 	activity: unknown;
 	getPanels: () => IDEPanels | undefined;
 	getCanWrite: () => boolean;
@@ -33,18 +33,26 @@ export type CreateEditorPaneControllerOptions = {
 
 // ---------------------------------------------------------------------------
 // Controller
+//
+// Assembly layer. Instantiates services and the hook, wires them together,
+// computes derived UI state, and returns the flat API Editor.svelte consumes.
+//
+// Layer contract:
+//   Services (createEditor, createEditorAutoSaver, ...) — no reactive state
+//   Hook (useEditor) — owns reactive error/loading state for the runtime
+//   Controller (this) — assembles both, owns keyboard shortcut registration
 // ---------------------------------------------------------------------------
 
-export function createEditorPaneController(options: CreateEditorPaneControllerOptions) {
+export function createEditorController(options: EditorControllerOptions) {
 	// ── Services ──────────────────────────────────────────────────────────────
 
-	const autoSaver = createAutoSaver(() => options.ide.getProject());
-	const fileWriter = createFileWriter(() => options.ide.getWebcontainer());
-	const status = createEditorStatus(options.editorStore);
+	const autoSaver = createEditorAutoSaver(() => options.ide.getProject());
+	const fileWriter = createEditorFileWriter(() => options.ide.getWebcontainer());
+	const status = createEditorStatus(options.store);
 
-	const runtime = createEditorRuntime({
+	const runtime = createEditor({
 		getProject: () => options.ide.getProject(),
-		getActivePath: () => options.editorStore.activeTabPath,
+		getActivePath: () => options.store.activeTabPath,
 		toProjectFile: (path) => path,
 		toWebPath: (path) => path,
 
@@ -61,41 +69,42 @@ export function createEditorPaneController(options: CreateEditorPaneControllerOp
 
 		onStatusSync: () => status.syncFromEditor(runtime.getEditor()),
 
-		// PersistPayload.nodePath is the absolute project-relative node path
-		// (e.g. "/src/App.tsx"). Pass it directly to autoSaver and fileWriter.
 		onPersist: ({ nodePath, content }) => {
 			autoSaver.triggerAutoSave(nodePath, content);
 			fileWriter.writeFile(nodePath, content);
 		}
 	});
 
-	const lifecycle = useEditor({ runtime, status });
+	// ── Hook ──────────────────────────────────────────────────────────────────
+	//
+	// useEditor wraps the runtime with Svelte-reactive state:
+	// editorRuntimeError, editorReady, initializingEditor.
+	// It also owns the safe initialize/destroy sequence.
+
+	const editor = useEditor({ runtime, status });
 
 	// ── Action handlers ───────────────────────────────────────────────────────
 
 	const context: EditorActionContext = {
 		ide: options.ide,
-		editorStore: options.editorStore,
-		services: { autoSaver, fileWriter, runtime, lifecycle },
+		editorStore: options.store,
+		services: { autoSaver, fileWriter, runtime, lifecycle: editor },
 		getPanels: options.getPanels
 	};
 
-	const actions = createEditorActionHandlers(context);
+	const actions = createEditorActions(context);
 
 	// ── Derived UI state ──────────────────────────────────────────────────────
 
-	const state = {
+	const derived = {
 		get saveStatusVariant() {
 			return deriveEditorSaveStatusVariant(autoSaver.status);
 		},
 		get showEmptyState() {
-			return shouldShowEmptyEditorState(
-				options.editorStore.tabs,
-				options.editorStore.activeTabPath
-			);
+			return shouldShowEmptyEditorState(options.store.tabs, options.store.activeTabPath);
 		},
 		get tabs() {
-			return deriveEditorTabItems(options.editorStore.tabs, options.editorStore.isActive);
+			return deriveEditorTabItems(options.store.tabs, options.store.isActive);
 		}
 	};
 
@@ -121,7 +130,7 @@ export function createEditorPaneController(options: CreateEditorPaneControllerOp
 		return () => window.removeEventListener('keydown', onKeyDown);
 	}
 
-	// ── Public API ────────────────────────────────────────────────────────────
+	// ── Quick actions ─────────────────────────────────────────────────────────
 
 	const quickActions: readonly QuickAction[] = [
 		{ label: 'Open a file', keys: ['Ctrl', 'O'] },
@@ -129,26 +138,33 @@ export function createEditorPaneController(options: CreateEditorPaneControllerOp
 		{ label: 'Save file', keys: ['Ctrl', 'S'] }
 	];
 
+	// ── Public API ────────────────────────────────────────────────────────────
+	//
+	// `actions` is spread first. All named properties below that have the same
+	// key as an action entry take precedence — this is intentional.
+	//
+	// `actions.shutdown` is the authoritative shutdown: it drains autoSaver,
+	// then drains fileWriter, then calls editor.destroy() (the runtime).
+	// Do NOT expose editor.destroy() as shutdown — that skips the drain.
+
 	return {
-		// Action handlers (openFile, closeTab, initialize, etc.)
+		// All editor actions (openFile, closeTab, shutdown, etc.)
 		...actions,
 
-		// Lifecycle — hoisted so callers don't need to go through .lifecycle
-		initializeEditor: lifecycle.initializeEditor,
-		syncAfterActivePathChange: lifecycle.syncAfterActivePathChange,
-		/** Tears down the editor and releases all Monaco / Yjs resources. */
-		shutdown: lifecycle.destroy,
+		// Hook surface — hoisted so Editor.svelte doesn't need to know about the hook
+		initializeEditor: editor.initializeEditor,
+		syncAfterActivePathChange: editor.syncAfterActivePathChange,
 
-		// Editor state
+		// Reactive error/loading state from the hook
 		get editorRuntimeError() {
-			return lifecycle.editorRuntimeError;
+			return editor.editorRuntimeError;
 		},
 		get initializingEditor() {
-			return lifecycle.initializingEditor;
+			return editor.initializingEditor;
 		},
 
-		// UI derived state
-		...state,
+		// Derived UI state
+		...derived,
 		quickActions,
 
 		// Services exposed for template bindings

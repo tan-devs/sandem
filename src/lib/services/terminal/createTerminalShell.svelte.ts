@@ -7,7 +7,7 @@ type ShellProcessOptions = {
 	onAudit?: (entry: { command: string; allowed: boolean; at: number }) => void;
 };
 
-export function createShellProcess(
+export function createTerminalShell(
 	getWebcontainer: () => WebContainer,
 	options: ShellProcessOptions = {}
 ) {

@@ -10,11 +10,11 @@ export { default as Icon } from './primitives/Icon.svelte';
 export { default as Tabs } from './primitives/Tabs.svelte';
 
 // Editor
-export { default as Breadcrumbs } from '../editor/Breadcrumbs.svelte';
-export { default as Empty } from '../editor/Empty.svelte';
+export { default as Breadcrumbs } from '../editor/EditorBreadcrumbs.svelte';
+export { default as Empty } from '../editor/EditorEmptyState.svelte';
 export { default as FileTree } from '../sidebar/explorer/FileTree.svelte';
 export { default as FileTreeView } from '../ui/primitives/FileTreeView.svelte';
-export { default as SaveStatus } from '../editor/SaveStatus.svelte';
+export { default as SaveStatus } from '../editor/EditorSaveStatus.svelte';
 
 // Inputs
 export { default as DropDown } from './primitives/DropDown.svelte';

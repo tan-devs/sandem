@@ -37,7 +37,7 @@ import {
 	handleCollapseAll,
 	handleRefreshAndExpandAll,
 	type ExplorerActionContext
-} from '$lib/services/createExplorer.svelte.js';
+} from '$lib/services/explorer/createExplorer.svelte.js';
 
 // ---------------------------------------------------------------------------
 // Types

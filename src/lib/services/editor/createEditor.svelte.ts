@@ -12,7 +12,16 @@ import {
 import { seedPersistSignatures, diffYDocFiles } from '$lib/utils';
 import { startCollaborationSession, type CollaborationSession } from '$lib/services';
 
-export function createEditorRuntime(deps: EditorRuntimeDependencies) {
+/**
+ * Monaco + Yjs runtime service.
+ *
+ * Pure runtime concern — no lifecycle state, no error reporting, no
+ * reactive state. Owned and wrapped by useEditor (the hook) which adds
+ * all the Svelte-reactive error/loading layer on top.
+ *
+ * File: createEditor.svelte.ts → function: createEditor
+ */
+export function createEditor(deps: EditorRuntimeDependencies) {
 	let editor: Monaco.editor.IStandaloneCodeEditor | undefined;
 	let instance: typeof Monaco | undefined;
 
@@ -63,13 +72,6 @@ export function createEditorRuntime(deps: EditorRuntimeDependencies) {
 
 	// ── Yjs seeding ───────────────────────────────────────────────────────────
 
-	/**
-	 * Seed the Yjs doc from Convex node data.
-	 *
-	 * Nodes use `path` (e.g. "/src/App.tsx") as the Yjs text key and
-	 * `content` as the initial string value. Only file nodes with content
-	 * are seeded; folder nodes have no content and are skipped.
-	 */
 	function seedYDocFromNodes() {
 		if (!ydoc) return;
 		const project = deps.getProject() as Project;
@@ -125,7 +127,6 @@ export function createEditorRuntime(deps: EditorRuntimeDependencies) {
 		if (!instance || !editor) return;
 		const project = deps.getProject() as Project | undefined;
 
-		// `room` is required and always present on ProjectDoc (non-optional in schema).
 		if (!project?.room) return;
 
 		session = await startCollaborationSession({
@@ -220,5 +221,5 @@ export function createEditorRuntime(deps: EditorRuntimeDependencies) {
 		instance = undefined;
 	}
 
-	return { initialize, getEditor, syncActiveEditorModel, destroy, cleanup: destroy };
+	return { initialize, getEditor, syncActiveEditorModel, destroy };
 }

@@ -1,16 +1,17 @@
 <script lang="ts">
 	import { Plus, X, Pencil, ArrowLeft, ArrowRight } from '@lucide/svelte';
 	import Button from '$lib/components/ui/primitives/Button.svelte';
-	import type { TerminalPanelTab } from '$lib/controllers/TerminalPanelController.svelte.js';
-	import type { TerminalSessionMeta } from '$lib/controllers/TerminalSessionsController.svelte.js';
+	import type { TerminalPanelTab } from '$lib/stores/terminal';
+
+	// Only the fields the toolbar actually uses — decoupled from SessionView.
+	type SessionTab = { id: string; label: string; isReady: boolean };
 
 	type Props = {
 		activeTab: TerminalPanelTab;
-		sessions: Array<TerminalSessionMeta & { isReady: boolean }>;
+		sessions: SessionTab[];
 		activeSessionId: string;
 		onSelectSession: (id: string) => void;
 		onCloseSession: (id: string) => void;
-		onEnsureShell: (id: string) => void;
 		onCreateSession: () => void;
 		onRenameSession: (id: string, label: string) => void;
 		onMoveSession: (id: string, direction: 'left' | 'right') => void;
@@ -22,7 +23,6 @@
 		activeSessionId,
 		onSelectSession,
 		onCloseSession,
-		onEnsureShell,
 		onCreateSession,
 		onRenameSession,
 		onMoveSession
@@ -59,10 +59,7 @@
 					<button
 						role="tab"
 						aria-selected={session.id === activeSessionId}
-						onclick={() => {
-							onSelectSession(session.id);
-							onEnsureShell(session.id);
-						}}
+						onclick={() => onSelectSession(session.id)}
 					>
 						<span class="dot" class:ready={session.isReady}></span>
 						{session.label}

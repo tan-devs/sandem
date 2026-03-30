@@ -1,299 +1,353 @@
-# Terminal — Architecture & Data Flow Report
+# Terminal System
 
-## File Hierarchy
+> **Philosophy: Data Injection (DI) + Pure Functions (PF)**
+>
+> Every layer receives its dependencies. No layer reaches into a sibling or
+> parent. Pure functions (or pseudo-pure closures) do not hold state —
+> `$state` lives exclusively in stores. Shell processes, xterm instances, and
+> theme application are side-effects that belong in services, not components.
+> Components receive data through props and emit events upward through
+> callbacks; they never import stores directly.
+
+---
+
+## Layer Map
 
 ```
-Terminal.svelte                                   ← wiring root + DOM owner
-├── createTerminal()                              ← composition root (createTerminal.svelte.ts)
-│   ├── createTerminalPanel()                     ← panel tab state + xterm options
-│   ├── createTerminalSessions()                  ← session list, persistence, ordering
-│   └── createTerminalWorkspace()                 ← runtime orchestration, shell lifecycle
-│       ├── createShellProcess()                  ← WebContainer jsh process wrapper
-│       └── theme MutationObserver                ← CSS variable → xterm theme sync
-└── useTerminal()                                 ← mount/destroy lifecycle hook
+stores/terminal/            ← reactive $state only, zero IO
+  terminal.panel.store
+  terminal.session.store
+  terminal.store            ← composes the two above + permissions
+
+services/terminal/          ← runtime orchestration, shell lifecycle
+  createTerminalShell       ← jsh process, xterm attachment, git shim
+  createTerminalTheme       ← pure util: reads CSS vars, writes to terminal.options
+  createTerminalWorkspace   ← reconciles store ↔ shell runtimes; orchestrates everything
+
+hooks/
+  useTerminal               ← $effects + mount/cleanup; bridges store and workspace
+
+controllers/
+  TerminalController        ← assembly root; flat API consumed by Terminal.svelte
+
+components/
+  Terminal.svelte           ← wiring root; props-only, no logic
+  TerminalPanelHeader       ← tab bar + header action buttons
+  TerminalToolbar           ← session tabs, rename, reorder, new session
+  TerminalViewport          ← selects active session, delegates to TerminalSessionPane
+  TerminalSessionPane       ← owns xterm widget; forwards terminal instance to workspace
 ```
 
 ---
 
-## Layer-by-Layer Breakdown
+## Files — Descriptions & Responsibilities
 
-### 1. `Terminal.svelte` — Wiring Root
+### Stores (`stores/terminal/`)
 
-**What it does:** the only file that touches the IDE context and the stores directly. It creates the terminal composition, calls the lifecycle hook, and passes granular props down to the three presentation components. No logic lives here — every method is delegated.
+#### `terminal.panel.store.svelte.ts` → `createTerminalPanelStore()`
 
-**Injections received:**
+Owns the active panel tab (`PROBLEMS | OUTPUT | DEBUG CONSOLE | TERMINAL | PORTS`)
+and the static xterm init options. Derives `tabItems[]` from the active tab so
+components never compute display state themselves.
 
-- `requireIDEContext()` — pulls `IDEContext.getWebcontainer` from Svelte context (set by the layout above)
-- `collaborationPermissionsStore` — re-exported from `createTerminal.svelte.ts` to keep this file decoupled from `$lib/stores`
-- `getPanelsContext()` — pulls `IDEPanels` from Svelte context for maximize/close layout mutations
+Exports: `TerminalPanelTab`, `TerminalPanelTabItem`, `isTerminalPanelTab()`,
+`getTabPlaceholder()`.
 
-**`onMount` sequence:**
+**No IO. No shell knowledge. Pure $state.**
 
-```
-1. useTerminal(terminal).mount()
-    ├── sessions.restoreFromStorage()     ← restore persisted session list
-    ├── workspace.syncRuntimes()          ← create shell runtimes for all sessions
-    └── collaborationPermissionsStore.subscribe()
-            └── terminal.applyPermissions(canWrite, roomId)
-```
+#### `terminal.session.store.svelte.ts` → `createTerminalSessionStore()`
 
-**`$effect` — runtime sync:**
+Owns the ordered session metadata list (`TerminalSessionMeta[]`), the active
+session ID, and the `nextOrder` counter. Starts **empty** (`sessions = []`,
+`nextOrder = 1`) to prevent SSR hydration mismatches. `useTerminal.mount()`
+is responsible for populating it on the client.
 
-```
-$effect(() => {
-    workspace.syncRuntimes();   ← runs on every session list change
-})
-```
+Provides `hydrate()` as an injection point — the hook calls it with parsed
+localStorage data, keeping IO entirely outside the store.
 
-Declared at component init so it lives in the correct Svelte 5 reactive context. The `$effect` in `useTerminal` is also registered here — both reconcile runtimes, but the effect in `useTerminal` is the authoritative one; the `onMount` call is for the initial load before the first reactive tick.
+Exports: `TerminalSessionMeta`.
 
-**`onDestroy` sequence:**
+**No IO. No localStorage. No shell knowledge. Pure $state.**
 
-```
-1. unsubscribePermissions()   ← stop the store subscription
-2. workspace.destroy()        ← kill all shell processes + disconnect theme observer
-```
+#### `terminal.store.svelte.ts` → `createTerminalStore()`
 
-**Template bindings:**
+Composition root for the two sub-stores. Adds `canExecute` and `roomId` for
+collaboration permissions. Exposes `applyPermissions()` called by the hook's
+`collaborationPermissionsStore` subscriber.
 
-| Component               | Data source                                                                                |
-| ----------------------- | ------------------------------------------------------------------------------------------ |
-| `<TerminalPanelHeader>` | `panel.tabItems`, `panel.activeTab`, workspace action callbacks                            |
-| `<TerminalToolbar>`     | `panel.activeTab`, `workspace.sessionViews`, `sessions.activeSessionId`, session callbacks |
-| `<TerminalViewport>`    | `workspace.sessionViews`, `workspace.placeholderText`, `canExecute`, `panel.xtermOptions`  |
+Exports: `TerminalStore` type. Instantiates and exports `terminalStore`
+singleton consumed by `Terminal.svelte` and `TerminalController`.
 
 ---
 
-### 2. `createTerminal.svelte.ts` — Composition Root (Service)
+### Services (`services/terminal/`)
 
-**What it does:** the single factory that wires all three sub-controllers together, owns the `canExecute`/`roomId` reactive permission state, and returns the composed object that `Terminal.svelte` and `useTerminal` destructure from.
+#### `createTerminalTheme.ts` → `applyTerminalTheme(terminal)`
 
-No logic of its own — it is purely a composition layer. This keeps `Terminal.svelte` free of constructor calls and lets `useTerminal` operate against a single typed object.
+Pure utility function. Reads `--bg`, `--text`, `--border`, `--fonts-mono` from
+`getComputedStyle(document.documentElement)` and writes them to
+`terminal.options`. Takes the terminal instance as a parameter — no closures,
+no state.
 
-**Receives:** `ide: IDEContext`
+Called by `createTerminalWorkspace` in two places:
 
-**Creates:**
+1. `onTerminalMount` — applies theme once on first attachment.
+2. `refreshThemes` — re-applies to all live terminals when the
+   `MutationObserver` in `useTerminal.mount()` fires on a theme change.
 
-```
-panel     = createTerminalPanel()
-sessions  = createTerminalSessions()
-workspace = createTerminalWorkspace({ panel, sessions, createShell, ... })
-```
+> **Note:** This file is `.ts`, not `.svelte.ts` — it uses no Svelte runes.
+> Function name is `applyTerminalTheme`, not `createTerminalTheme`, to reflect
+> that it is a pure side-effectful utility, not a factory.
 
-The `createShell` factory is wired inline:
+#### `createTerminalShell.svelte.ts` → `createTerminalShell(getWebcontainer, options)`
+
+Manages a single `jsh` WebContainer process. Responsibilities:
+
+- Spawns the shell process via `webcontainer.spawn('jsh', ...)`.
+- Loads and fits the `FitAddon`; registers a `window.resize` listener.
+- Writes a git command shim on first attach (maps `git` → `isogit`/`npx`).
+- Enforces execute permissions via `options.canExecute()` — blocks writes and
+  calls `options.onAudit()` for every command, allowed or not.
+- Exposes `attach`, `sendInput`, `clearScreen`, `restart`, `kill`.
+
+Uses `$state(ready)` to expose shell readiness reactively so `SessionView`
+(derived in the workspace) can surface it to components without polling.
+
+#### `createTerminalWorkspace.svelte.ts` → `createTerminalWorkspace(opts)`
+
+The orchestration layer. Owns `runtimes[]` (`$state<SessionRuntime[]>`) —
+the live shell+terminal pairs that back each session.
+
+Key responsibilities:
+
+- **`syncRuntimes(sessionList)`** — reconciles `runtimes[]` against the
+  session metadata list. Adds new runtimes for new sessions, updates labels
+  for existing ones, kills and removes stale ones. Wraps everything in
+  `untrack()` to prevent re-entrancy with the `$effect` in `useTerminal`.
+- **`onTerminalMount(sessionId, terminal)`** — called by `TerminalSessionPane`
+  via `Xterm`'s `onLoad` callback. Writes the terminal instance directly into
+  `runtimes[idx]` (NOT through a derived `SessionView` — derived state is
+  read-only in Svelte 5). Then applies theme and attaches the shell.
+- **`ensureShellReady(sessionId)`** — idempotent; re-attaches a shell if the
+  terminal exists but the process died.
+- **Session & tab actions** — thin delegators to `opts.store.sessions.*` and
+  `opts.store.panel.*`, plus `ensureShellReady` calls where needed.
+- **`sessionViews`** — `$derived` projection of `runtimes[]` into
+  `SessionView[]` (the shape consumed by components). Contains no live
+  `Terminal` references — those live on `runtimes[]` directly.
+- **`destroy()`** — kills all shell processes on unmount.
+
+---
+
+### Hook (`hooks/`)
+
+#### `useTerminal.svelte.ts` → `useTerminal({ store, workspace })`
+
+Svelte 5 hook. Must be called during component initialization so its `$effect`
+registrations run in the correct reactive context.
+
+**Effect 1 — Runtime sync:**
 
 ```ts
-createShell: ({ canExecute, onAudit }) =>
-	createShellProcess(ide.getWebcontainer, { canExecute, onAudit });
+$effect(() => {
+	const sessions = store.sessions.sessions; // tracked
+	workspace.syncRuntimes(sessions);
+});
 ```
 
-**Permission state — why it lives here:**  
-`canExecute` and `roomId` are `$state` rather than being passed as static values because the Liveblocks permission subscription fires asynchronously after mount. `applyPermissions` is the single update surface — `useTerminal` calls it from the store subscription so `workspace` always reads the current values via closures.
+Re-runs whenever the sessions array changes. `syncRuntimes` uses `untrack`
+internally so writing to `runtimes[]` inside it does not cause a cycle.
 
-**Re-exports:** `collaborationPermissionsStore` — so `Terminal.svelte` can import it from one place without coupling to `$lib/stores` directly.
+**Effect 2 — Auto-persistence:**
+
+```ts
+$effect(() => {
+	const dataToSave = { next, sessions, active };
+	if (sessions.length > 0) localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+});
+```
+
+Runs whenever `nextOrder`, `sessions`, or `activeSessionId` changes. Persistence
+lives here — not in the store — so the store remains pure.
+
+**`mount()` — one-time client setup:**
+
+1. Reads `localStorage` and calls `store.sessions.hydrate(parsed)`, or calls
+   `store.sessions.addSession()` if no valid save exists.
+2. Creates a `MutationObserver` on `document.documentElement` to watch theme
+   attribute changes; calls `workspace.refreshThemes()` on change.
+3. Subscribes to `collaborationPermissionsStore`; calls
+   `store.applyPermissions(canWrite, roomId)` on every emission.
+4. Returns a `cleanup()` function that unsubscribes, disconnects the observer,
+   and calls `workspace.destroy()`.
 
 ---
 
-### 3. `createTerminalPanel.svelte.ts` — Panel Tab State (Service)
+### Controller (`controllers/`)
 
-**What it does:** owns which panel tab is active (`PROBLEMS`, `OUTPUT`, `DEBUG CONSOLE`, `TERMINAL`, `PORTS`) and the static xterm initialisation options. Also exports pure helpers used by `createTerminalWorkspace`.
+#### `TerminalController.svelte.ts` → `createTerminalController({ ide, store, getPanels })`
 
-**`$state`:** `activeTab`  
-**`$derived`:** `tabItems` — the full tab bar config array, recomputed when `activeTab` changes
+Assembly root. Instantiates `createTerminalWorkspace` and `useTerminal` in the
+correct order, then returns a single flat API object for `Terminal.svelte` to
+consume.
 
-**Exported helpers (not the primary function — used by workspace):**
+**Nothing else should instantiate these services.** The controller is the only
+composition point.
 
-| Export                | Type     | Used by                                               |
-| --------------------- | -------- | ----------------------------------------------------- |
-| `TERMINAL_PANEL_TABS` | const    | type narrowing across files                           |
-| `isTerminalPanelTab`  | function | `createTerminalWorkspace` — guards `switchTab` input  |
-| `getTabPlaceholder`   | function | `createTerminalWorkspace` — derives `placeholderText` |
+Returned API surface (all delegated, no logic):
 
-**Why xterm options live here:** they are static and belong to the panel configuration layer, not to any individual shell session. Keeping them here prevents `createTerminalWorkspace` from needing to know about xterm internals.
-
----
-
-### 4. `createTerminalSessions.svelte.ts` — Session List (Service)
-
-**What it does:** owns the ordered list of terminal session metadata, the active session ID, and localStorage persistence. Pure data — no shell processes, no xterm, no WebContainer.
-
-**`$state`:** `sessions`, `activeSessionId`, `nextOrder`
-
-**Persistence:** reads/writes `sandem.terminal.sessions.v1` in localStorage via `persist()` (called after every mutation) and `restoreFromStorage()` (called once on mount by `useTerminal`).
-
-**Session lifecycle rules:**
-
-```
-addSession()    → push new meta, activate it, persist, return id
-closeSession()  → if last session: replace with fresh one (never empty)
-                  else: remove, activate sessions[0] if was active, persist
-renameSession() → trim label, no-op on empty string, persist
-reorderSession()→ swap adjacent indices (left/right), persist
-```
-
-**Why "never empty" matters:** `createTerminalWorkspace` always reads `sessions.activeSessionId` to find the active runtime. If the session list became empty, that lookup would return `undefined` and every shell action would silently no-op.
+| Category         | Properties / Methods                                                                                        |
+| ---------------- | ----------------------------------------------------------------------------------------------------------- |
+| Lifecycle        | `mount`                                                                                                     |
+| Panel state      | `activeTab`, `tabItems`, `xtermOptions`                                                                     |
+| Session state    | `activeSessionId`                                                                                           |
+| Permissions      | `canExecute`                                                                                                |
+| Workspace state  | `sessionViews`, `placeholderText`                                                                           |
+| Panel actions    | `switchTab`, `clearActiveTerminal`, `restartActiveShell`, `killActiveShell`, `toggleMaximize`, `closePanel` |
+| Session actions  | `selectSession`, `closeSession`, `newSession`, `renameSession`, `reorderSession`                            |
+| Viewport actions | `onTerminalMount`, `sendInput`, `ensureShellReady`                                                          |
 
 ---
 
-### 5. `createTerminalWorkspace.svelte.ts` — Runtime Orchestration (Service)
+### Components (`components/terminal/`)
 
-**What it does:** the most complex layer. It reconciles the session metadata list with live shell process runtimes, manages the xterm → shell attachment lifecycle, syncs CSS theme variables into xterm, and exposes every action the UI needs.
+All components are **props-in / callbacks-out**. None import stores, context,
+or services directly.
 
-**`$state`:** `runtimes: SessionRuntime[]`
+#### `Terminal.svelte`
 
-**`$derived`:**
+Wiring root. Calls `createTerminalController(...)` at the top of its script,
+calls `ctrl.mount()` in `onMount`, and fans all props/callbacks out to the
+three child components. Contains zero logic beyond this distribution.
 
-| Derived           | Source                                    | Consumer                              |
-| ----------------- | ----------------------------------------- | ------------------------------------- |
-| `sessionViews`    | `runtimes` mapped to flat `SessionView`   | `TerminalViewport`, `TerminalToolbar` |
-| `placeholderText` | `panel.activeTab` via `getTabPlaceholder` | `TerminalViewport`                    |
+#### `TerminalPanelHeader.svelte`
 
-#### Runtime reconciliation — `syncRuntimes()`
+Renders the tab bar (via `<Tabs>`) and the five header action buttons
+(Clear, Restart, Kill, Maximize, Close). Restart and Kill are disabled when
+`activeTab !== 'TERMINAL'`.
 
-Called reactively (via `$effect` in `useTerminal`) whenever the session list changes:
+#### `TerminalToolbar.svelte`
 
-```
-for each session in sessions.sessions:
-    if runtime exists → update label
-    else              → buildRuntime(meta) → push to runtimes
+Renders per-session tab buttons and the four toolbar icon buttons
+(Move Left, Move Right, Rename, New Terminal). Manages its own local rename
+UI state (`renamingId`, `renameValue`) — this is ephemeral presentation state
+that belongs in the component, not the store.
 
-for each runtime not in sessions:
-    shell.kill() → remove from runtimes
-```
+Session tab click calls **only `onSelectSession`**. `workspace.selectSession`
+already calls `ensureShellReady` internally — there is no `onEnsureShell`
+prop on this component.
 
-This is the bridge between the pure-data sessions layer and the live WebContainer processes.
+#### `TerminalViewport.svelte`
 
-#### Shell attachment sequence — `onTerminalMount(sessionId)`
+Derives `activeSession` from `sessions` + `activeSessionId`. Renders
+`TerminalSessionPane` when `activeTab === 'TERMINAL'` and `activeSession`
+exists; otherwise renders a placeholder text string.
 
-Called by the xterm widget's `onLoad` callback once the DOM terminal instance exists:
+#### `TerminalSessionPane.svelte`
 
-```
-findRuntime(sessionId)
-    ├── applyThemeToTerminal(runtime.terminal)  ← sync CSS vars → xterm.options.theme
-    ├── startThemeWatcher()                     ← MutationObserver on data-theme/data-mode
-    └── runtime.shell.attach(runtime.terminal)  ← spawn jsh + pipe stdin/stdout
-```
+Owns the `Xterm` widget. Holds a local `terminal = $state<Terminal>()` bound
+via `bind:terminal` on the `<Xterm>` component. On `onLoad`, passes this
+instance directly to `onLoad(sessionId, terminal!)` — the workspace's
+`onTerminalMount` — so the runtime can register it on `runtimes[idx]`.
 
-#### Theme sync
+> **Why not bind:terminal through SessionView?**
+> `SessionView` is a `$derived` value. In Svelte 5, derived state is
+> read-only — writing to a derived object via `bind:` is a silent no-op.
+> The terminal instance must be routed directly: component → onLoad callback
+> → `runtimes[idx].terminal`.
 
-A `MutationObserver` watches `document.documentElement` for `data-theme`, `data-mode`, `style`, `class` attribute changes. On any change it reads `--bg`, `--text`, `--border`, `--fonts-mono` CSS variables and writes them into every live xterm instance's `options.theme`. This keeps all terminals in sync with the global theme switcher without any explicit prop passing.
-
-#### Shell action surface
-
-| Method                | What it does                                                     |
-| --------------------- | ---------------------------------------------------------------- |
-| `ensureShellReady`    | no-op if shell already attached; attaches if not                 |
-| `clearActiveTerminal` | calls `shell.clearScreen()` on the active runtime                |
-| `restartActiveShell`  | `shell.restart()` — kills and re-spawns the jsh process          |
-| `killActiveShell`     | `shell.kill()` — terminates without restart                      |
-| `sendInput`           | routes raw data to `shell.sendInput(data)` for the given session |
-
-#### Layout actions
-
-`toggleMaximize` and `closePanel` mutate `layout.upPane`/`layout.downPane` directly — the same `IDEPanels` object read by the pane splitters in the layout shell.
+Renders an `ErrorPanel` with a Retry button when `terminalError` is set.
+Renders a read-only notice when `!canExecute`. Renders the xterm widget and
+a status bar otherwise.
 
 ---
 
-### 6. `useTerminal.svelte.ts` — Lifecycle Hook
-
-**What it does:** owns the `Terminal.svelte` mount/destroy sequence. Registers the reactive `$effect` for runtime sync (must be in component init context), restores persisted sessions, subscribes to permissions, and tears down on destroy.
-
-**Receives:** `terminal: TerminalComposition`
-
-**Why a separate hook:** same reason as `useEditor` in the editor layer. The component's `onMount`/`onDestroy` callbacks are cleaner when the sequencing logic is extracted. It also makes the lifecycle testable in isolation.
+## Initialization Call Order
 
 ```
-useTerminal(terminal).mount()
-    │
-    ├── $effect(() => workspace.syncRuntimes())   ← registered in component reactive context
-    ├── sessions.restoreFromStorage()
-    ├── workspace.syncRuntimes()                  ← initial sync before first reactive tick
-    ├── collaborationPermissionsStore.subscribe(applyPermissions)
-    └── returns destroy()
-            ├── unsubscribePermissions()
-            └── workspace.destroy()
-```
+Terminal.svelte (script evaluation)
+  └─ createTerminalController({ ide, store, getPanels })
+       ├─ createTerminalWorkspace({ store, createShell, recordAudit, getLayout })
+       │    └─ $state runtimes = []
+       │    └─ $derived sessionViews, placeholderText
+       └─ useTerminal({ store, workspace })
+            ├─ $effect #1: store.sessions.sessions → workspace.syncRuntimes()
+            └─ $effect #2: sessions/active/nextOrder → localStorage.setItem()
 
----
+Terminal.svelte (onMount)
+  └─ ctrl.mount()
+       ├─ localStorage.getItem(STORAGE_KEY)
+       │    ├─ [found]  store.sessions.hydrate(parsed)
+       │    └─ [absent] store.sessions.addSession()
+       │         └─ $effect #1 fires → workspace.syncRuntimes([newSession])
+       │              └─ buildRuntime(meta) → createTerminalShell(...)
+       ├─ new MutationObserver → workspace.refreshThemes()
+       └─ collaborationPermissionsStore.subscribe → store.applyPermissions()
 
-## Full Data Flow Diagram
-
-```
-WebContainer FS ──────────────────────────────────────────────────────────┐
-Liveblocks permissions ────────────────────────────────────────────────┐  │
-localStorage ──────────────────────────────────────────────────────┐   │  │
-                                                                   │   │  │
-ide-context.ts (Svelte context)                                    │   │  │
-    getWebcontainer() ─────────────────────────────────────────────┼───┼──┤
-         │                                                         │   │  │
-         ▼                                                         │   │  │
-   Terminal.svelte                                                 │   │  │
-         │                                                         │   │  │
-         │  createTerminal(ide)                                     │   │  │
-         │    ├── createTerminalPanel()                             │   │  │
-         │    ├── createTerminalSessions() ◄──────────────────────┘   │  │
-         │    └── createTerminalWorkspace()                            │  │
-         │             └── createShellProcess(getWebcontainer) ◄───────┼──┘
-         │                                                             │
-         │  useTerminal(terminal).mount()                              │
-         │    ├── $effect → workspace.syncRuntimes()                   │
-         │    ├── sessions.restoreFromStorage()                        │
-         │    └── permissionsStore.subscribe ◄──────────────────────┘
-         │             └── terminal.applyPermissions(canWrite, roomId)
-         │
-         ├──► <TerminalPanelHeader>
-         │        panel.tabItems, panel.activeTab
-         │        onTabSelect  → workspace.switchTab(id)
-         │        onClear      → workspace.clearActiveTerminal()
-         │        onRestart    → workspace.restartActiveShell()
-         │        onKill       → workspace.killActiveShell()
-         │        onMaximize   → workspace.toggleMaximize()
-         │        onClose      → workspace.closePanel()
-         │
-         ├──► <TerminalToolbar>
-         │        workspace.sessionViews, sessions.activeSessionId
-         │        onSelect     → workspace.selectSession(id)
-         │        onClose      → workspace.closeSession(id)
-         │        onCreate     → workspace.newSession()
-         │        onRename     → workspace.renameSession(id, label)
-         │        onMove       → workspace.reorderSession(id, dir)
-         │        onEnsureShell→ workspace.ensureShellReady(id)
-         │
-         └──► <TerminalViewport>
-                  workspace.sessionViews, workspace.placeholderText
-                  panel.xtermOptions, canExecute
-                  onLoad  → workspace.onTerminalMount(sessionId)
-                  onData  → workspace.sendInput(sessionId, data)
-                  onRetry → workspace.ensureShellReady(sessionId)
+TerminalSessionPane (xterm onLoad fires, after DOM ready)
+  └─ ctrl.onTerminalMount(sessionId, terminal)
+       ├─ runtimes[idx] = { ...runtimes[idx], terminal }
+       ├─ applyTerminalTheme(terminal)
+       └─ shell.attach(terminal)
+            ├─ XtermAddon.FitAddon → fit()
+            ├─ window.addEventListener('resize', fitAddon.fit)
+            ├─ webcontainer.spawn('jsh', { terminal: { cols, rows } })
+            ├─ setupGitCommandShim()
+            └─ shellProcess.output.pipeTo(new WritableStream → terminal.write)
 ```
 
 ---
 
-## Naming Convention Refactor Map (Terminal files)
+## Deleted Files
 
-Convention:
+The following files were removed during the cleanup pass. Do not re-add them.
 
-- `/services`: `createNameSurname.svelte.ts` — **default export function must match filename**
-- `/hooks`: `useName.svelte.ts` — **default export function must match filename**
+| File                               | Reason                                                                                                                                                                                          |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createTerminalPanel.svelte.ts`    | Fully superseded by `terminal.panel.store.svelte.ts`. Every function was a direct duplicate.                                                                                                    |
+| `createTerminalSessions.svelte.ts` | Superseded by `terminal.session.store.svelte.ts` (pure state) + `useTerminal.svelte.ts` (persistence). The old file violated DI by calling `localStorage` from inside session mutation methods. |
+| `createTerminal.svelte.ts`         | Pure thin wrapper over `createTerminalController` with zero callers. `Terminal.svelte` already imports the controller directly.                                                                 |
 
-The file names are all already correct. The only violations are the **function names** inside the service files, which append `Controller` — a stale qualifier from before the convention was established.
+---
 
-| Current file                        | Status       | Current function name               | Required function name        | Other exports (OK — services may have multiple)                                            |
-| ----------------------------------- | ------------ | ----------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------ |
-| `createTerminal.svelte.ts`          | ✅ file name | `createTerminal` ✓                  | `createTerminal` ✓            | `collaborationPermissionsStore` (re-export)                                                |
-| `createTerminalPanel.svelte.ts`     | ⚠️ function  | `createTerminalPanelController`     | **`createTerminalPanel`**     | `TERMINAL_PANEL_TABS`, `isTerminalPanelTab`, `getTabPlaceholder`, `TerminalPanelTab` types |
-| `createTerminalSessions.svelte.ts`  | ⚠️ function  | `createTerminalSessionsController`  | **`createTerminalSessions`**  | `TerminalSessionMeta` type                                                                 |
-| `createTerminalWorkspace.svelte.ts` | ⚠️ function  | `createTerminalWorkspaceController` | **`createTerminalWorkspace`** | `SessionView`, `TerminalWorkspaceOptions` types                                            |
-| `useTerminal.svelte.ts`             | ✅ both      | `useTerminal` ✓                     | `useTerminal` ✓               | `TerminalComposition` (imported from service)                                              |
+## Key Design Decisions
 
-### Cascading renames required
+### Why does `TerminalSessionPane` hold local `terminal` state?
 
-Renaming the three service functions means every call site must update:
+The xterm `bind:terminal` binding needs a writable `$state` target. If this
+were a prop or derived value, Svelte 5 would silently ignore writes to it.
+Keeping it local and forwarding via `onLoad(sessionId, terminal!)` is the
+only correct pattern.
 
-| Rename                                                          | Call sites to update                                                         |
-| --------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `createTerminalPanelController` → `createTerminalPanel`         | `createTerminal.svelte.ts`, `createTerminalWorkspace.svelte.ts` import types |
-| `createTerminalSessionsController` → `createTerminalSessions`   | `createTerminal.svelte.ts`, `createTerminalWorkspace.svelte.ts` import types |
-| `createTerminalWorkspaceController` → `createTerminalWorkspace` | `createTerminal.svelte.ts`, `useTerminal.svelte.ts`                          |
+### Why does `syncRuntimes` use `untrack`?
 
-The `ReturnType<typeof createTerminalPanelController>` pattern used in `TerminalWorkspaceOptions` will also need updating to `ReturnType<typeof createTerminalPanel>` etc.
+`syncRuntimes` is called from inside `$effect #1` which already tracks
+`store.sessions.sessions`. If `syncRuntimes` wrote to `runtimes[]` without
+`untrack`, and `sessionViews` (derived from `runtimes[]`) were somehow
+re-read inside the effect, Svelte could enter a reactive cycle. `untrack`
+makes the write unconditional and non-reactive from the effect's perspective.
+
+### Why is persistence in the hook, not the store?
+
+The store is pure `$state`. IO is a side-effect. Putting `localStorage.setItem`
+inside session mutation methods (as the deleted `createTerminalSessions.svelte.ts`
+did) means the store cannot be unit-tested without mocking `window`. The hook's
+`$effect` watches the same state and persists it externally — the store stays
+portable and testable.
+
+### Why does `useTerminal` import `collaborationPermissionsStore` directly?
+
+It is the only cross-cutting import in the hook. It is equivalent to
+`Editor.svelte` subscribing to the same store for `canWrite`. The permission
+signal is an external broadcast that the terminal must respond to; it cannot
+be injected as a prop without threading it through four unrelated layers.
+This is the explicitly accepted exception to the no-singleton-imports rule.
+
+### Why does `selectSession` not need `ensureShellReady` called separately?
+
+`workspace.selectSession(id)` calls `ensureShellReady(id)` internally.
+`TerminalToolbar` previously also called `onEnsureShell(id)` in the same click
+handler — this was a double-call bug that caused a second `shell.attach()`
+attempt. The fix is to remove `onEnsureShell` from the toolbar entirely.
+`ensureShellReady` is still exposed on the controller for `TerminalViewport`'s
+Retry button, which is a valid standalone trigger.

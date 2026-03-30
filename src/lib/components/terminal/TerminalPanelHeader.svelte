@@ -2,10 +2,7 @@
 	import { Trash2, RotateCcw, Square, Maximize2, X } from '@lucide/svelte';
 	import Tabs from '$lib/components/ui/primitives/Tabs.svelte';
 	import Button from '$lib/components/ui/primitives/Button.svelte';
-	import type {
-		TerminalPanelTab,
-		TerminalPanelTabItem
-	} from '$lib/controllers/TerminalPanelController.svelte.js';
+	import type { TerminalPanelTab, TerminalPanelTabItem } from '$lib/stores/terminal';
 
 	type Props = {
 		tabItems: TerminalPanelTabItem[];

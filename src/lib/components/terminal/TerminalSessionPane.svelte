@@ -15,10 +15,10 @@
 		terminalError: string | null;
 		canExecute: boolean;
 		options: ITerminalOptions & ITerminalInitOnlyOptions;
-		onLoad: (sessionId: string) => Promise<void> | void;
+		/** Passes the live Terminal instance so workspace can register it on runtimes[] directly. */
+		onLoad: (sessionId: string, terminal: Terminal) => Promise<void> | void;
 		onData: (sessionId: string, data: string) => void;
 		onRetry: (sessionId: string) => void;
-		terminal?: Terminal;
 	};
 
 	let {
@@ -30,9 +30,13 @@
 		options,
 		onLoad,
 		onData,
-		onRetry,
-		terminal = $bindable()
+		onRetry
 	}: Props = $props();
+
+	// terminal is local state — no longer a bindable prop.
+	// xterm sets it via bind:terminal; we forward it to onLoad so the workspace
+	// can register it on runtimes[] directly, bypassing the derived SessionView.
+	let terminal = $state<Terminal | undefined>();
 </script>
 
 <div class="pane">
@@ -55,7 +59,7 @@
 			<Xterm
 				bind:terminal
 				{options}
-				onLoad={() => onLoad(sessionId)}
+				onLoad={() => onLoad(sessionId, terminal!)}
 				onData={(data) => onData(sessionId, data)}
 			/>
 		</div>
@@ -85,7 +89,6 @@
 		overflow: hidden;
 	}
 
-	/* Statusbar */
 	.statusbar {
 		display: flex;
 		align-items: center;
@@ -129,7 +132,6 @@
 		flex: 1;
 	}
 
-	/* Error / empty states */
 	.empty {
 		height: 100%;
 		display: grid;

@@ -1,13 +1,14 @@
 import type { Terminal } from '@battlefieldduck/xterm-svelte';
+import { untrack } from 'svelte';
 import { createErrorReporter } from '$lib/sveltekit/index.js';
+import { applyTerminalTheme } from '$lib/services/terminal';
 import {
-	getTabPlaceholder,
 	isTerminalPanelTab,
-	type TerminalPanelTab
-} from './TerminalPanelController.svelte.js';
-import type { createTerminalPanelController } from './TerminalPanelController.svelte.js';
-import type { createTerminalSessionsController } from './TerminalSessionsController.svelte.js';
-import type { TerminalSessionMeta } from './TerminalSessionsController.svelte.js';
+	getTabPlaceholder,
+	type TerminalPanelTab,
+	type TerminalStore,
+	type TerminalSessionMeta
+} from '$lib/stores/terminal';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -15,26 +16,18 @@ import type { TerminalSessionMeta } from './TerminalSessionsController.svelte.js
 
 type ShellProcess = {
 	isReady: boolean;
-	/** Attach the shell to an xterm instance and begin the jsh process. */
 	attach: (terminal: Terminal) => Promise<void>;
-	/** Send raw input bytes to the shell's stdin. */
 	sendInput: (data: string) => void;
-	/** Clear the xterm viewport. */
 	clearScreen: () => void;
-	/** Kill and re-spawn the shell process. */
 	restart: () => Promise<void>;
-	/** Terminate the shell process and release its WebContainer resources. */
 	kill: () => void;
 };
 
-/** The full runtime state for one terminal session. */
 type SessionRuntime = {
 	id: string;
 	label: string;
 	shell: ShellProcess;
-	/** The live xterm Terminal instance — set after the xterm widget mounts. */
-	terminal?: Terminal;
-	/** Non-null when the shell failed to start or crashed. */
+	terminal: Terminal | undefined;
 	error: string | null;
 };
 
@@ -56,31 +49,39 @@ type PanelLayout = {
 };
 
 export type TerminalWorkspaceOptions = {
-	panel: ReturnType<typeof createTerminalPanelController>;
-	sessions: ReturnType<typeof createTerminalSessionsController>;
+	/** Unified store — owns all panel/session/permissions state. */
+	store: TerminalStore;
 	createShell: ShellFactory;
-	canExecute: () => boolean;
-	getRoomId: () => string | null;
 	recordAudit: (entry: AuditEntry) => void;
 	getLayout: () => PanelLayout | undefined;
 };
 
-/** Flattened view of a session passed down to presentation components. */
+/**
+ * Flattened view of a session passed to presentation components.
+ * `terminal` is set by onTerminalMount once xterm signals it is ready.
+ */
 export type SessionView = {
 	id: string;
 	label: string;
 	isReady: boolean;
 	error: string | null;
-	terminal?: Terminal;
+	terminal: Terminal | undefined;
 };
 
 // ---------------------------------------------------------------------------
-// Controller
+// Service
+//
+// Runtime orchestration — reconciles session metadata with live shell
+// processes, manages xterm attachment and CSS theme sync.
+//
+// Reads all panel/session/permissions state from opts.store; never owns
+// that state itself.
+//
+// File: createTerminalWorkspace.svelte.ts → function: createTerminalWorkspace
 // ---------------------------------------------------------------------------
 
-export function createTerminalWorkspaceController(opts: TerminalWorkspaceOptions) {
+export function createTerminalWorkspace(opts: TerminalWorkspaceOptions) {
 	let runtimes = $state<SessionRuntime[]>([]);
-	let themeObserver: MutationObserver | undefined;
 
 	// ── Runtime lifecycle ─────────────────────────────────────────────────────
 
@@ -89,9 +90,9 @@ export function createTerminalWorkspaceController(opts: TerminalWorkspaceOptions
 			id: meta.id,
 			label: meta.label,
 			shell: opts.createShell({
-				canExecute: opts.canExecute,
+				canExecute: () => opts.store.canExecute,
 				onAudit: ({ command, allowed, at }) =>
-					opts.recordAudit({ at, command, allowed, roomId: opts.getRoomId() })
+					opts.recordAudit({ at, command, allowed, roomId: opts.store.roomId })
 			}),
 			terminal: undefined,
 			error: null
@@ -103,7 +104,7 @@ export function createTerminalWorkspaceController(opts: TerminalWorkspaceOptions
 	}
 
 	function getActiveRuntime(): SessionRuntime | undefined {
-		return findRuntime(opts.sessions.activeSessionId);
+		return findRuntime(opts.store.sessions.activeSessionId);
 	}
 
 	function setError(sessionId: string, message: string | null) {
@@ -117,67 +118,47 @@ export function createTerminalWorkspaceController(opts: TerminalWorkspaceOptions
 
 	// ── Theme sync ────────────────────────────────────────────────────────────
 
-	function applyThemeToTerminal(terminal: Terminal | undefined) {
-		if (!terminal) return;
-
-		const style = getComputedStyle(document.documentElement);
-		const mono = style.getPropertyValue('--fonts-mono').trim();
-		terminal.options.fontFamily = mono || "'Cascadia Mono', 'Consolas', 'SF Mono', monospace";
-		terminal.options.theme = {
-			background: style.getPropertyValue('--bg').trim(),
-			foreground: style.getPropertyValue('--text').trim(),
-			cursor: style.getPropertyValue('--text').trim(),
-			selectionBackground: style.getPropertyValue('--border').trim()
-		};
-	}
-
-	function startThemeWatcher() {
-		themeObserver?.disconnect();
-		themeObserver = new MutationObserver(() => {
-			for (const runtime of runtimes) {
-				applyThemeToTerminal(runtime.terminal);
-			}
-		});
-		themeObserver.observe(document.documentElement, {
-			attributes: true,
-			attributeFilter: ['data-theme', 'data-mode', 'style', 'class']
-		});
+	/**
+	 * Re-applies CSS theme variables to every live terminal instance.
+	 * Called by useTerminal's MutationObserver whenever the document theme changes.
+	 */
+	function refreshThemes() {
+		for (const r of runtimes) {
+			applyTerminalTheme(r.terminal);
+		}
 	}
 
 	// ── Shell init ────────────────────────────────────────────────────────────
 
 	/**
-	 * Called by the xterm widget's `onLoad` callback.
-	 * Attaches the shell process to the freshly-mounted terminal instance.
+	 * Called by the xterm widget's onLoad callback once the DOM terminal
+	 * instance exists. The terminal instance is passed directly as a parameter
+	 * — do NOT use bind:terminal to propagate it up through a derived SessionView.
+	 * Derived state is read-only; writing to it via bind: is a silent no-op in
+	 * Svelte 5, which means shells would never attach.
 	 */
-	async function onTerminalMount(sessionId: string) {
-		const runtime = findRuntime(sessionId);
-		if (!runtime?.terminal) return;
+	async function onTerminalMount(sessionId: string, terminal: Terminal) {
+		const idx = runtimes.findIndex((r) => r.id === sessionId);
+		if (idx < 0) return;
+
+		// Write directly to $state — not through a derived object.
+		runtimes[idx] = { ...runtimes[idx], terminal };
 
 		try {
 			setError(sessionId, null);
-			applyThemeToTerminal(runtime.terminal);
-			startThemeWatcher();
-			await runtime.shell.attach(runtime.terminal);
+			applyTerminalTheme(terminal);
+			await runtimes[idx].shell.attach(terminal);
 		} catch (err) {
 			reportError(sessionId, 'Failed to initialize terminal shell.', err);
 		}
 	}
 
-	/**
-	 * Ensure the shell is running for a given session.
-	 * Called when switching sessions or retrying after an error.
-	 * No-ops if the shell is already ready.
-	 */
 	async function ensureShellReady(sessionId: string) {
 		const runtime = findRuntime(sessionId);
 		if (!runtime?.terminal) return;
-
 		try {
 			setError(sessionId, null);
-			if (!runtime.shell.isReady) {
-				await runtime.shell.attach(runtime.terminal);
-			}
+			if (!runtime.shell.isReady) await runtime.shell.attach(runtime.terminal);
 		} catch (err) {
 			reportError(sessionId, 'Failed to start terminal shell.', err);
 		}
@@ -186,82 +167,73 @@ export function createTerminalWorkspaceController(opts: TerminalWorkspaceOptions
 	// ── Session runtime sync ──────────────────────────────────────────────────
 
 	/**
-	 * Reconcile the runtime list with the current session metadata list.
-	 * Creates runtimes for new sessions, removes and kills runtimes for
-	 * sessions that have been closed.
-	 *
-	 * Called reactively via `$effect` in the orchestrator component.
+	 * Reconciles runtimes[] against the current session metadata list.
+	 * Called reactively by useTerminal's $effect whenever sessions change,
+	 * and directly after mutations that add sessions.
 	 */
-	function syncRuntimes() {
-		const sessionList = opts.sessions.sessions;
-		const knownIds = new Set(sessionList.map((s) => s.id));
+	function syncRuntimes(sessionList: TerminalSessionMeta[]) {
+		untrack(() => {
+			const knownIds = new Set(sessionList.map((s) => s.id));
 
-		// Add new runtimes and update labels on existing ones.
-		for (const meta of sessionList) {
-			const existing = runtimes.find((r) => r.id === meta.id);
-			if (existing) {
-				existing.label = meta.label;
-			} else {
-				runtimes = [...runtimes, buildRuntime(meta)];
+			for (const meta of sessionList) {
+				const existing = runtimes.find((r) => r.id === meta.id);
+				if (existing) {
+					existing.label = meta.label;
+				} else {
+					runtimes = [...runtimes, buildRuntime(meta)];
+				}
 			}
-		}
 
-		// Kill and remove runtimes for sessions that no longer exist.
-		const stale = runtimes.filter((r) => !knownIds.has(r.id));
-		if (stale.length > 0) {
+			const stale = runtimes.filter((r) => !knownIds.has(r.id));
 			for (const r of stale) r.shell.kill();
 			runtimes = runtimes.filter((r) => knownIds.has(r.id));
-		}
+		});
 	}
 
 	// ── Panel tab actions ─────────────────────────────────────────────────────
 
 	async function switchTab(id: string) {
 		if (!isTerminalPanelTab(id)) return;
-
-		opts.panel.switchTab(id as TerminalPanelTab);
-
-		if (id === 'TERMINAL') {
-			await ensureShellReady(opts.sessions.activeSessionId);
-		}
+		opts.store.panel.switchTab(id as TerminalPanelTab);
+		if (id === 'TERMINAL') await ensureShellReady(opts.store.sessions.activeSessionId);
 	}
 
 	// ── Session actions ───────────────────────────────────────────────────────
 
 	async function selectSession(sessionId: string) {
-		opts.sessions.activateSession(sessionId);
+		opts.store.sessions.activateSession(sessionId);
 		await ensureShellReady(sessionId);
 	}
 
 	async function newSession() {
-		const sessionId = opts.sessions.addSession();
-		syncRuntimes();
+		const sessionId = opts.store.sessions.addSession();
+		// Pass the updated session list explicitly — syncRuntimes is not reactive here.
+		syncRuntimes(opts.store.sessions.sessions);
 		await ensureShellReady(sessionId);
 	}
 
 	function renameSession(sessionId: string, label: string) {
-		opts.sessions.renameSession(sessionId, label);
+		opts.store.sessions.renameSession(sessionId, label);
 	}
 
 	function reorderSession(sessionId: string, direction: 'left' | 'right') {
-		opts.sessions.reorderSession(sessionId, direction);
+		opts.store.sessions.reorderSession(sessionId, direction);
 	}
 
 	function closeSession(sessionId: string) {
-		opts.sessions.closeSession(sessionId);
+		opts.store.sessions.closeSession(sessionId);
 	}
 
-	// ── Active session shell actions ──────────────────────────────────────────
+	// ── Active shell actions ──────────────────────────────────────────────────
 
 	function clearActiveTerminal() {
 		getActiveRuntime()?.shell.clearScreen();
 	}
 
 	async function restartActiveShell() {
-		const sessionId = opts.sessions.activeSessionId;
+		const sessionId = opts.store.sessions.activeSessionId;
 		const runtime = findRuntime(sessionId);
 		if (!runtime) return;
-
 		try {
 			setError(sessionId, null);
 			await runtime.shell.restart();
@@ -271,10 +243,9 @@ export function createTerminalWorkspaceController(opts: TerminalWorkspaceOptions
 	}
 
 	function killActiveShell() {
-		const sessionId = opts.sessions.activeSessionId;
+		const sessionId = opts.store.sessions.activeSessionId;
 		const runtime = findRuntime(sessionId);
 		if (!runtime) return;
-
 		try {
 			runtime.shell.kill();
 		} catch (err) {
@@ -285,7 +256,6 @@ export function createTerminalWorkspaceController(opts: TerminalWorkspaceOptions
 	function sendInput(sessionId: string, data: string) {
 		const runtime = findRuntime(sessionId);
 		if (!runtime) return;
-
 		try {
 			runtime.shell.sendInput(data);
 		} catch (err) {
@@ -293,7 +263,7 @@ export function createTerminalWorkspaceController(opts: TerminalWorkspaceOptions
 		}
 	}
 
-	// ── Panel layout actions ──────────────────────────────────────────────────
+	// ── Layout actions ────────────────────────────────────────────────────────
 
 	function toggleMaximize() {
 		const layout = opts.getLayout();
@@ -316,11 +286,10 @@ export function createTerminalWorkspaceController(opts: TerminalWorkspaceOptions
 	// ── Derived state ─────────────────────────────────────────────────────────
 
 	const placeholderText = $derived.by(() => {
-		if (opts.panel.activeTab === 'TERMINAL') return '';
-		return getTabPlaceholder(opts.panel.activeTab);
+		if (opts.store.panel.activeTab === 'TERMINAL') return '';
+		return getTabPlaceholder(opts.store.panel.activeTab);
 	});
 
-	/** Flattened session views consumed by presentation components. */
 	const sessionViews = $derived.by<SessionView[]>(() =>
 		runtimes.map((r) => ({
 			id: r.id,
@@ -334,47 +303,37 @@ export function createTerminalWorkspaceController(opts: TerminalWorkspaceOptions
 	// ── Cleanup ───────────────────────────────────────────────────────────────
 
 	function destroy() {
-		themeObserver?.disconnect();
+		// Note: the MutationObserver for theme changes lives in useTerminal — not here.
 		for (const r of runtimes) r.shell.kill();
 	}
 
 	// ── Public API ────────────────────────────────────────────────────────────
 
 	return {
-		// Reactive state
 		get sessionViews() {
 			return sessionViews;
 		},
 		get placeholderText() {
 			return placeholderText;
 		},
-
-		// Lifecycle
 		syncRuntimes,
+		refreshThemes,
 		destroy,
-
-		// xterm callbacks
 		onTerminalMount,
 		ensureShellReady,
-
-		// Tab
 		switchTab,
-
-		// Sessions
 		selectSession,
 		newSession,
 		renameSession,
 		reorderSession,
 		closeSession,
-
-		// Active shell
 		clearActiveTerminal,
 		restartActiveShell,
 		killActiveShell,
 		sendInput,
-
-		// Layout
 		toggleMaximize,
 		closePanel
 	};
 }
+
+export type TerminalWorkspace = ReturnType<typeof createTerminalWorkspace>;

@@ -13,7 +13,7 @@ const WRITE_DEBOUNCE_MS = 120;
 /**
  * Writes a single file into the WebContainer. Used by the editor on every change.
  */
-export function createFileWriter(getWebcontainer: () => WebContainer) {
+export function createEditorFileWriter(getWebcontainer: () => WebContainer) {
 	let disposed = false;
 	let acceptingWrites = true;
 	let drainingPromise: Promise<void> | null = null;

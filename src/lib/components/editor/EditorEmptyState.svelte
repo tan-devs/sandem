@@ -1,6 +1,6 @@
 <script lang="ts">
 	import favicon from '$lib/assets/favicon.svg';
-	import { toPlatformShortcutKeyLabel } from '$lib/services/createStatus.svelte';
+	import { toPlatformShortcutKeyLabel } from '$lib/services/editor';
 	import type { QuickAction } from '$types/editor.js';
 
 	let {

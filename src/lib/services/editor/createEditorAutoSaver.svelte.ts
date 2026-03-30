@@ -17,15 +17,15 @@ export type AutoSaveStatus =
  * Gracefully degrades to 'Session only' when there is no ConvexProvider
  * in the tree (demo / offline routes) — all calls become no-ops.
  *
- * Teardown: always call `drainAndCleanup()` — it flushes any pending
- * saves before stopping the timer. Do not call it more than once.
+ * Teardown: always call `drainAndCleanup()` before destroying the editor.
+ * It flushes any pending saves before the runtime is torn down.
  */
-export function createAutoSaver(getProject: () => ProjectDoc | undefined) {
+export function createEditorAutoSaver(getProject: () => ProjectDoc | undefined) {
 	let convexClient: ReturnType<typeof useConvexClient> | null = null;
 	try {
 		convexClient = useConvexClient();
 	} catch {
-		// No ConvexProvider — demo / offline mode
+		// No ConvexProvider — demo / offline mode.
 	}
 
 	let saveStatus = $state<AutoSaveStatus>('Saved');
@@ -72,11 +72,9 @@ export function createAutoSaver(getProject: () => ProjectDoc | undefined) {
 			saveStatus = 'Saved';
 		} catch (err) {
 			console.error('[AutoSaver] Save failed', err);
-			// Re-queue failed saves without overwriting newer in-flight content
+			// Re-queue failed saves without overwriting newer in-flight content.
 			for (const [path, content] of snapshot) {
-				if (!pendingSaves.has(path)) {
-					pendingSaves.set(path, content);
-				}
+				if (!pendingSaves.has(path)) pendingSaves.set(path, content);
 			}
 			saveStatus = 'Save failed';
 		}
@@ -110,8 +108,8 @@ export function createAutoSaver(getProject: () => ProjectDoc | undefined) {
 	}
 
 	/**
-	 * Flushes any queued saves and stops the debounce timer.
-	 * This is the single correct teardown call — use it in `shutdown()`.
+	 * Flush queued saves and stop the debounce timer.
+	 * The single correct teardown call — use it in shutdown() before destroy().
 	 */
 	async function drainAndCleanup() {
 		clearTimeout(saveTimeout);

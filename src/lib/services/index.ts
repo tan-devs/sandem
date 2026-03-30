@@ -1,7 +1,5 @@
-export * from './createExplorer.svelte';
-export * from './createAutoSaver.svelte';
+export * from './explorer/createExplorer.svelte';
 export * from './createCursorSync.svelte';
-export * from './createFileWriter.svelte';
 export * from './createGlobalSearch.svelte';
 export * from './createModelBindings';
 export * from './createMonacoConfig.svelte';
@@ -9,17 +7,10 @@ export * from './createPresence.svelte';
 export * from './createProjectMounter.svelte';
 export * from './createProjectsManager.svelte';
 export * from './createRoom.svelte';
-export * from './createEditor.svelte';
 export * from './createWorkspace.svelte';
 export * from './createSession.svelte';
-export * from './createShellProcess.svelte';
+export * from './terminal/createTerminalShell.svelte';
 export * from './createShortcuts.svelte';
-export * from './createStatus.svelte';
 export * from './createWebcontainer';
 export * from './createYjsDoc';
 export * from './createYjsSync.svelte';
-export * from './createActions.svelte';
-
-export * from './createTerminal.svelte';
-export * from './createTerminalSessions.svelte';
-export * from './createTerminalWorkspace.svelte';

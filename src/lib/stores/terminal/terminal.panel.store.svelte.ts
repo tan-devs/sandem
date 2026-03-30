@@ -1,9 +1,5 @@
 import type { ITerminalInitOnlyOptions, ITerminalOptions } from '@battlefieldduck/xterm-svelte';
 
-// ---------------------------------------------------------------------------
-// Panel tab definitions
-// ---------------------------------------------------------------------------
-
 export const TERMINAL_PANEL_TABS = [
 	'PROBLEMS',
 	'OUTPUT',
@@ -11,25 +7,22 @@ export const TERMINAL_PANEL_TABS = [
 	'TERMINAL',
 	'PORTS'
 ] as const;
-
 export type TerminalPanelTab = (typeof TERMINAL_PANEL_TABS)[number];
 
+// Explicit type for the components to consume
 export type TerminalPanelTabItem = {
 	id: TerminalPanelTab;
-	label: TerminalPanelTab;
+	label: string;
 	active: boolean;
-	closable: false;
+	closable: boolean;
 };
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
+/** Type guard — used by createTerminalWorkspace to validate tab switches. */
 export function isTerminalPanelTab(value: string): value is TerminalPanelTab {
 	return TERMINAL_PANEL_TABS.includes(value as TerminalPanelTab);
 }
 
-/** Returns the placeholder text shown when the active tab is not TERMINAL. */
+/** Placeholder text shown when the active tab is not TERMINAL. */
 export function getTabPlaceholder(tab: Exclude<TerminalPanelTab, 'TERMINAL'>): string {
 	const messages: Record<Exclude<TerminalPanelTab, 'TERMINAL'>, string> = {
 		PROBLEMS: 'No problems have been detected in the workspace.',
@@ -40,14 +33,19 @@ export function getTabPlaceholder(tab: Exclude<TerminalPanelTab, 'TERMINAL'>): s
 	return messages[tab];
 }
 
-// ---------------------------------------------------------------------------
-// Controller
-// ---------------------------------------------------------------------------
+// Build the tab items, maintaining data injection principles
+export function buildTerminalPanelTabItems(activeTab: TerminalPanelTab): TerminalPanelTabItem[] {
+	return TERMINAL_PANEL_TABS.map((tab) => ({
+		id: tab,
+		label: tab,
+		active: activeTab === tab,
+		closable: false // Can be parameterized later if some tabs become closable
+	}));
+}
 
-export function createTerminalPanelController() {
+export function createTerminalPanelStore() {
 	let activeTab = $state<TerminalPanelTab>('TERMINAL');
 
-	/** xterm options are static — set once, never mutated at runtime. */
 	const xtermOptions: ITerminalOptions & ITerminalInitOnlyOptions = {
 		fontSize: 13,
 		lineHeight: 1.22,
@@ -57,29 +55,21 @@ export function createTerminalPanelController() {
 		allowTransparency: true
 	};
 
-	const tabItems = $derived<TerminalPanelTabItem[]>(
-		TERMINAL_PANEL_TABS.map((tab) => ({
-			id: tab,
-			label: tab,
-			active: activeTab === tab,
-			closable: false
-		}))
-	);
-
-	function switchTab(tab: TerminalPanelTab) {
-		activeTab = tab;
-	}
+	// Keep the store clean by passing the $state into the pure function
+	const tabItems = $derived(buildTerminalPanelTabItems(activeTab));
 
 	return {
 		get activeTab() {
 			return activeTab;
 		},
-		switchTab,
 		get xtermOptions() {
 			return xtermOptions;
 		},
 		get tabItems() {
 			return tabItems;
+		},
+		switchTab: (tab: TerminalPanelTab) => {
+			activeTab = tab;
 		}
 	};
 }
