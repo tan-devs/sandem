@@ -1,7 +1,7 @@
 import type { Terminal } from '@battlefieldduck/xterm-svelte';
 import { untrack } from 'svelte';
 import { createErrorReporter } from '$lib/sveltekit/index.js';
-import { applyTerminalTheme } from '$lib/services/terminal';
+import { applyTerminalTheme } from '$lib/utils/terminal';
 import {
 	isTerminalPanelTab,
 	getTabPlaceholder,

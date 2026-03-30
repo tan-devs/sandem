@@ -5,8 +5,8 @@
 		ITerminalOptions,
 		Terminal
 	} from '@battlefieldduck/xterm-svelte';
-	import ErrorPanel from '$lib/components/ui/primitives/ErrorPanel.svelte';
-	import Button from '$lib/components/ui/primitives/Button.svelte';
+
+	import { ErrorPanel, Button } from '$lib/components/ui/primitives/';
 
 	type Props = {
 		sessionId: string;

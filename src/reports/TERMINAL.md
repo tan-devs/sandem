@@ -21,8 +21,10 @@ stores/terminal/            ← reactive $state only, zero IO
 
 services/terminal/          ← runtime orchestration, shell lifecycle
   createTerminalShell       ← jsh process, xterm attachment, git shim
-  createTerminalTheme       ← pure util: reads CSS vars, writes to terminal.options
   createTerminalWorkspace   ← reconciles store ↔ shell runtimes; orchestrates everything
+
+utils/terminal/
+  terminal-theme            ← pure util: reads CSS vars, writes to terminal.options
 
 hooks/
   useTerminal               ← $effects + mount/cleanup; bridges store and workspace
@@ -82,23 +84,6 @@ singleton consumed by `Terminal.svelte` and `TerminalController`.
 
 ### Services (`services/terminal/`)
 
-#### `createTerminalTheme.ts` → `applyTerminalTheme(terminal)`
-
-Pure utility function. Reads `--bg`, `--text`, `--border`, `--fonts-mono` from
-`getComputedStyle(document.documentElement)` and writes them to
-`terminal.options`. Takes the terminal instance as a parameter — no closures,
-no state.
-
-Called by `createTerminalWorkspace` in two places:
-
-1. `onTerminalMount` — applies theme once on first attachment.
-2. `refreshThemes` — re-applies to all live terminals when the
-   `MutationObserver` in `useTerminal.mount()` fires on a theme change.
-
-> **Note:** This file is `.ts`, not `.svelte.ts` — it uses no Svelte runes.
-> Function name is `applyTerminalTheme`, not `createTerminalTheme`, to reflect
-> that it is a pure side-effectful utility, not a factory.
-
 #### `createTerminalShell.svelte.ts` → `createTerminalShell(getWebcontainer, options)`
 
 Manages a single `jsh` WebContainer process. Responsibilities:
@@ -136,6 +121,28 @@ Key responsibilities:
   `SessionView[]` (the shape consumed by components). Contains no live
   `Terminal` references — those live on `runtimes[]` directly.
 - **`destroy()`** — kills all shell processes on unmount.
+
+---
+
+### Utils (`utils/terminal`)
+
+#### `terminal-theme.ts` → `applyTerminalTheme(terminal)`
+
+Pure utility function. Reads `--bg`, `--text`, `--border`, `--fonts-mono` from
+`getComputedStyle(document.documentElement)` and writes them to
+`terminal.options`. Takes the terminal instance as a parameter — no closures,
+no state.
+
+Called by `createTerminalWorkspace` in two places:
+
+1. `onTerminalMount` — applies theme once on first attachment.
+2. `refreshThemes` — re-applies to all live terminals when the
+   `MutationObserver` in `useTerminal.mount()` fires on a theme change.
+
+> **Note:** This file is `.ts`, not `.svelte.ts` — it uses no Svelte runes.
+> Function name is `applyTerminalTheme`, not `createTerminalTheme`, to reflect
+> that it is a pure side-effectful utility, not a factory.
+
 
 ---
 
