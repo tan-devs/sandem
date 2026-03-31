@@ -1,6 +1,6 @@
 You are able to use the Svelte MCP server, where you have access to comprehensive Svelte 5 and SvelteKit documentation. Here's how to use the available tools effectively:
 
-> Last updated: 2026-03-25
+> Last updated: 2026-03-31
 
 ## Available MCP Tools:
 
@@ -87,6 +87,8 @@ The explorer system follows the same DI + Pure Functions pattern as the terminal
 | `services/explorer/createExplorer.svelte.ts`     | `utils/explorer/explorer-ops.ts`                 |
 | `utils/ide/explorerTreeOps.ts`                   | `utils/explorer/explorer-ops.ts`                 |
 
+**Full architecture reference**: `src/reports/EDITOR.md`
+
 ## Terminal Architecture (Stores → Services → Hook → Controller → Presentation)
 
 The terminal system is fully refactored and stable. It is the reference implementation of the DI + Pure Functions philosophy in this codebase. Do not restructure it without reading `TERMINAL.md` first.
@@ -130,7 +132,7 @@ The terminal system is fully refactored and stable. It is the reference implemen
 - `src/lib/components/terminal/TerminalSessionPane.svelte`
 - `src/lib/components/terminal/index.ts`
 
-**Full architecture reference**: `docs/TERMINAL.md`
+**Full architecture reference**: `src/reports/TERMINAL.md`
 
 ## Editor Architecture (Controller + Hook + Services — DI/PF in progress)
 
@@ -174,7 +176,47 @@ The terminal system is fully refactored and stable. It is the reference implemen
 - `src/lib/components/editor/Editor.svelte`
 - `src/lib/components/editor/index.ts`
 
-**Full architecture reference**: `docs/EDITOR.md`
+**Full architecture reference**: `src/reports/EDITOR.md`
+
+## Auth Architecture (Two-Table Identity — Better Auth + Convex)
+ 
+> **Status: stable.** Better Auth runs inside Convex. Your app has two user tables that serve different purposes and must not be conflated. Read `AUTH.md` before touching any auth or identity code.
+ 
+**The two tables:**
+ 
+- **Better Auth component tables** (`betterAuth.*` on the Convex dashboard): `user`, `session`, `account`, `jwks`, `verification`, `rateLimit`. Managed entirely by the Better Auth library. Never query these from app code.
+- **Your `users` table** (`src/convex/functions/schema.ts`): `tokenIdentifier`, `username`, `name`, `email`, `isGuest`, `createdAt`, `lastSeen`. Owns app identity, project ownership FKs, and guest support.
+ 
+**Layer overview** (request flow top-down):
+ 
+1. **HTTP proxy** (`src/routes/api/auth/[...path]/+server.ts`): SvelteKit catch-all. Forwards all `/api/auth/*` requests to `PUBLIC_CONVEX_SITE_URL` via `createSvelteKitHandler()`. 10-second timeout, manual redirect handling.
+ 
+2. **Convex HTTP router** (`src/convex/functions/http.ts`): `authComponent.registerRoutes(http, createAuth)` — registers Better Auth's sign-in, sign-up, OAuth callback, JWKS, and token endpoints onto Convex's HTTP layer.
+ 
+3. **Better Auth instance** (`src/convex/functions/auth.ts` → `createAuth(ctx)`): Built per-request. Configured with email/password, GitHub OAuth, and the required `convex()` plugin. The `convex()` plugin is what issues JWTs that Convex can verify.
+ 
+4. **JWT verification config** (`src/convex/config/auth.config.ts`): Tells Convex's built-in middleware how to verify those JWTs via a `customJwt` + JWKS provider. This file must be resolvable from the functions root.
+ 
+5. **SSR bootstrap** (`src/routes/+layout.server.ts`): On every page load — `getAuthState()` (cookie presence check, no Convex round-trip) + `client.query(api.auth.getCurrentUser)` via HTTP client. Returns `{ currentUser, authState }` to all layouts/pages.
+ 
+6. **Identity upsert** (`src/convex/functions/users.ts` → `ensureUserIdentity()`): Mutation called from layout. Upserts your `users` table row for both authenticated users (via `tokenIdentifier` from JWT) and guests (via stable `guestId` cookie). Fires `seedStarterProjectForOwner()` on first authenticated insert.
+ 
+7. **`getCurrentUser` query** (`src/convex/functions/auth.ts`): Returns the row from **your** `users` table (not Better Auth's). This is the single source of truth for "who am I" in the app. Returns `null` for guests/unauthenticated.
+ 
+8. **Ownership guards** (`projects.ts`, `nodes.ts`): All write mutations call `ctx.auth.getUserIdentity()` → `tokenIdentifier` → look up your `users` table → compare `_id` to `project.ownerId`. If `ensureUserIdentity` hasn't run yet, they throw.
+ 
+**Key files:**
+ 
+- `src/convex/convex.config.ts` — registers the `@convex-dev/better-auth` component
+- `src/convex/config/auth.config.ts` — JWT provider config for Convex middleware
+- `src/convex/functions/auth.ts` — `authComponent`, `createAuth`, `getCurrentUser`
+- `src/convex/functions/users.ts` — `ensureUserIdentity` (guest + auth upsert)
+- `src/convex/functions/http.ts` — HTTP route registration
+- `src/lib/sveltekit/index.ts` — `getToken`, `getAuthState`, `createConvexHttpClient`, `createSvelteKitHandler`
+- `src/routes/api/auth/[...path]/+server.ts` — SvelteKit → Convex auth proxy
+- `src/routes/+layout.server.ts` — SSR auth bootstrap
+ 
+**Full architecture reference**: `src/reports/AUTH.md`
 
 ---
 
@@ -231,7 +273,7 @@ Use this checklist when picking up the project in a new session to get productiv
 
 ### lib/ Organization (3-tier index.ts structure)
 
-**New Structure** (updated 2026-03-22): All subdirectories now support single-line imports via consolidated index.ts files:
+**New Structure** (updated 2026-03-22): Lib subdirectories now support single-line imports via consolidated index.ts files:
 
 Tier 1 (Parent level): `src/lib/components/`, `src/lib/controllers/`, `src/lib/hooks/`, `src/lib/services/`, `src/lib/stores/`, `src/lib/context/`, `src/lib/utils/`
 
@@ -245,7 +287,7 @@ Tier 3 (Leaf level): Actual implementation files (components, functions, types)
 
 - Exported individually and aggregated through Tier 2 index files
 
-Example imports (all valid):
+Example imports (Domain level should always be first choice otherwise Leaf, avoid use Parent unless the file is in the parent dir):
 
 ```typescript
 // Leaf level
@@ -255,7 +297,7 @@ import { createExplorerActionHandlers } from '$lib/controllers/explorer/createEx
 import { createExplorerActionHandlers } from '$lib/controllers/explorer';
 
 // Parent level
-import { createExplorerActionHandlers } from '$lib/controllers';
+import { createExplorerActionHandlers } from '$lib/controllers'; 
 ```
 
 **Benefits**: Zero ambiguity (no `export *` conflicts), flexible import styles, clear dependency scoping.

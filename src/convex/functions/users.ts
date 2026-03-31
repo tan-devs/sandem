@@ -1,4 +1,4 @@
-import { mutation, query } from '../_generated/server.js';
+import { mutation } from '../_generated/server.js';
 import type { MutationCtx } from '../_generated/server.js';
 import { v } from 'convex/values';
 import type { GenericId } from 'convex/values';
@@ -14,7 +14,6 @@ function generateId(): string {
 	}
 	return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
-
 
 // ─── Mutations ────────────────────────────────────────────────────────────────
 
