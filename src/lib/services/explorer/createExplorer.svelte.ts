@@ -6,7 +6,7 @@ import type { WebContainer } from '@webcontainer/api';
 import type { FileTreeController, ProjectSyncController } from '$types/hooks';
 import type { Doc } from '$convex/_generated/dataModel.js';
 import type { FileNode } from '$types/editor';
-import { projectFolderName } from '$lib/utils/projects.js';
+import { projectFolderName } from '$lib/utils/explorer/projects.js';
 import {
 	findNode,
 	getAllDirectoryPaths,

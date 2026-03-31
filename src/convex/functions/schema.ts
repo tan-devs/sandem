@@ -10,7 +10,7 @@ export default defineSchema({
 	users: defineTable({
 		tokenIdentifier: v.string(), // Betterauth
 		username: v.string(), // "prajwal"
-		
+
 		name: v.optional(v.string()),
 		email: v.optional(v.string()),
 		isGuest: v.boolean(),

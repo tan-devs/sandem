@@ -1,6 +1,6 @@
 ![bug report for explorer](image.png)
 
-### F*CKED Up Explorer system
+### F\*CKED Up Explorer system
 
 See my explorer system is all fucked read the markdown files and the image i attached. After youre done go over the rest of the files i attached, those are all the files i could find regarding the explorer system ( even if i missed some its fine besause it will soon all be redundant code after this ) and then delete create update the files/functions/folders names types order directory what ever you need to build a straight forward industry standard explorer system that follows the philosophy of data injection and psuedo pure functions. Go! ( P.S. After youre done please update AGENTS.md and EXPLORER.md and remove any redundencies )
 

@@ -39,7 +39,6 @@ import {
 	projectFolderName,
 	filterNodesByQuery,
 	getPathsToExpand,
-	findNode,
 	handleCreateFile,
 	handleCreateFolder,
 	handleRenameNode,
@@ -76,9 +75,7 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 		getProject: () => ide.getProject(editorStore.activeTabPath ?? undefined),
 		getProjectForPath: (path: string) => ide.getProject(path),
 		getWebcontainer: ide.getWebcontainer,
-		onRemoteOperationApplied: async () => {
-			await fileTree.refresh({ silent: true });
-		}
+		onRemoteOperationApplied: () => Promise.resolve(fileTree.refresh({ silent: true }))
 	});
 
 	// ── UI state ($state) ─────────────────────────────────────────────────────
@@ -106,7 +103,14 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 	const activeProject = $derived(ide.getProject() ?? null);
 	const activeProjectFolder = $derived(activeProject ? projectFolderName(activeProject) : null);
 	const activeTabPath = $derived(editorStore.activeTabPath);
-	const nodeCount = $derived(activeProject?.nodes.length ?? null);
+	const nodeCount = $derived(() => {
+		if (activeProject) {
+			// Calculate nodeCount based on your specific logic
+			return activeProject.nodes.filter((node) => node.type === 'file').length;
+		} else {
+			return null;
+		}
+	});
 	const isOwner = $derived(activeProject?.isOwner ?? false);
 	const tabs = $derived(editorStore.tabs);
 

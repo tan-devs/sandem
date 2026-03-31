@@ -15,7 +15,7 @@ import type { WebContainer } from '@webcontainer/api';
 import type { Doc } from '$convex/_generated/dataModel.js';
 import type { FileNode } from '$types/editor.js';
 import type { FileTreeService, ProjectSyncService } from '$lib/services/explorer/';
-import { projectFolderName } from '$lib/utils/projects.js';
+import { projectFolderName } from '$lib/utils/explorer/projects.js';
 
 type ProjectDoc = Doc<'projects'>;
 

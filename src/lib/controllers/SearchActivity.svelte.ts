@@ -1,5 +1,5 @@
 import type { WebContainer } from '@webcontainer/api';
-import { getRootFolder } from '$lib/utils/file-system.js';
+import { getRootFolder } from '$lib/utils/explorer/file-system.js';
 import type { SearchActivityDeps } from '../../types/hooks.js';
 import type { SearchMatch } from '../../types/editor.js';
 

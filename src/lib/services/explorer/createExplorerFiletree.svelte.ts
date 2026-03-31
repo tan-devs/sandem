@@ -140,7 +140,7 @@ export function createFileTree(
 	function toggleDir(path: string): void {
 		if (expanded[path]) {
 			const { [path]: _removed, ...rest } = expanded;
-			expanded = rest;
+			expanded = { ...rest, _removed };
 		} else {
 			expanded = { ...expanded, [path]: true };
 		}

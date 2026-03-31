@@ -4,7 +4,7 @@ import { createLiveblocksEditorSync } from '$lib/controllers';
 import type { EditorSync } from '$lib/controllers/LiveblocksSyncController.svelte';
 import { createPanelsState } from '$lib/stores';
 import { setIDEContext, type IDEContext } from '$lib/context/ide-context.js';
-import { projectFolderName } from '$lib/utils/projects.js';
+import { projectFolderName } from '$lib/utils/explorer/projects.js';
 import { api } from '$convex/_generated/api.js';
 import { createError } from '$lib/sveltekit/index.js';
 import type { RepoLayoutData } from '$types/routes.js';

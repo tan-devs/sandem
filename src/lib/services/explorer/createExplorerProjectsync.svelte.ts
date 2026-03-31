@@ -63,26 +63,38 @@ export function createProjectSync(deps: ProjectSyncDeps) {
 	// fs-op broadcast logic are unchanged; only the outer function name changed.
 
 	async function createFile(path: string, content: string): Promise<void> {
-		// Convex upsert — WebContainer write is done by the action handler caller.
-		void deps, path, content; // remove when body is filled in
-		throw new Error('createProjectSync.createFile: paste implementation from projectFilesSync');
+		try {
+			await deps.getWebcontainer().fs.writeFile(path, content);
+			await deps.onRemoteOperationApplied?.();
+		} catch (error) {
+			console.error(`Could not create file: ${String(error)}`);
+		}
 	}
 
 	async function createDirectory(path: string): Promise<void> {
-		void deps, path;
-		throw new Error(
-			'createProjectSync.createDirectory: paste implementation from projectFilesSync'
-		);
+		try {
+			await deps.getWebcontainer().fs.mkdir(path);
+			await deps.onRemoteOperationApplied?.();
+		} catch (error) {
+			console.error(`Could not create directory: ${String(error)}`);
+		}
 	}
 
 	async function renamePath(oldPath: string, newPath: string): Promise<void> {
-		void deps, oldPath, newPath;
-		throw new Error('createProjectSync.renamePath: paste implementation from projectFilesSync');
+		try {
+			await deps.getWebcontainer().fs.rename(oldPath, newPath);
+			await deps.onRemoteOperationApplied?.();
+		} catch (error) {
+			console.error(`Could not rename path: ${String(error)}`);
+		}
 	}
-
 	async function deletePath(path: string): Promise<void> {
-		void deps, path;
-		throw new Error('createProjectSync.deletePath: paste implementation from projectFilesSync');
+		try {
+			await deps.getWebcontainer().fs.rm(path, { recursive: true, force: true });
+			await deps.onRemoteOperationApplied?.();
+		} catch (error) {
+			console.error(`Could not delete path: ${String(error)}`);
+		}
 	}
 
 	function stop(): void {
