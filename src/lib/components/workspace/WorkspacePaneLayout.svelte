@@ -2,7 +2,7 @@
 	import { untrack, type Snippet } from 'svelte';
 	import { PaneGroup, Pane, PaneResizer } from 'paneforge';
 	import type { PaneAPI } from 'paneforge';
-	import type { PanelsStore } from '$lib/stores/panels';
+	import type { IDEPanelsAdapter } from '$lib/controllers/panels';
 
 	let {
 		panels,
@@ -10,7 +10,7 @@
 		terminal,
 		preview
 	}: {
-		panels: PanelsStore;
+		panels: IDEPanelsAdapter;
 		editor: Snippet;
 		terminal: Snippet;
 		preview: Snippet;
