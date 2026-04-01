@@ -1,24 +1,22 @@
 <script lang="ts">
 	import { CloudLightning, Check, X, Bell, User, GitBranch } from '@lucide/svelte';
 	import { onDestroy } from 'svelte';
-	import { editorStore } from '$lib/stores';
-	import { activity } from '$lib/stores';
-	import { getPanelsContext } from '$lib/stores';
+	import { editorStore } from '$lib/stores/editor';
+	import type { IDEPanelsAdapter } from '$lib/controllers/panels';
 	import {
 		collaborationPresenceStore,
 		collaborationPermissionsStore,
 		type CollaborationPresence
-	} from '$lib/stores';
+	} from '$lib/stores/collaboration';
 
 	interface Props {
 		status: string;
 		isGuest?: boolean;
+		panels: IDEPanelsAdapter;
 	}
 
-	let { status, isGuest = false }: Props = $props();
+	let { status, isGuest = false, panels }: Props = $props();
 	const ready = $derived(status.includes('Ready'));
-
-	const panels = getPanelsContext();
 
 	const statusMeta = $derived(editorStore.status);
 
@@ -43,20 +41,11 @@
 	});
 
 	function toggleLeftPane() {
-		if (!panels) return;
 		panels.leftPane = !panels.leftPane;
 	}
 
 	function toggleBottomPane() {
-		if (!panels) return;
 		panels.downPane = !panels.downPane;
-	}
-
-	function cycleActivityTab() {
-		const sequence = ['explorer', 'search', 'git', 'run'] as const;
-		const idx = sequence.indexOf(activity.tab);
-		activity.tab = sequence[(idx + 1) % sequence.length];
-		if (panels) panels.leftPane = true;
 	}
 </script>
 
@@ -70,7 +59,7 @@
 		<button
 			class="status-item"
 			title={activePath ? activePath : 'Git Branch'}
-			onclick={cycleActivityTab}
+			onclick={toggleLeftPane}
 		>
 			<GitBranch size={13} strokeWidth={2} />
 			<span>{activeFile}</span>
