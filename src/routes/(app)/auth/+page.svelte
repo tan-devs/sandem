@@ -3,10 +3,10 @@
 	import { api } from '$convex/_generated/api.js';
 	import { useQuery } from 'convex-svelte';
 	import { useAuth } from '$lib/svelte/index.js';
-	import Button from '$lib/components/ui/primitives/Button.svelte';
-	import Form from '$lib/components/ui/primitives/Form.svelte';
-	import Grid from '$lib/components/ui/primitives/Grid.svelte';
-	import Tabs from '$lib/components/ui/primitives/Tabs.svelte';
+	import Button from '$lib/components/primitives/Button.svelte';
+	import Form from '$lib/components/primitives/Form.svelte';
+	import Grid from '$lib/components/primitives/Grid.svelte';
+	import Tabs from '$lib/components/primitives/Tabs.svelte';
 	import type { AuthLayoutData } from '../../../types/routes.js';
 
 	let { data }: { data: AuthLayoutData } = $props();

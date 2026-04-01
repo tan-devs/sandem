@@ -3,10 +3,10 @@
 	import { useQuery } from 'convex-svelte';
 	import { useAuth } from '$lib/svelte/index.js';
 	import { authClient } from '$lib/context/auth-context.js';
-	import PageSection from '$lib/components/ui/primitives/PageSection.svelte';
-	import Card from '$lib/components/ui/primitives/Card.svelte';
-	import Form from '$lib/components/ui/primitives/Form.svelte';
-	import Button from '$lib/components/ui/primitives/Button.svelte';
+	import PageSection from '$lib/components/primitives/PageSection.svelte';
+	import Card from '$lib/components/primitives/Card.svelte';
+	import Form from '$lib/components/primitives/Form.svelte';
+	import Button from '$lib/components/primitives/Button.svelte';
 
 	const auth = useAuth();
 

@@ -1,5 +1,5 @@
-import { collaborationPermissionsStore } from '$lib/stores';
-import type { TerminalStore } from '$lib/stores/';
+import { collaborationPermissionsStore } from '$lib/stores/collaboration';
+import type { TerminalStore } from '$lib/stores/terminal/terminal.store.svelte';
 import type { TerminalWorkspace } from '$lib/services/terminal/createTerminalWorkspace.svelte.js';
 
 // ---------------------------------------------------------------------------

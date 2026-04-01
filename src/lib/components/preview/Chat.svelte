@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { requireIDEContext } from '$lib/context';
 	import { createChatPane } from '$lib/hooks';
-	import ErrorPanel from '$lib/components/ui/primitives/ErrorPanel.svelte';
+	import ErrorPanel from '$lib/components/primitives/ErrorPanel.svelte';
 	import { createErrorReporter } from '$lib/sveltekit/index.js';
 
 	const ide = requireIDEContext();

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Trash2, RotateCcw, Square, Maximize2, X } from '@lucide/svelte';
-	import Tabs from '$lib/components/ui/primitives/Tabs.svelte';
-	import Button from '$lib/components/ui/primitives/Button.svelte';
+	import Tabs from '$lib/components/primitives/Tabs.svelte';
+	import Button from '$lib/components/primitives/Button.svelte';
 	import type { TerminalPanelTab, TerminalPanelTabItem } from '$lib/stores/terminal';
 
 	type Props = {

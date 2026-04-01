@@ -1,59 +1,20 @@
 import { api } from '$convex/_generated/api.js';
 import { createAuth } from '$convex/functions/auth.js';
-import { createConvexHttpClient, getAuthState } from '$lib/sveltekit/index.js';
-import {
-	ensureGuestIdCookie,
-	loadRepoLayoutAuthenticated,
-	loadRepoLayoutGuest
-} from '$lib/controllers/LoaderController.svelte.js';
-import type { RequestEvent, Cookies } from '@sveltejs/kit';
+import { createConvexHttpClient, getAuthState } from '$lib/sveltekit';
+import { loadWorkspace } from '$lib/controllers/workspace/LoaderController.svelte.js';
+import type { RequestEvent } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types.js';
 import type { RepoLayoutData } from '$types/routes.js';
 
-// Render this route fully on the client — it relies on browser-only sandbox APIs.
+// Render this route fully on the client — it relies on browser-only WebContainer APIs.
+// The server load still runs to bootstrap auth state and project data before hydration,
+// preventing a flash of unauthenticated/empty state.
 export const ssr = false;
 
 export const load = (async ({ locals, cookies }: Pick<RequestEvent, 'locals' | 'cookies'>) => {
 	const client = createConvexHttpClient({ token: locals.token });
 	const authState = await getAuthState(createAuth, cookies);
+	const currentUser = await client.query(api.auth.getCurrentUser, {}).catch(() => null);
 
-	try {
-		const currentUser = await client.query(api.auth.getCurrentUser, {});
-
-		if (currentUser) {
-			const { userIdentity, projects, workspaceTree } = await loadRepoLayoutAuthenticated(
-				client,
-				currentUser
-			);
-
-			return {
-				authState,
-				currentUser,
-				isGuest: false,
-				userIdentity,
-				projects,
-				workspaceTree
-			};
-		}
-
-		const guestId = ensureGuestIdCookie(cookies as Cookies);
-		const { userIdentity, projects } = await loadRepoLayoutGuest(client, guestId);
-
-		return {
-			authState,
-			currentUser,
-			isGuest: true,
-			userIdentity,
-			projects
-		};
-	} catch {
-		// Fail closed: treat any backend/network error as a guest-like state.
-		return {
-			authState,
-			currentUser: null,
-			isGuest: true,
-			userIdentity: null,
-			projects: []
-		};
-	}
+	return loadWorkspace(client, authState, currentUser, cookies);
 }) satisfies LayoutServerLoad<RepoLayoutData>;

@@ -2,20 +2,27 @@
 	import { onMount, onDestroy } from 'svelte';
 
 	import { requireIDEContext } from '$lib/context';
-	import { createEditorController } from '$lib/controllers';
-	import Tabs from '$lib/components/ui/primitives/Tabs.svelte';
-	import { editorStore } from '$lib/stores';
-	import { activity } from '$lib/stores';
+	import { createEditorController } from '$lib/controllers/editor';
+	import { Tabs, ErrorPanel } from '$lib/components/primitives';
+	import { editorStore } from '$lib/stores/editor';
+	import { collaborationPermissionsStore } from '$lib/stores/collaboration';
 	import { EditorSaveStatus, EditorBreadcrumbs, EditorEmptyState } from '$lib/components/editor';
-	import ErrorPanel from '$lib/components/ui/primitives/ErrorPanel.svelte';
-	import { getPanelsContext } from '$lib/stores';
-	import { collaborationPermissionsStore } from '$lib/stores';
+	import type { IDEPanelsAdapter } from '$lib/controllers/panels';
 
-	const ide = requireIDEContext();
-	const panels = getPanelsContext();
+	// ── Props ─────────────────────────────────────────────────────────────────
+
+	interface Props {
+		getPanels: () => IDEPanelsAdapter | undefined;
+	}
+
+	let { getPanels }: Props = $props();
+
+	// ── Permissions ───────────────────────────────────────────────────────────
 
 	let element: HTMLDivElement;
 	let canWrite = $state(true);
+
+	const ide = requireIDEContext();
 
 	const unsubscribePermissions = collaborationPermissionsStore.subscribe((value) => {
 		canWrite = value.canWrite;
@@ -23,15 +30,13 @@
 
 	// ── Wiring ────────────────────────────────────────────────────────────────
 	//
-	// EditorControllerOptions expects `store`, not `editorStore`.
-	// `getCanWrite` is forwarded here; the controller accepts it but does not
-	// yet thread it into the runtime — tracked as a known DI gap in EDITOR.md.
+	// Wrap getPanels in a closure so the controller always re-reads the live
+	// prop value, not the value captured at construction time.
 
 	const editorPane = createEditorController({
 		ide,
 		store: editorStore,
-		activity,
-		getPanels: () => panels,
+		getPanels: () => getPanels(),
 		getCanWrite: () => canWrite
 	});
 

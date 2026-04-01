@@ -6,20 +6,26 @@
 	import { goto } from '$app/navigation';
 
 	import { NavigationMenu, type WithoutChildrenOrChild } from 'bits-ui';
-	import NavigationList from '$lib/components/ui/primitives/NavigationList.svelte';
+	import NavigationList from '$lib/components/primitives/NavigationList.svelte';
+
+	import SearchBar from '$lib/components/primitives/SearchBar.svelte';
+	import AppMenu from '$lib/components/workspace/AppMenu.svelte';
+	import CommandPalette from '$lib/components/workspace/CommandPalette.svelte';
+	import PanelControls from '$lib/components/primitives/PanelControls.svelte';
+	import WindowControls from '$lib/components/primitives/WindowControls.svelte';
+	import ThemeSwitcher from '$lib/components/colors/ThemeSwitcher.svelte';
+	import ModeToggle from '$lib/components/colors/ModeToggle.svelte';
+
+	import type { IDEPanelsAdapter } from '$lib/controllers/panels';
+	import { globalSearchKeydown } from '$lib/services/workspace';
+
 	const links = [
 		{ path: '/repo', label: 'repo' },
 		{ path: '/shop', label: 'shop' },
 		{ path: '/auth', label: 'auth' }
 	];
 
-	import SearchBar from '$lib/components/ui/primitives/SearchBar.svelte';
-	let globalQuery = $state('');
-
-	import { globalSearchKeydown } from '$lib/services';
-	function handleGlobalSearchKeydown(event: KeyboardEvent) {
-		globalSearchKeydown(event, globalQuery, (path) => goto(path));
-	}
+	const menus = ['File', 'Edit', 'Selection', 'View', 'Go', 'Run', 'Terminal', 'Help'];
 
 	let {
 		variant = 'default',
@@ -27,28 +33,23 @@
 		ref = $bindable(null),
 		search,
 		children,
+		panels,
 		...rest
 	}: WithoutChildrenOrChild<NavigationMenu.RootProps> & {
 		variant?: 'default' | 'outline' | 'ghost';
 		class?: string;
 		search?: Snippet;
 		children?: Snippet;
+		panels?: IDEPanelsAdapter;
 	} = $props();
+
+	let globalQuery = $state('');
 
 	const isRepoRoute = $derived(page.url.pathname.startsWith('/repo'));
 
-	import AppMenu from '$lib/components/workspace/AppMenu.svelte';
-	const menus = ['File', 'Edit', 'Selection', 'View', 'Go', 'Run', 'Terminal', 'Help'];
-
-	import CommandPalette from '$lib/components/workspace/CommandPalette.svelte';
-	import PanelControls from '$lib/components/ui/primitives/PanelControls.svelte';
-	import WindowControls from '$lib/components/ui/primitives/WindowControls.svelte';
-
-	import ThemeSwitcher from '$lib/components/ui/colors/ThemeSwitcher.svelte';
-	import ModeToggle from '$lib/components/ui/colors/ModeToggle.svelte';
-
-	import { getPanelsContext } from '$lib/stores';
-	const panels = getPanelsContext();
+	function handleGlobalSearchKeydown(event: KeyboardEvent) {
+		globalSearchKeydown(event, globalQuery, (path) => goto(path));
+	}
 </script>
 
 <NavigationMenu.Root data-variant={variant} class={className} {...rest} bind:ref>
@@ -59,11 +60,11 @@
 					<img src={favicon} alt="home" />
 				</a>
 				<NavigationList {links} />
-
 				{#if isRepoRoute}
-					<AppMenu {menus} />
+					<AppMenu {menus} {panels} />
 				{/if}
 			</div>
+
 			<div class="center">
 				{#if search}
 					{@render search()}
@@ -79,6 +80,7 @@
 					/>
 				{/if}
 			</div>
+
 			<div class="right">
 				<div class="tb-right">
 					{#if isRepoRoute}
@@ -120,7 +122,6 @@
 		-webkit-app-region: drag;
 	}
 
-	/* Opt out of drag region for interactive elements */
 	.app-header :global(button),
 	.app-header :global(a),
 	.app-header :global(menu),
@@ -152,7 +153,6 @@
 		gap: 0.35rem;
 	}
 
-	/* ── Favicon link ──────────────────────────────────── */
 	.favicon {
 		display: inline-flex;
 		align-items: center;
@@ -172,20 +172,17 @@
 		background: var(--fg);
 	}
 
-	/* ── Action items layout ───────────── */
 	.action-items {
 		display: flex;
 		align-items: center;
 		gap: 0.25rem;
 		justify-content: flex-end;
 	}
-
 	.action-items :global(button) {
 		height: 22px;
 		min-width: 22px;
 		border-radius: 4px;
 	}
-
 	.action-items :global(svg) {
 		width: 14px;
 		height: 14px;

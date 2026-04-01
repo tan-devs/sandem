@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Plus, X, Pencil, ArrowLeft, ArrowRight } from '@lucide/svelte';
-	import Button from '$lib/components/ui/primitives/Button.svelte';
+	import Button from '$lib/components/primitives/Button.svelte';
 	import type { TerminalPanelTab } from '$lib/stores/terminal';
 
 	// Only the fields the toolbar actually uses — decoupled from SessionView.

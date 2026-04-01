@@ -1,26 +1,27 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { activity, type TabId } from '$lib/stores';
-	import { getPanelsContext } from '$lib/stores';
-	import { createMenuController } from '$lib/controllers';
+
+	import type { IDEPanelsAdapter } from '$lib/controllers/panels';
+	import type { TabId } from '$lib/stores/activity';
+	import { createMenuController } from '$lib/controllers/workspace';
 
 	interface Props {
 		menus: string[];
+		panels?: IDEPanelsAdapter;
+		setActivityTab?: (tab: TabId) => void;
 	}
-	let { menus }: Props = $props();
 
-	const panels = getPanelsContext();
+	let { menus, panels, setActivityTab }: Props = $props();
+
 	let root: HTMLElement | null = $state(null);
-
-	function setActivityTab(tab: TabId) {
-		activity.tab = tab;
-		if (panels) panels.leftPane = true;
-	}
 
 	const controller = createMenuController({
 		navigate: (path) => void goto(path),
-		setActivityTab,
+		setActivityTab: (tab) => {
+			setActivityTab?.(tab);
+			if (panels) panels.leftPane = true;
+		},
 		toggleLeftPane: () => {
 			if (!panels) return;
 			panels.leftPane = !panels.leftPane;
@@ -118,7 +119,6 @@
 	.menu-item:hover {
 		background: var(--fg);
 	}
-
 	.menu-item.active {
 		background: var(--fg);
 	}
@@ -158,7 +158,6 @@
 		cursor: pointer;
 		text-align: left;
 	}
-
 	.menu-action:hover,
 	.menu-action.highlighted {
 		background: var(--mg);

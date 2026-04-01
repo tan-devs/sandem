@@ -18,7 +18,7 @@
  * auto-calls it on component destroy.
  */
 
-import type { ExplorerController } from '$lib/controllers';
+import type { ExplorerController } from '$lib/controllers/explorer';
 
 export function useExplorer(explorer: ExplorerController, getActivityTab: () => string) {
 	// ── $effect: search → auto-expand matching directories ───────────────────

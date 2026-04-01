@@ -2,7 +2,7 @@ import * as Y from 'yjs';
 import type * as Monaco from 'monaco-editor';
 import type { Project } from '$lib/context';
 import type { EditorRuntimeDependencies } from '$types/hooks.js';
-import { createMonacoInstance, MONACO_OPTIONS } from '$lib/services';
+import { createMonacoInstance, MONACO_OPTIONS } from '$lib/services/editor';
 import {
 	type ModelBinding,
 	createOfflineModels,
@@ -10,7 +10,7 @@ import {
 	destroyModelBindings
 } from '$lib/utils';
 import { seedPersistSignatures, diffYDocFiles } from '$lib/utils';
-import { startCollaborationSession, type CollaborationSession } from '$lib/services';
+import { startCollaborationSession, type CollaborationSession } from '$lib/services/collaboration';
 
 /**
  * Monaco + Yjs runtime service.

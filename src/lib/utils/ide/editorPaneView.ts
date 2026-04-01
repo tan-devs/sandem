@@ -1,4 +1,4 @@
-import type { EditorTab } from '$lib/stores';
+import type { EditorTab } from '$lib/stores/editor';
 import type { AutoSaveStatus } from '$lib/services/editor';
 import type { QuickAction } from '$types/editor.js';
 

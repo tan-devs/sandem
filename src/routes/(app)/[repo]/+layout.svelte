@@ -1,24 +1,22 @@
 <script lang="ts">
-	import { onMount, untrack, type Snippet } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api.js';
 	import { PaneGroup, Pane, type PaneAPI } from 'paneforge';
 
-	import { createSvelteAuthClient, useAuth } from '$lib/svelte/index.js';
-	import { authClient } from '$lib/context/auth-context.js';
-	import { setupRepoLayout, syncRepoProjects } from '$lib/controllers/LayoutController.svelte';
+	import { createSvelteAuthClient, useAuth } from '$lib/svelte';
+	import { authClient } from '$lib/context';
+	import { createWorkspaceController } from '$lib/controllers/workspace';
+	import { useActivity } from '$lib/hooks/useActivity.svelte.js';
 
 	import type { RepoLayoutData } from '$types/routes.js';
 	import type { Id } from '$convex/_generated/dataModel.js';
 
-	import { ActivityBar } from '$lib/components/sidebar/activities';
-	import Sidebar from '$lib/components/sidebar/Sidebar.svelte';
-	import Statusbar from '$lib/components/workspace/Statusbar.svelte';
-	import Resizer from '$lib/components/ui/primitives/Resizer.svelte';
-	import ErrorPanel from '$lib/components/ui/primitives/ErrorPanel.svelte';
-
-	import { setPanelsContext } from '$lib/stores';
+	import { Statusbar } from '$lib/components/workspace';
+	import { Resizer, ErrorPanel } from '$lib/components/primitives';
+	import { ActivityBar } from '$lib/components/activity';
+	import { SidebarPanel } from '$lib/components/panels';
 
 	let { children, data }: { children: Snippet; data: RepoLayoutData } = $props();
 
@@ -35,49 +33,36 @@
 
 	const currentUser = $derived(currentUserResponse.data ?? data.currentUser);
 	const isGuest = $derived(!currentUser);
-
-	// Typed as null when unauthenticated — the query's 'skip' guard handles the falsy case.
-	// Previously typed as Id<'users'> | '' which is misleading ('' is not a valid user ID).
 	const ownerId = $derived<Id<'users'> | null>(currentUser?._id ?? null);
 
-	// Live Convex subscription — authoritative project list.
 	const projectsResponse = useQuery(
 		api.projects.getAllProjects,
 		() => (ownerId ? { ownerId } : 'skip'),
 		() => ({ initialData: data.projects, keepPreviousData: true })
 	);
 
-	const { repo, editorSync, panels } = setupRepoLayout({
+	let sidebar = $state<PaneAPI>();
+
+	const ctrl = createWorkspaceController({
 		getData: () => data,
 		isGuest: () => isGuest,
 		ownerId: () => ownerId,
-		convexClient
-	});
-	setPanelsContext(panels);
-
-	// Single effect handles both the initial SSR seed and live subscription updates.
-	// Previously split across two effects, causing redundant syncs on every render.
-	$effect(() => {
-		syncRepoProjects(
-			repo,
-			Boolean(isGuest),
-			projectsResponse.data,
-			projectsResponse.error,
-			data.projects
-		);
+		convexClient,
+		getSidebar: () => sidebar,
+		getProjectsData: () => projectsResponse.data,
+		getProjectsError: () => projectsResponse.error
 	});
 
-	let sidebar = $state<PaneAPI>();
-
-	$effect(() => {
-		const open = panels.leftPane;
-		untrack(() => (open ? sidebar?.expand() : sidebar?.collapse()));
-	});
+	// useActivity is called here solely to read activeTab for prop injection into
+	// SidebarPanel. ActivityBar creates its own instance internally (for keyboard
+	// mount lifecycle). Both instances share the same activityStore $state so
+	// they always reflect the same value — no duplication of side effects.
+	const activity = useActivity({ getPanels: () => ctrl.panels });
 
 	onMount(() => {
-		const cleanup = repo.mount();
+		const cleanup = ctrl.mount();
 		return () => {
-			editorSync.destroy();
+			ctrl.destroyEditorSync();
 			cleanup?.();
 		};
 	});
@@ -87,41 +72,38 @@
 
 <div class="container">
 	<main class="repo-layout">
-		<ActivityBar {panels} />
+		<ActivityBar getPanels={() => ctrl.panels} />
 
 		<section class="workspace-shell">
 			<PaneGroup direction="horizontal">
 				<Pane bind:this={sidebar} collapsible collapsedSize={0} defaultSize={18}>
-					<Sidebar />
+					<!--
+						activeTab flows from activityStore → useActivity → prop.
+						SidebarPanel never touches the store directly.
+					-->
+					<SidebarPanel activeTab={activity.activeTab} />
 				</Pane>
 
 				<Resizer />
 
 				<Pane>
-					{#if repo.runtimePhase === 'failed'}
+					{#if ctrl.runtimePhase === 'failed'}
 						<ErrorPanel
 							title="Sandbox failed to start"
 							description="The IDE hit a WebContainer runtime error. You can recover without refreshing."
-							message={repo.runtimeError ?? 'Unknown runtime error.'}
+							message={ctrl.runtimeError ?? 'Unknown runtime error.'}
 							testId="runtime-recovery-ui"
 						>
 							{#snippet actions()}
-								<button class="action" onclick={() => void repo.startRuntime()}>
+								<button class="action" onclick={() => void ctrl.startRuntime()}>
 									Retry runtime
 								</button>
-								<button
-									class="action"
-									onclick={() => {
-										panels.leftPane = true;
-										panels.downPane = true;
-										panels.rightPane = true;
-									}}
-								>
+								<button class="action" onclick={() => ctrl.resetPanes()}>
 									Reset pane visibility
 								</button>
 							{/snippet}
 						</ErrorPanel>
-					{:else if repo.ready}
+					{:else if ctrl.ready}
 						{@render children()}
 					{:else}
 						<p class="booting-msg">
@@ -133,7 +115,7 @@
 		</section>
 	</main>
 
-	<Statusbar status={repo.statusText} {isGuest} />
+	<Statusbar status={ctrl.statusText} {isGuest} />
 </div>
 
 <!-- /html -->

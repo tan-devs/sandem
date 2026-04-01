@@ -1,7 +1,7 @@
 import { setContext, getContext } from 'svelte';
 import type { WebContainer } from '@webcontainer/api';
 import type { Doc } from '$convex/_generated/dataModel.js';
-import type { EditorSync } from '$lib/controllers/LiveblocksSyncController.svelte';
+import type { WorkspaceEditorSync } from '$lib/services/workspace';
 
 // ---------------------------------------------------------------------------
 // Canonical document types — derived directly from the Convex schema.
@@ -65,8 +65,8 @@ export interface IDEContext {
 	 */
 	getEntryPath: () => string | undefined;
 
-	/** Optional external editor sync controller (e.g. Liveblocks). */
-	editorSync?: EditorSync;
+	/** Optional external editor sync controller (Liveblocks Yjs bridge). */
+	editorSync?: WorkspaceEditorSync;
 
 	/** Optional workspace project list — used by Explorer in /repo. */
 	getWorkspaceProjects?: () => WorkspaceProject[];

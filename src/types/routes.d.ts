@@ -19,6 +19,8 @@ export type AuthLayoutData = {
 export type RepoLayoutData = {
 	authState: InitialAuthState;
 	currentUser: RouteUser | null;
+	isGuest: boolean;
+	userIdentity: unknown | null; // tighten once UserIdentity type is available
 	projects: PROJECT_DOC[];
-	workspaceTree?: Record<string, unknown>;
+	workspaceTree?: Record<string, unknown>; // authenticated path only
 };

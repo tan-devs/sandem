@@ -20,6 +20,5 @@
 		"isolatedModules": true,
 		"noEmit": true
 	},
-	"include": ["./**/*.ts", "./**/*.d.ts"],
 	"exclude": ["./_generated"]
 }

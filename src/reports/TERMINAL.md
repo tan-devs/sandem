@@ -19,6 +19,9 @@ stores/terminal/            ← reactive $state only, zero IO
   terminal.session.store
   terminal.store            ← composes the two above + permissions
 
+stores/collaboration/       ← cross-cutting writable stores (editor + terminal)
+  collaboration.store.svelte.ts
+
 services/terminal/          ← runtime orchestration, shell lifecycle
   createTerminalShell       ← jsh process, xterm attachment, git shim
   createTerminalWorkspace   ← reconciles store ↔ shell runtimes; orchestrates everything
@@ -82,6 +85,30 @@ singleton consumed by `Terminal.svelte` and `TerminalController`.
 
 ---
 
+### Stores (`stores/collaboration/`)
+
+#### `collaboration.store.svelte.ts`
+
+Cross-cutting store shared by both the editor and terminal systems. Owns
+collaboration presence, permissions, and terminal audit log.
+
+Exports:
+
+- `collaborationPresenceStore` — `writable<CollaborationPresence[]>`
+- `collaborationPermissionsStore` — `writable<CollaborationPermissions>`
+- `terminalAuditStore` — `writable<TerminalAuditEntry[]>`
+- `resetCollaborationStores()` — resets presence + permissions to defaults
+- `setCollaborationPermissions()` — called by the Liveblocks sync controller
+- `setCollaborationPresence()` — called by the Liveblocks sync controller
+- `appendTerminalAudit()` — called by `createTerminalWorkspace` via `recordAudit`
+
+**Why here and not `stores/terminal/`?**
+`collaborationPermissionsStore` is consumed by both `Editor.svelte` (for `canWrite`) and
+`useTerminal` (for `store.applyPermissions`). It is a broadcast channel, not terminal-specific.
+`stores/collaboration/` keeps it neutral and prevents either system from owning a shared concern.
+
+---
+
 ### Services (`services/terminal/`)
 
 #### `createTerminalShell.svelte.ts` → `createTerminalShell(getWebcontainer, options)`
@@ -121,6 +148,12 @@ Key responsibilities:
   `SessionView[]` (the shape consumed by components). Contains no live
   `Terminal` references — those live on `runtimes[]` directly.
 - **`destroy()`** — kills all shell processes on unmount.
+
+**`getLayout` parameter:**
+`createTerminalWorkspace` receives `getLayout: () => { downPane?: boolean } | undefined`.
+This is the only panel field the terminal needs for layout calculations.
+The caller passes `options.getPanels` directly from `TerminalController` — no
+intermediate type adapter required.
 
 ---
 
@@ -182,8 +215,8 @@ lives here — not in the store — so the store remains pure.
    `store.sessions.addSession()` if no valid save exists.
 2. Creates a `MutationObserver` on `document.documentElement` to watch theme
    attribute changes; calls `workspace.refreshThemes()` on change.
-3. Subscribes to `collaborationPermissionsStore`; calls
-   `store.applyPermissions(canWrite, roomId)` on every emission.
+3. Subscribes to `collaborationPermissionsStore` (from `stores/collaboration/`);
+   calls `store.applyPermissions(canWrite, roomId)` on every emission.
 4. Returns a `cleanup()` function that unsubscribes, disconnects the observer,
    and calls `workspace.destroy()`.
 
@@ -199,6 +232,17 @@ consume.
 
 **Nothing else should instantiate these services.** The controller is the only
 composition point.
+
+**`getPanels` parameter:**
+
+```ts
+getPanels: () => { downPane?: boolean } | undefined
+```
+
+Pass `() => panelsCtrl.panels` from the workspace. The terminal only reads
+`downPane` for layout — it does not know about `leftPane` or `rightPane`.
+`getPanelsContext` from the legacy `panel.store.svelte.ts` is **not used here**.
+The controller receives layout state via injection, not context lookup.
 
 Returned API surface (all delegated, no logic):
 
@@ -357,3 +401,14 @@ handler — this was a double-call bug that caused a second `shell.attach()`
 attempt. The fix is to remove `onEnsureShell` from the toolbar entirely.
 `ensureShellReady` is still exposed on the controller for `TerminalViewport`'s
 Retry button, which is a valid standalone trigger.
+
+### Why was `getPanelsContext` removed from `TerminalController`?
+
+The original controller imported `getPanelsContext` from `$lib/stores/terminal`
+and typed `getPanels` as `typeof getPanelsContext`. This coupled the terminal
+to the legacy Svelte context lookup system and forced the terminal store barrel
+to re-export a function that had nothing to do with terminal state.
+
+The new controller receives `getPanels: () => { downPane?: boolean } | undefined`
+as a plain closure injected at the call site. The workspace passes
+`() => panelsCtrl.panels` — no context lookup, no legacy store dependency.

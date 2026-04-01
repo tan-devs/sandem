@@ -1,5 +1,6 @@
 import type { IDEContext } from '$lib/context/';
-import type { IDEPanels, PanelKey, EditorStore } from '$lib/stores';
+import type { EditorStore } from '$lib/stores/editor';
+import type { IDEPanelsAdapter } from '$lib/controllers/panels';
 
 export interface EditorActionContext {
 	ide: IDEContext;
@@ -10,7 +11,7 @@ export interface EditorActionContext {
 		runtime: ReturnType<typeof import('$lib/services/editor').createEditor>;
 		lifecycle: ReturnType<typeof import('$lib/hooks').useEditor>;
 	};
-	getPanels: () => IDEPanels | undefined;
+	getPanels: () => IDEPanelsAdapter | undefined;
 }
 
 /**
@@ -53,7 +54,7 @@ export function createEditorActions(ctx: EditorActionContext) {
 			ctx.editorStore.closeTab(path);
 		},
 
-		togglePanel(panel: PanelKey) {
+		togglePanel(panel: keyof IDEPanelsAdapter) {
 			const panels = ctx.getPanels();
 			if (panels) panels[panel] = !panels[panel];
 		}

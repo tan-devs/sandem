@@ -37,7 +37,7 @@ components/explorer/
   ExplorerProjectInfo.svelte      ← project metadata panel
   ExplorerOutline.svelte          ← active-file symbol outline
   ExplorerTimeline.svelte         ← action/error history log
-  ExploerContextMenu.svelte       ← right-click menu (full keyboard nav)
+  ExplorerContextMenu.svelte      ← right-click menu (full keyboard nav)
 ```
 
 ---
@@ -63,7 +63,7 @@ Sidebar.svelte
       └── <ExplorerContent ...30 props />
             ├── <ExplorerOpenEditors />
             ├── <ExplorerFilesSection />
-            │     └── <ExploerContextMenu />
+            │     └── <ExplorerContextMenu />
             ├── <ExplorerProjectInfo />
             ├── <ExplorerOutline />
             └── <ExplorerTimeline />
@@ -109,6 +109,13 @@ Auto-refresh is adaptive: starts at 850 ms, backs off to 6 s as the tree stabili
 Renamed from `projectFilesSync` — signature and body unchanged, only the factory name updated to match the `create*` convention.
 
 **API surface:** `canWrite()`, `createFile()`, `createDirectory()`, `renamePath()`, `deletePath()`, `stop()`
+
+> ⚠️ **DI gap:** `createFile`, `createDirectory`, `renamePath`, and `deletePath` currently
+> catch errors internally and call `console.error`, swallowing them silently. Errors never
+> propagate back to the action handlers in `explorer-ops.ts`, so `ctx.onError` is never
+> called for Convex/WC failures — they are invisible to the UI. Fix: remove the internal
+> try/catch and let errors throw, so the action handler's own catch block routes them through
+> `ctx.onError → setActionError → actionError $state`.
 
 ---
 
@@ -211,7 +218,7 @@ ide-context.ts (Svelte context)                                 │  │  │
        │
        ├──► ExplorerOpenEditors   (tabs, activeTabPath, onOpenFile, onCloseTab)
        ├──► ExplorerFilesSection  (tree, filteredTree, search, selection, callbacks)
-       │         └──► ExploerContextMenu
+       │         └──► ExplorerContextMenu
        ├──► ExplorerProjectInfo   (activeProject, folderName, nodeCount, isOwner)
        ├──► ExplorerOutline       (activeFilePath)
        └──► ExplorerTimeline      (timelineEvents, onOpenPath)

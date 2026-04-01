@@ -4,3 +4,4 @@ export * from './useTerminal.svelte';
 export * from './useChat.svelte';
 export * from './useActivity.svelte';
 export * from './useExplorer.svelte';
+export * from './usePanels.svelte';
