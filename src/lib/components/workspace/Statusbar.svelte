@@ -2,7 +2,7 @@
 	import { CloudLightning, Check, X, Bell, User, GitBranch } from '@lucide/svelte';
 	import { onDestroy } from 'svelte';
 	import { editorStore } from '$lib/stores/editor';
-	import type { PanelsStore } from '$lib/stores/panels';
+	import type { IDEPanelsAdapter } from '$lib/controllers/panels';
 	import {
 		collaborationPresenceStore,
 		collaborationPermissionsStore,
@@ -12,7 +12,7 @@
 	interface Props {
 		status: string;
 		isGuest?: boolean;
-		panels: PanelsStore;
+		panels: IDEPanelsAdapter;
 	}
 
 	let { status, isGuest = false, panels }: Props = $props();
@@ -41,11 +41,11 @@
 	});
 
 	function toggleLeftPane() {
-		panels.setLeft(!panels.leftPane);
+		panels.leftPane = !panels.leftPane;
 	}
 
 	function toggleBottomPane() {
-		panels.setDown(!panels.downPane);
+		panels.downPane = !panels.downPane;
 	}
 </script>
 
