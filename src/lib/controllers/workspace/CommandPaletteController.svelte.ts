@@ -1,10 +1,10 @@
 import type { TabId } from '$lib/stores/activity';
 import type { CommandItem } from '$types/commands.js';
-import type { ActivityPanels } from '$types/hooks.js';
+import type { IDEPanelsAdapter } from '$lib/controllers/panels';
 
 type Options = {
 	navigate: (path: string) => void;
-	getPanels: () => ActivityPanels | undefined;
+	getPanels: () => IDEPanelsAdapter | undefined;
 	setActivityTab: (tab: TabId) => void;
 };
 
@@ -13,7 +13,7 @@ export function createCommandPaletteController(options: Options) {
 	let query = $state('');
 	let selectedIndex = $state(0);
 
-	function withPanels(mutator: (panels: ActivityPanels) => void) {
+	function withPanels(mutator: (panels: IDEPanelsAdapter) => void) {
 		const panels = options.getPanels();
 		if (!panels) return;
 		mutator(panels);

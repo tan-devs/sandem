@@ -2,21 +2,23 @@
 	import { goto } from '$app/navigation';
 	import { tick } from 'svelte';
 	import { Search, ChevronRight } from '@lucide/svelte';
-	import { type TabId } from '$lib/stores/activity';
-	import { getPanelsContext } from '$lib/stores/panels';
+	import type { TabId } from '$lib/stores/activity';
+	import { createCommandPaletteController } from '$lib/controllers/workspace';
+	import type { IDEPanelsAdapter } from '$lib/controllers/panels';
 
-	const panels = getPanelsContext();
+	let {
+		panels,
+		setActivityTab
+	}: {
+		panels: IDEPanelsAdapter;
+		setActivityTab: (tab: TabId) => void;
+	} = $props();
+
 	let inputEl: HTMLInputElement | null = $state(null);
-
-	function setActivity(tab: TabId) {
-		activity.tab = tab;
-		if (panels) panels.leftPane = true;
-	}
-
 	const controller = createCommandPaletteController({
 		navigate: (path) => void goto(path),
 		getPanels: () => panels,
-		setActivityTab: setActivity
+		setActivityTab: () => setActivityTab
 	});
 
 	$effect(() => {
