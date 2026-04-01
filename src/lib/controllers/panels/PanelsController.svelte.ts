@@ -37,6 +37,10 @@ export interface IDEPanelsAdapter {
 	leftPane: boolean;
 	downPane: boolean;
 	rightPane: boolean;
+	setLeft(open: boolean): void;
+	setDown(open: boolean): void;
+	setRight(open: boolean): void;
+	resetAll(): void;
 }
 
 // ---------------------------------------------------------------------------
@@ -87,9 +91,9 @@ export function createPanelsController(options: CreatePanelsControllerOptions) {
 
 	// ── IDEPanelsAdapter ──────────────────────────────────────────────────────
 	//
-	// Consumers write panel visibility via direct property assignment
-	// (e.g. `panels.leftPane = true`, `panels.downPane = !panels.downPane`).
-	// Every write routes through the service so persistence always fires.
+	// Consumers read panel visibility via getters and write via either
+	// direct property assignment or explicit set methods — both route through
+	// the service so persistence always fires.
 	const panels: IDEPanelsAdapter = {
 		get leftPane(): boolean {
 			return store.leftPane;
@@ -108,7 +112,11 @@ export function createPanelsController(options: CreatePanelsControllerOptions) {
 		},
 		set rightPane(v: boolean) {
 			service.setRight(v);
-		}
+		},
+		setLeft: hook.setLeft,
+		setDown: hook.setDown,
+		setRight: hook.setRight,
+		resetAll: hook.resetAll
 	};
 
 	// ── Public API ────────────────────────────────────────────────────────────

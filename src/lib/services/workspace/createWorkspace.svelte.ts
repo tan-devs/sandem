@@ -9,6 +9,10 @@
  * so that the runtime's failRuntimeWithError is available as the error sink
  * before any $effects register. useWorkspace's mount() owns startRuntime and
  * the window error guards — do not call runtime.startRuntime() separately here.
+ *
+ * NOTE: Panels are NOT composed here. Panel state, persistence, and PaneAPI
+ * sync are fully owned by createPanelsController() inside WorkspaceController.
+ * getSidebar is passed directly to createPanelsController — not here.
  */
 
 import { createWorkspaceStore } from '$lib/stores/workspace/workspace.store.svelte.js';
@@ -17,14 +21,12 @@ import { createWorkspaceRuntime } from './createWorkspaceRuntime.svelte.js';
 import type { ConvexOperations } from '$lib/services/webcontainer';
 import type { FileSystemTree } from '@webcontainer/api';
 import type { RepoLayoutData } from '$types/routes.js';
-import type { PaneAPI } from 'paneforge';
 
 export interface WorkspaceControllerOptions {
 	getInitialProjects: () => RepoLayoutData['projects'];
 	getProjectsData: () => RepoLayoutData['projects'] | undefined;
 	getProjectsError: () => unknown;
 	getWorkspaceTree: () => FileSystemTree;
-	getSidebar: () => PaneAPI | undefined;
 	isDemo: () => boolean;
 	isGuest: () => boolean;
 	ownerId: () => string;
@@ -45,12 +47,12 @@ export function createWorkspaceController(options: WorkspaceControllerOptions) {
 		convexClient: options.convexClient
 	});
 
-	// useWorkspace owns: project sync effect, sidebar DOM effect, localStorage
-	// effect, startRuntime(), and window error/rejection listeners.
+	// useWorkspace owns: project sync effect, localStorage effect,
+	// startRuntime(), and window error/rejection listeners.
+	// Sidebar DOM sync has moved to usePanels inside PanelsController.
 	const hook = useWorkspace({
 		store,
 		runtime,
-		getSidebar: options.getSidebar,
 		getProjectsData: options.getProjectsData,
 		getProjectsError: options.getProjectsError,
 		getInitialProjects: options.getInitialProjects,
@@ -68,21 +70,6 @@ export function createWorkspaceController(options: WorkspaceControllerOptions) {
 	// ── Public interface ──────────────────────────────────────────────────────
 
 	return {
-		// ── Store: panel state ────────────────────────────────────────────────
-		get leftPane() {
-			return store.panels.leftPane;
-		},
-		get downPane() {
-			return store.panels.downPane;
-		},
-		get rightPane() {
-			return store.panels.rightPane;
-		},
-		setLeft: (v: boolean) => store.panels.setLeft(v),
-		setDown: (v: boolean) => store.panels.setDown(v),
-		setRight: (v: boolean) => store.panels.setRight(v),
-		resetPanes: () => store.panels.resetAll(),
-
 		// ── Store: project selection + rename/delete UI state ─────────────────
 		get activeProjectId() {
 			return store.projects.activeProjectId;
@@ -104,7 +91,6 @@ export function createWorkspaceController(options: WorkspaceControllerOptions) {
 		get ready() {
 			return runtime.ready;
 		},
-		// statusText is derived inside createWorkspaceRuntime — no duplication.
 		get statusText() {
 			return runtime.statusText;
 		},
@@ -120,21 +106,18 @@ export function createWorkspaceController(options: WorkspaceControllerOptions) {
 			return runtime.mutatingProjectId;
 		},
 
-		// ── Actions: project selection (delegated to store rich methods) ───────
-		// These methods keep pendingDeleteProjectId / renamingProjectId in sync
-		// atomically — never call setActiveProjectId + setRenamingProjectId
-		// separately from the outside.
+		// ── Actions: project selection ────────────────────────────────────────
 		selectProject: (id: string) => store.projects.selectProject(id),
 		startRename: (id: string) => store.projects.startRename(id),
 		cancelRename: () => store.projects.cancelRename(),
 		requestDelete: (id: string) => store.projects.requestDelete(id),
 
-		// ── Actions: project CRUD (delegated through runtime) ─────────────────
+		// ── Actions: project CRUD ─────────────────────────────────────────────
 		createProjectCard: runtime.createProjectCard,
 		commitRename: runtime.commitRename,
 		confirmDelete: runtime.confirmDelete,
 
-		// ── Path helpers (delegated through runtime) ──────────────────────────
+		// ── Path helpers ──────────────────────────────────────────────────────
 		getProjectForPath: runtime.getProjectForPath,
 		getWorkspaceProjects: runtime.getWorkspaceProjects,
 

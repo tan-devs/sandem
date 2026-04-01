@@ -9,6 +9,20 @@
 
 	import ExplorerContent from './ExplorerContent.svelte';
 	import { ActivityPanel } from '$lib/components/activity';
+	import type { TabId } from '$lib/stores/activity/index.js';
+
+	// ── Props ─────────────────────────────────────────────────────────────────
+
+	interface Props {
+		/**
+		 * The currently active activity tab — injected from SidebarPanel.
+		 * Forwarded to useExplorer so keyboard shortcuts are scoped correctly
+		 * (e.g. Cmd+N only fires when the explorer tab is active).
+		 */
+		activeTab: TabId;
+	}
+
+	let { activeTab }: Props = $props();
 
 	// ── Assembly ──────────────────────────────────────────────────────────────
 	//
@@ -20,7 +34,7 @@
 	const explorer = createExplorerController({ ide, editorStore });
 
 	// Register reactive $effects (search expansion) + get mount() for onMount.
-	const { mount } = useExplorer(explorer);
+	const { mount } = useExplorer(explorer, () => activeTab);
 
 	// ── Side effects ──────────────────────────────────────────────────────────
 

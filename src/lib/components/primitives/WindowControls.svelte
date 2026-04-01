@@ -1,47 +1,33 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { Minus, Maximize2, X } from '@lucide/svelte';
-	import { getPanelsContext } from '$lib/stores';
 
-	const panels = getPanelsContext();
-
-	let isFullscreen = $state(false);
-
-	function minimizeView() {
-		if (!panels) return;
-		panels.leftPane = false;
-		panels.rightPane = false;
-		panels.downPane = false;
+	interface Props {
+		isFullscreen?: boolean;
+		onMinimize?: () => void;
+		onToggleFullscreen?: () => void;
+		onClose?: () => void;
 	}
 
-	async function toggleFullscreen() {
-		if (!document.fullscreenElement) {
-			await document.documentElement.requestFullscreen();
-			isFullscreen = true;
-			return;
-		}
-
-		await document.exitFullscreen();
-		isFullscreen = false;
-	}
-
-	async function closeWorkspace() {
-		await goto('/');
-	}
+	let {
+		isFullscreen = false,
+		onMinimize = () => {},
+		onToggleFullscreen = () => {},
+		onClose = () => {}
+	}: Props = $props();
 </script>
 
 <div class="win-group">
-	<button class="win-btn" title="Minimize" onclick={minimizeView}>
+	<button class="win-btn" title="Minimize" onclick={onMinimize}>
 		<Minus size={13} strokeWidth={1.5} />
 	</button>
 	<button
 		class="win-btn"
 		title={isFullscreen ? 'Restore' : 'Maximize'}
-		onclick={() => void toggleFullscreen()}
+		onclick={onToggleFullscreen}
 	>
 		<Maximize2 size={12} strokeWidth={1.5} />
 	</button>
-	<button class="win-btn win-close" title="Close" onclick={() => void closeWorkspace()}>
+	<button class="win-btn win-close" title="Close" onclick={onClose}>
 		<X size={13} strokeWidth={1.5} />
 	</button>
 </div>
@@ -70,6 +56,7 @@
 			color 0.1s,
 			background 0.1s;
 	}
+
 	.win-btn:hover {
 		background: var(--fg);
 		color: var(--text);

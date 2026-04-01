@@ -17,6 +17,7 @@
 	import ModeToggle from '$lib/components/colors/ModeToggle.svelte';
 
 	import type { IDEPanelsAdapter } from '$lib/controllers/panels';
+	import type { TabId } from '$lib/stores/activity';
 	import { globalSearchKeydown } from '$lib/services/workspace';
 
 	const links = [
@@ -34,6 +35,7 @@
 		search,
 		children,
 		panels,
+		setActivityTab,
 		...rest
 	}: WithoutChildrenOrChild<NavigationMenu.RootProps> & {
 		variant?: 'default' | 'outline' | 'ghost';
@@ -41,6 +43,7 @@
 		search?: Snippet;
 		children?: Snippet;
 		panels?: IDEPanelsAdapter;
+		setActivityTab?: (tab: TabId) => void;
 	} = $props();
 
 	let globalQuery = $state('');
@@ -68,8 +71,8 @@
 			<div class="center">
 				{#if search}
 					{@render search()}
-				{:else if isRepoRoute}
-					<CommandPalette />
+				{:else if isRepoRoute && panels && setActivityTab}
+					<CommandPalette {panels} {setActivityTab} />
 				{:else}
 					<SearchBar
 						bind:value={globalQuery}

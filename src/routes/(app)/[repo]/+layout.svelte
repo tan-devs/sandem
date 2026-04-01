@@ -75,7 +75,7 @@
 		<section class="workspace-shell">
 			<PaneGroup direction="horizontal">
 				<Pane bind:this={sidebar} collapsible collapsedSize={0} defaultSize={18}>
-					<SidebarPanel activeTab={activity.activeTab} />
+					<SidebarPanel activeTab={activity.activeTab} getPanels={() => ctrl.panels} />
 				</Pane>
 
 				<Resizer />

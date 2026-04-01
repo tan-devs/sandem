@@ -54,7 +54,7 @@ export function createEditorActions(ctx: EditorActionContext) {
 			ctx.editorStore.closeTab(path);
 		},
 
-		togglePanel(panel: keyof IDEPanelsAdapter) {
+		togglePanel(panel: 'leftPane' | 'downPane' | 'rightPane') {
 			const panels = ctx.getPanels();
 			if (panels) panels[panel] = !panels[panel];
 		}

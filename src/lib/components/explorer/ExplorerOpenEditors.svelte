@@ -2,7 +2,7 @@
 	import { ChevronRight } from '@lucide/svelte';
 	import { Accordion } from 'bits-ui';
 	import Button from '$lib/components/primitives/Button.svelte';
-	import type { EditorTab } from '$lib/stores/editor.store.svelte.js';
+	import type { EditorTab } from '$lib/stores/editor';
 
 	interface Props {
 		tabs: EditorTab[];

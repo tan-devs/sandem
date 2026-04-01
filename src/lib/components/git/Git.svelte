@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { RefreshCw, Check } from '@lucide/svelte';
-	import ActivityPanel from '../activities/ActivityPanel.svelte';
+	import { ActivityPanel } from '$lib/components/activity';
 	import Button from '$lib/components/primitives/Button.svelte';
 	import { requireIDEContext } from '$lib/context/ide-context.js';
-	import { createGitActivity } from '$lib/controllers';
-	import { editorStore } from '$lib/stores';
+	import { createGitActivity } from '$lib/controllers/git';
+	import { editorStore } from '$lib/stores/editor';
 
 	const ide = requireIDEContext();
 	const git = createGitActivity({

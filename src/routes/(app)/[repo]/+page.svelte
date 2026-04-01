@@ -11,7 +11,7 @@
 	const ide = requireIDEContext();
 </script>
 
-<WorkspacePaneLayout getPanels={() => ide.getPanels()}>
+<WorkspacePaneLayout panels={ide.getPanels!()}>
 	{#snippet editor()}
 		<section aria-label="leftpane pane">
 			<Editor />

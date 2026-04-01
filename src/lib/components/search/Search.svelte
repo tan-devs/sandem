@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { X, RefreshCw } from '@lucide/svelte';
-	import ActivityPanel from '../activities/ActivityPanel.svelte';
+	import { ActivityPanel } from '$lib/components/activity';
 	import Button from '$lib/components/primitives/Button.svelte';
 	import SearchBar from '$lib/components/primitives/SearchBar.svelte';
 	import { requireIDEContext } from '$lib/context/ide-context.js';
-	import { createSearchActivity } from '$lib/controllers';
-	import { editorStore } from '$lib/stores';
+	import { createSearchActivity } from '$lib/controllers/explorer/SearchActivity.svelte';
+	import { editorStore } from '$lib/stores/editor';
 
 	const ide = requireIDEContext();
 	const search = createSearchActivity({

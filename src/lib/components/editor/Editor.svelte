@@ -32,7 +32,7 @@
 	const editorPane = createEditorController({
 		ide,
 		store: editorStore,
-		getPanels: () => ide.getPanels() as IDEPanelsAdapter | undefined,
+		getPanels: () => ide.getPanels?.() as IDEPanelsAdapter,
 		getCanWrite: () => canWrite
 	});
 

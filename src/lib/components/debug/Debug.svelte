@@ -6,16 +6,16 @@
 	import { requireIDEContext } from '$lib/context/ide-context.js';
 	import { createDebugActivity } from '$lib/controllers/debug/DebugActivity.svelte';
 	import { editorStore } from '$lib/stores/editor';
-	import type { PanelsStore } from '$lib/stores/panels';
+	import type { IDEPanelsAdapter } from '$lib/controllers/panels';
 
 	// ── Props ─────────────────────────────────────────────────────────────────
 	//
 	// getPanels is injected from the layout — the debug activity needs write
 	// access to open the terminal panel on debug start (setDown).
-	// Usage: <Debug getPanels={() => panelsStore} />
+	// Usage: <Debug getPanels={() => ctrl.panels} />
 
 	interface Props {
-		getPanels: () => PanelsStore | undefined;
+		getPanels: () => IDEPanelsAdapter | undefined;
 	}
 
 	let { getPanels }: Props = $props();

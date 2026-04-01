@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { requireIDEContext } from '$lib/context';
 	import { terminalStore } from '$lib/stores/terminal';
-	import { createTerminalController } from '$lib/controllers/preview';
+	import { createTerminalController } from '$lib/controllers/terminal';
 	import { TerminalPanelHeader, TerminalToolbar, TerminalViewport } from '$lib/components/terminal';
 
 	// ── Props ─────────────────────────────────────────────────────────────────
@@ -21,7 +21,7 @@
 	const ctrl = createTerminalController({
 		ide,
 		store: terminalStore,
-		getPanels: () => ide.getPanels()
+		getPanels: () => ide.getPanels?.()
 	});
 
 	// ── Lifecycle ─────────────────────────────────────────────────────────────

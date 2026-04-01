@@ -1,43 +1,30 @@
 <script lang="ts">
 	import type { TabId } from '$lib/stores/activity/index.js';
+	import type { IDEPanelsAdapter } from '$lib/controllers/panels';
 
 	import Explorer from '$lib/components/explorer/Explorer.svelte';
 	import SearchPanel from '$lib/components/search/Search.svelte';
 	import Git from '$lib/components/git/Git.svelte';
 	import Debug from '$lib/components/debug/Debug.svelte';
 
-	// ---------------------------------------------------------------------------
-	// Props
-	// ---------------------------------------------------------------------------
-
 	interface Props {
-		/**
-		 * The currently active activity tab.
-		 * Injected from +layout.svelte via useActivity — never read from the
-		 * store directly so this component stays decoupled from global state.
-		 */
 		activeTab: TabId;
+		getPanels: () => IDEPanelsAdapter | undefined;
 	}
 
-	let { activeTab }: Props = $props();
-
-	// ---------------------------------------------------------------------------
-	// Panel map
-	// ---------------------------------------------------------------------------
-
-	// Keys must exactly match TabId values.
-	const PANEL_MAP = {
-		explorer: Explorer,
-		search: SearchPanel,
-		git: Git,
-		run: Debug
-	} satisfies Record<TabId, unknown>;
-
-	const ActivePanel = $derived(PANEL_MAP[activeTab] ?? Explorer);
+	let { activeTab, getPanels }: Props = $props();
 </script>
 
 <aside>
-	<ActivePanel />
+	{#if activeTab === 'explorer'}
+		<Explorer {activeTab} />
+	{:else if activeTab === 'search'}
+		<SearchPanel />
+	{:else if activeTab === 'git'}
+		<Git />
+	{:else if activeTab === 'run'}
+		<Debug {getPanels} />
+	{/if}
 </aside>
 
 <style>

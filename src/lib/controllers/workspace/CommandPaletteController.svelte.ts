@@ -2,13 +2,13 @@ import type { TabId } from '$lib/stores/activity';
 import type { CommandItem } from '$types/commands.js';
 import type { IDEPanelsAdapter } from '$lib/controllers/panels';
 
-type Options = {
+type CommandPalletteOptions = {
 	navigate: (path: string) => void;
 	getPanels: () => IDEPanelsAdapter | undefined;
 	setActivityTab: (tab: TabId) => void;
 };
 
-export function createCommandPaletteController(options: Options) {
+export function createCommandPaletteController(options: CommandPalletteOptions) {
 	let isOpen = $state(false);
 	let query = $state('');
 	let selectedIndex = $state(0);
