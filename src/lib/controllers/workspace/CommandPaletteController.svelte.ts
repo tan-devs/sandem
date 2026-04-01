@@ -1,4 +1,4 @@
-import type { TabId } from '$lib/stores';
+import type { TabId } from '$lib/stores/activity';
 import type { CommandItem } from '$types/commands.js';
 import type { ActivityPanels } from '$types/hooks.js';
 

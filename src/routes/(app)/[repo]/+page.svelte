@@ -1,12 +1,17 @@
 <script lang="ts">
-	import RepoPaneLayout from '$lib/components/workspace/RepoPaneLayout.svelte';
-
 	import Editor from '$lib/components/editor/Editor.svelte';
 	import Terminal from '$lib/components/terminal/Terminal.svelte';
 	import RightSidebar from '$lib/components/preview/RightSidebar.svelte';
+	import { WorkspacePaneLayout } from '$lib/components/workspace';
+	import { requireIDEContext } from '$lib/context';
+
+	// Panels are owned by PanelsController and exposed through IDE context.
+	// They cannot be passed as a prop across the SvelteKit routing boundary
+	// (+layout.svelte → +page.svelte), so IDE context is the correct DI path.
+	const ide = requireIDEContext();
 </script>
 
-<RepoPaneLayout>
+<WorkspacePaneLayout getPanels={() => ide.getPanels()}>
 	{#snippet editor()}
 		<section aria-label="leftpane pane">
 			<Editor />
@@ -24,7 +29,7 @@
 			<RightSidebar />
 		</aside>
 	{/snippet}
-</RepoPaneLayout>
+</WorkspacePaneLayout>
 
 <style>
 	section,

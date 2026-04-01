@@ -19,7 +19,6 @@
 import { untrack } from 'svelte';
 import { createError } from '$lib/sveltekit/index.js';
 import { uniqueProjects, areProjectsEqual } from '$lib/utils';
-import type { PaneAPI } from 'paneforge';
 import type { WorkspaceStore } from '$lib/stores/workspace/workspace.store.svelte.js';
 import type { WorkspaceRuntime } from '$lib/services/workspace/createWorkspaceRuntime.svelte.js';
 import type { RepoLayoutData } from '$types/routes.js';
@@ -29,7 +28,6 @@ const STORAGE_KEY = 'sandem.activeProjectId';
 export type UseWorkspaceOptions = {
 	store: WorkspaceStore;
 	runtime: WorkspaceRuntime;
-	getSidebar: () => PaneAPI | undefined;
 	getProjectsData: () => RepoLayoutData['projects'] | undefined;
 	getProjectsError: () => unknown;
 	getInitialProjects: () => RepoLayoutData['projects'];
@@ -41,7 +39,7 @@ export type UseWorkspaceResult = {
 };
 
 export function useWorkspace(opts: UseWorkspaceOptions): UseWorkspaceResult {
-	const { store, runtime, getSidebar, isGuest } = opts;
+	const { store, runtime, isGuest } = opts;
 
 	// ── Effect 1: Project sync ─────────────────────────────────────────────────
 	//
@@ -69,16 +67,7 @@ export function useWorkspace(opts: UseWorkspaceOptions): UseWorkspaceResult {
 		syncProjects(projectsData ?? initialProjects);
 	});
 
-	// ── Effect 2: Sidebar panel DOM side-effect ────────────────────────────────
-	//
-	// untrack prevents the PaneAPI call from registering as a reactive write,
-	// which would cause the effect to re-run in a loop.
-	$effect(() => {
-		const open = store.panels.leftPane;
-		untrack(() => (open ? getSidebar()?.expand() : getSidebar()?.collapse()));
-	});
-
-	// ── Effect 3: Persist active project selection ─────────────────────────────
+	// ── Effect 2: Persist active project selection ─────────────────────────────
 	//
 	// IO stays here so the store remains pure and localStorage-free.
 	$effect(() => {

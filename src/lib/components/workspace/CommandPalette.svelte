@@ -2,9 +2,8 @@
 	import { goto } from '$app/navigation';
 	import { tick } from 'svelte';
 	import { Search, ChevronRight } from '@lucide/svelte';
-	import { activity, type TabId } from '$lib/stores';
-	import { getPanelsContext } from '$lib/stores';
-	import { createCommandPaletteController } from '$lib/controllers';
+	import { type TabId } from '$lib/stores/activity';
+	import { getPanelsContext } from '$lib/stores/panels';
 
 	const panels = getPanelsContext();
 	let inputEl: HTMLInputElement | null = $state(null);

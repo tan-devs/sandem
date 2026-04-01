@@ -10,12 +10,8 @@
 	import type { IDEPanelsAdapter } from '$lib/controllers/panels';
 
 	// ── Props ─────────────────────────────────────────────────────────────────
-
-	interface Props {
-		getPanels: () => IDEPanelsAdapter | undefined;
-	}
-
-	let { getPanels }: Props = $props();
+	// No getPanels prop — panels are accessed through IDE context so Editor
+	// works correctly across the SvelteKit routing boundary.
 
 	// ── Permissions ───────────────────────────────────────────────────────────
 
@@ -30,13 +26,13 @@
 
 	// ── Wiring ────────────────────────────────────────────────────────────────
 	//
-	// Wrap getPanels in a closure so the controller always re-reads the live
-	// prop value, not the value captured at construction time.
+	// Wrap ide.getPanels in a closure so the controller always re-reads the
+	// live value, not the value captured at construction time.
 
 	const editorPane = createEditorController({
 		ide,
 		store: editorStore,
-		getPanels: () => getPanels(),
+		getPanels: () => ide.getPanels() as IDEPanelsAdapter | undefined,
 		getCanWrite: () => canWrite
 	});
 

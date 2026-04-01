@@ -1,1 +1,1 @@
-export * from './TerminalController.svelte';
+export * from '../terminal/TerminalController.svelte';

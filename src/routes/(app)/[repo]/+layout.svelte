@@ -15,7 +15,9 @@
 
 	import { Statusbar } from '$lib/components/workspace';
 	import { Resizer, ErrorPanel } from '$lib/components/primitives';
+
 	import { ActivityBar } from '$lib/components/activity';
+
 	import { SidebarPanel } from '$lib/components/panels';
 
 	let { children, data }: { children: Snippet; data: RepoLayoutData } = $props();
@@ -53,10 +55,6 @@
 		getProjectsError: () => projectsResponse.error
 	});
 
-	// useActivity is called here solely to read activeTab for prop injection into
-	// SidebarPanel. ActivityBar creates its own instance internally (for keyboard
-	// mount lifecycle). Both instances share the same activityStore $state so
-	// they always reflect the same value — no duplication of side effects.
 	const activity = useActivity({ getPanels: () => ctrl.panels });
 
 	onMount(() => {
@@ -77,10 +75,6 @@
 		<section class="workspace-shell">
 			<PaneGroup direction="horizontal">
 				<Pane bind:this={sidebar} collapsible collapsedSize={0} defaultSize={18}>
-					<!--
-						activeTab flows from activityStore → useActivity → prop.
-						SidebarPanel never touches the store directly.
-					-->
 					<SidebarPanel activeTab={activity.activeTab} />
 				</Pane>
 
@@ -115,7 +109,7 @@
 		</section>
 	</main>
 
-	<Statusbar status={ctrl.statusText} {isGuest} />
+	<Statusbar status={ctrl.statusText} {isGuest} panels={ctrl.panels} />
 </div>
 
 <!-- /html -->

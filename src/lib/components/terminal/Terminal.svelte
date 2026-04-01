@@ -2,32 +2,26 @@
 	import { onMount } from 'svelte';
 	import { requireIDEContext } from '$lib/context';
 	import { terminalStore } from '$lib/stores/terminal';
-	import { createTerminalController } from '$lib/controllers/terminal';
+	import { createTerminalController } from '$lib/controllers/preview';
 	import { TerminalPanelHeader, TerminalToolbar, TerminalViewport } from '$lib/components/terminal';
 
 	// ── Props ─────────────────────────────────────────────────────────────────
 	//
-	// getPanels is injected from the layout — the terminal only reads downPane
-	// for maximize / close layout mutations. No context lookup, no legacy store.
-	// Usage: <Terminal getPanels={() => panelsStore} />
-
-	interface Props {
-		getPanels: () => { downPane?: boolean } | undefined;
-	}
-
-	let { getPanels }: Props = $props();
+	// No getPanels prop — panels are accessed through IDE context so Terminal
+	// works correctly across the SvelteKit routing boundary.
+	// Terminal reads downPane for maximize / close layout mutations.
 
 	// ── Wiring ────────────────────────────────────────────────────────────────
 	//
-	// Wrap getPanels in a closure so the controller always re-reads the live
-	// prop value on every call, not the value captured at construction time.
+	// Wrap ide.getPanels in a closure so the controller always re-reads the
+	// live value on every call, not the value captured at construction time.
 	// Terminal.svelte is a pure wiring root — no logic, no state.
 
 	const ide = requireIDEContext();
 	const ctrl = createTerminalController({
 		ide,
 		store: terminalStore,
-		getPanels: () => getPanels()
+		getPanels: () => ide.getPanels()
 	});
 
 	// ── Lifecycle ─────────────────────────────────────────────────────────────

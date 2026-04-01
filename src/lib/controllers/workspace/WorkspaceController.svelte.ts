@@ -115,15 +115,12 @@ export function createWorkspaceController(options: WorkspaceControllerOptions) {
 
 	// ── 5. Hook ───────────────────────────────────────────────────────────────
 	//
-	// useWorkspace registers project-related $effects (sync, sidebar open on
-	// project switch, etc). PaneAPI sync has moved to PanelsController/usePanels —
-	// getSidebar is kept here only for the duration until useWorkspace is updated
-	// to remove its own sidebar $effect.
+	// useWorkspace registers project-related $effects (project sync, localStorage
+	// persistence). PaneAPI sync is owned by usePanels inside PanelsController.
 
 	const { mount } = useWorkspace({
 		store,
 		runtime,
-		getSidebar: options.getSidebar,
 		getProjectsData: options.getProjectsData,
 		getProjectsError: options.getProjectsError,
 		getInitialProjects: () => options.getData().projects,
@@ -145,6 +142,16 @@ export function createWorkspaceController(options: WorkspaceControllerOptions) {
 
 		getEntryPath: runtime.getEntryPath,
 		getWorkspaceProjects: runtime.getWorkspaceProjects,
+
+		// ── Panels ────────────────────────────────────────────────────────────
+		//
+		// Panels are owned by PanelsController, not WorkspaceStore. Exposing
+		// them here via IDEContext is the correct DI path for page-level
+		// components (WorkspacePaneLayout, Editor, Terminal) that can't receive
+		// props from +layout.svelte through SvelteKit's routing boundary.
+		// IDEContext is already the established DI mechanism — this keeps the
+		// "no singleton imports" rule intact without bending SvelteKit routing.
+		getPanels: () => panelsCtrl.panels,
 
 		createProject: runtime.createProjectCard,
 		selectProject: (id) => store.projects.selectProject(id),

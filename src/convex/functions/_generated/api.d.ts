@@ -9,6 +9,7 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as env from "../env.js";
 import type * as filesystem from "../filesystem.js";
 import type * as http from "../http.js";
 import type * as index from "../index.js";
@@ -23,6 +24,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  env: typeof env;
   filesystem: typeof filesystem;
   http: typeof http;
   index: typeof index;

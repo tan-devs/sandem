@@ -2,19 +2,19 @@
 	import { untrack, type Snippet } from 'svelte';
 	import { PaneGroup, Pane, PaneResizer } from 'paneforge';
 	import type { PaneAPI } from 'paneforge';
-	import { requirePanelsContext } from '$lib/stores';
+	import type { PanelsStore } from '$lib/stores/panels';
 
 	let {
+		panels,
 		editor,
 		terminal,
 		preview
 	}: {
+		panels: PanelsStore;
 		editor: Snippet;
 		terminal: Snippet;
 		preview: Snippet;
 	} = $props();
-
-	const panels = requirePanelsContext();
 
 	let workspace = $state<PaneAPI>();
 	let leftpane = $state<PaneAPI>();

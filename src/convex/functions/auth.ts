@@ -5,8 +5,7 @@ import { type DataModel } from '../_generated/dataModel.js';
 import { query } from '../_generated/server.js';
 import { betterAuth } from 'better-auth';
 import authConfig from '../config/auth.config';
-
-const siteUrl = process.env.SITE_URL!;
+import { convexEnv } from './env.js';
 
 // ─── Better Auth infrastructure only ─────────────────────────────────────────
 // Nothing app-level lives here. User queries/mutations live in users.ts.
@@ -28,10 +27,11 @@ export const authComponent: ReturnType<typeof createClient<DataModel>> = createC
  */
 export const createAuth = (ctx: GenericCtx<DataModel>) => {
 	return betterAuth({
-		baseURL: siteUrl,
+		baseURL: convexEnv.SITE_URL,
 		// Binds Better Auth's storage to the Convex component's internal tables.
 		// These are separate from your app's `users` table in schema.ts.
 		database: authComponent.adapter(ctx),
+		secret: convexEnv.BETTER_AUTH_SECRET,
 		emailAndPassword: {
 			enabled: true,
 			requireEmailVerification: false
@@ -39,8 +39,8 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 		socialProviders: {
 			github: {
 				enabled: true,
-				clientId: process.env.GITHUB_CLIENT_ID as string,
-				clientSecret: process.env.GITHUB_CLIENT_SECRET as string
+				clientId: convexEnv.GITHUB_CLIENT_ID,
+				clientSecret: convexEnv.GITHUB_CLIENT_SECRET
 			}
 		},
 		plugins: [

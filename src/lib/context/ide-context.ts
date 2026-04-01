@@ -2,6 +2,7 @@ import { setContext, getContext } from 'svelte';
 import type { WebContainer } from '@webcontainer/api';
 import type { Doc } from '$convex/_generated/dataModel.js';
 import type { WorkspaceEditorSync } from '$lib/services/workspace';
+import type { IDEPanelsAdapter } from '$lib/controllers/panels';
 
 // ---------------------------------------------------------------------------
 // Canonical document types — derived directly from the Convex schema.
@@ -67,6 +68,9 @@ export interface IDEContext {
 
 	/** Optional external editor sync controller (Liveblocks Yjs bridge). */
 	editorSync?: WorkspaceEditorSync;
+
+	/** Returns the IDEPanelsAdapter — pass to ActivityBar and useActivity. */
+	getPanels?: () => IDEPanelsAdapter;
 
 	/** Optional workspace project list — used by Explorer in /repo. */
 	getWorkspaceProjects?: () => WorkspaceProject[];
