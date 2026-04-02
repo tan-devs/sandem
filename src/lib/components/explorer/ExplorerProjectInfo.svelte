@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Accordion } from 'bits-ui';
 	import { ChevronRight } from '@lucide/svelte';
-	import type { ProjectDoc } from '$lib/context';
+	import type { ProjectDoc } from '$lib/context/webcontainer';
 
 	interface Props {
 		activeProject: ProjectDoc | null;

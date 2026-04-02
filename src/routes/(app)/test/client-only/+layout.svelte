@@ -4,7 +4,7 @@
 	 * Simulates a client-only auth flow
 	 */
 	import { createSvelteAuthClient } from '$lib/svelte/index.js';
-	import { authClient } from '$lib/context/auth-context.js';
+	import { authClient } from '$lib/context/auth/auth-context.js';
 
 	let { children } = $props();
 

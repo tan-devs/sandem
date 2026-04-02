@@ -1,3 +1,17 @@
+/**
+ * createWebcontainer.svelte.ts
+ *
+ * Low-level WebContainer boot + runtime lifecycle.
+ *
+ * getWebContainer()       — module-level singleton boot (used by wcSingleton internally)
+ * createRuntimeManager()  — reactive phase machine consumed by createWorkspaceRuntime
+ *
+ * CHANGE: createRuntimeManager now accepts an optional `getExternalWebcontainer`
+ * dep. When provided it skips WebContainer.boot() entirely and uses the
+ * already-booted instance from wcSingleton. This is the seam that lets
+ * (app)/+layout.svelte pre-boot the container before [repo] ever mounts.
+ */
+
 import { WebContainer } from '@webcontainer/api';
 import { buildFileSystemTree } from '$lib/utils/vfs';
 import { createError } from '$lib/sveltekit/index.js';
@@ -6,9 +20,8 @@ import type { Doc } from '$convex/_generated/dataModel.js';
 
 type ProjectDoc = Doc<'projects'>;
 
-// ── Singleton boot ────────────────────────────────────────────────────────────
-// WebContainer can only be booted once per page origin. This module-level
-// variable ensures all callers share the same instance.
+// ── Module-level singleton boot ───────────────────────────────────────────────
+// Kept for backward compat. wcSingleton delegates here internally.
 
 let _instance: WebContainer | null = null;
 
@@ -43,19 +56,14 @@ export type RuntimeManagerOptions = {
 	getProjects: () => ProjectDoc[];
 	getEntryPath: () => string;
 	getWorkspaceTree: () => FileSystemTree;
+	/**
+	 * When provided, the runtime manager skips WebContainer.boot() and uses
+	 * this instance directly. Pass `wcSingleton.getWebcontainer` here when
+	 * the singleton has already been booted at the app layout level.
+	 */
+	getExternalWebcontainer?: () => WebContainer;
 };
 
-/**
- * createRuntimeManager
- *
- * Manages the WebContainer boot → mount → install lifecycle and tracks
- * runtime phase as reactive $state. Called internally by
- * createWorkspaceRuntime — not meant to be used directly by components.
- *
- * Uses the page-scoped singleton (getWebContainer) so only one WebContainer
- * instance is ever booted per origin, regardless of how many times
- * startRuntime is called.
- */
 export function createRuntimeManager(options: RuntimeManagerOptions) {
 	let runtimePhase = $state<RuntimePhase>('idle');
 	let runtimeError = $state<ReturnType<typeof createError> | null>(null);
@@ -64,7 +72,6 @@ export function createRuntimeManager(options: RuntimeManagerOptions) {
 	const ready = $derived(runtimePhase === 'ready');
 
 	async function startRuntime(): Promise<void> {
-		// Guard against concurrent or redundant boots.
 		if (runtimePhase === 'mounting' || runtimePhase === 'installing' || runtimePhase === 'ready') {
 			return;
 		}
@@ -73,7 +80,13 @@ export function createRuntimeManager(options: RuntimeManagerOptions) {
 		runtimeError = null;
 
 		try {
-			webcontainer = await getWebContainer();
+			// Use external singleton if provided — avoids a second WebContainer.boot() call.
+			if (options.getExternalWebcontainer) {
+				webcontainer = options.getExternalWebcontainer();
+			} else {
+				webcontainer = await getWebContainer();
+			}
+
 			await webcontainer.mount(options.getWorkspaceTree());
 
 			runtimePhase = 'installing';
@@ -92,7 +105,10 @@ export function createRuntimeManager(options: RuntimeManagerOptions) {
 	}
 
 	async function stopRuntime(): Promise<void> {
-		webcontainer?.teardown();
+		// Only teardown if we own the instance (no external singleton).
+		if (!options.getExternalWebcontainer) {
+			webcontainer?.teardown();
+		}
 		webcontainer = null;
 		runtimePhase = 'idle';
 		runtimeError = null;

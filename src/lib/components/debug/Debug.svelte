@@ -3,7 +3,7 @@
 	import { ActivityPanel } from '$lib/components/activity';
 	import Button from '$lib/components/primitives/Button.svelte';
 	import { Accordion } from 'bits-ui';
-	import { requireIDEContext } from '$lib/context/ide-context.js';
+	import { requireIDEContext } from '$lib/context/webcontainer/ide-context.js';
 	import { createDebugActivity } from '$lib/controllers/debug/DebugActivity.svelte';
 	import { editorStore } from '$lib/stores/editor';
 	import type { IDEPanelsAdapter } from '$lib/controllers/panels';

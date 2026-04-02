@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { requireIDEContext } from '$lib/context';
+	import { requireIDEContext } from '$lib/context/webcontainer';
 	import { terminalStore } from '$lib/stores/terminal';
 	import { createTerminalController } from '$lib/controllers/terminal';
 	import { TerminalPanelHeader, TerminalToolbar, TerminalViewport } from '$lib/components/terminal';

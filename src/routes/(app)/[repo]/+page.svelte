@@ -3,7 +3,7 @@
 	import Terminal from '$lib/components/terminal/Terminal.svelte';
 	import RightSidebar from '$lib/components/preview/RightSidebar.svelte';
 	import { WorkspacePaneLayout } from '$lib/components/workspace';
-	import { requireIDEContext } from '$lib/context';
+	import { requireIDEContext } from '$lib/context/webcontainer';
 
 	// Panels are owned by PanelsController and exposed through IDE context.
 	// They cannot be passed as a prop across the SvelteKit routing boundary

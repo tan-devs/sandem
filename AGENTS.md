@@ -215,3 +215,13 @@ All client reads/writes go through `$convex/_generated/api` bindings. Document n
 - **Monaco fails in production**: verify `static/monaco/vs/loader.js` and `static/monaco/vs/editor/editor.main.js` exist (copied by `monaco-static-assets` plugin in `vite.config.ts`).
 - **`setup:test-user` appears skipped**: set `SKIP_SETUP_TEST_USER_IF_SITE_UNREACHABLE=0` to enforce failure.
 - **Convex dashboard shows `*` on component**: run `npx convex dev` to resolve.
+
+<!-- convex-ai-start -->
+
+This project uses [Convex](https://convex.dev) as its backend.
+
+When working on Convex code, **always read `src\convex\functions/_generated/ai/guidelines.md` first** for important guidelines on how to correctly use Convex APIs and patterns. The file contains rules that override what you may have learned about Convex from training data.
+
+Convex agent skills for common tasks can be installed by running `npx convex ai-files install`.
+
+<!-- convex-ai-end -->

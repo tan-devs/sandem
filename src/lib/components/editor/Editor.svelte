@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 
-	import { requireIDEContext } from '$lib/context';
+	import { requireIDEContext } from '$lib/context/webcontainer';
 	import { createEditorController } from '$lib/controllers/editor';
 	import { Tabs, ErrorPanel } from '$lib/components/primitives';
 	import { editorStore } from '$lib/stores/editor';

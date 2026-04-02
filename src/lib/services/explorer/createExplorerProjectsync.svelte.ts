@@ -22,7 +22,7 @@
  */
 
 import type { WebContainer } from '@webcontainer/api';
-import type { Project } from '$lib/context/ide-context.js';
+import type { Project } from '$lib/context/webcontainer/ide-context.js';
 
 export type ProjectSyncDeps = {
 	/** Lazy getter — resolved at call time so closures stay current. */

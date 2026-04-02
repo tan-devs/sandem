@@ -2,7 +2,7 @@
 	import { api } from '$convex/_generated/api.js';
 	import { useQuery } from 'convex-svelte';
 	import { useAuth } from '$lib/svelte/index.js';
-	import { authClient } from '$lib/context/auth-context.js';
+	import { authClient } from '$lib/context/auth/auth-context.js';
 
 	let { data } = $props();
 

@@ -3,18 +3,9 @@
  *
  * Workspace runtime orchestration service.
  *
- * Responsibilities:
- *   - Manages the WebContainer lifecycle via createRuntimeManager
- *   - Manages project CRUD mutations via createRepoProjectManager
- *   - Derives computed state (folderMap, activeProject, statusText) from the store
- *   - Exposes path helpers consumed by IDEContext and WorkspaceController
- *
- * Does NOT own UI state — that lives in WorkspaceStore (panels + projects).
- * Does NOT own $effects or mount/cleanup logic — that lives in useWorkspace.
- * Does NOT know about Svelte context or layout — that lives in WorkspaceController.
- *
- * Receives the store as a dependency so all reactive reads are live-derived
- * from the single source of truth rather than duplicated.
+ * CHANGE: Accepts optional `getExternalWebcontainer` and passes it to
+ * createRuntimeManager so the pre-booted wcSingleton instance is used
+ * instead of calling WebContainer.boot() again.
  */
 
 import {
@@ -26,7 +17,7 @@ import { VITE_REACT_TEMPLATE } from '$lib/utils';
 import { projectFolderName } from '$lib/utils/explorer/projects.js';
 import { createError } from '$lib/sveltekit/index.js';
 import type { Doc } from '$convex/_generated/dataModel.js';
-import type { FileSystemTree } from '@webcontainer/api';
+import type { FileSystemTree, WebContainer } from '@webcontainer/api';
 import type { WorkspaceStore } from '$lib/stores/workspace/workspace.store.svelte.js';
 
 export type { ConvexOperations };
@@ -40,11 +31,16 @@ export type WorkspaceRuntimeOptions = {
 	isGuest: () => boolean;
 	ownerId: () => string;
 	convexClient: ConvexOperations;
+	/**
+	 * When provided, the runtime skips WebContainer.boot() and uses this
+	 * instance directly. Pass `wcSingleton.getWebcontainer` from the
+	 * sandbox context set by (app)/+layout.svelte.
+	 */
+	getExternalWebcontainer?: () => WebContainer;
 };
 
 const DEMO_FOLDER = 'demo';
 
-// The demo project has no Convex ID and is never persisted.
 const demoProject = {
 	files: VITE_REACT_TEMPLATE.files,
 	room: undefined
@@ -53,13 +49,13 @@ const demoProject = {
 export function createWorkspaceRuntime(options: WorkspaceRuntimeOptions) {
 	const { store } = options;
 
-	// ── Sub-services ──────────────────────────────────────────────────────────
-
 	const runtime = createRuntimeManager({
 		isDemo: options.isDemo,
 		getProjects: () => store.projects.projects,
 		getEntryPath: () => getEntryPath(),
-		getWorkspaceTree: options.getWorkspaceTree
+		getWorkspaceTree: options.getWorkspaceTree,
+		// Thread the singleton through — undefined means fall back to boot()
+		getExternalWebcontainer: options.getExternalWebcontainer
 	});
 
 	const projectManager = createRepoProjectManager({
@@ -69,17 +65,12 @@ export function createWorkspaceRuntime(options: WorkspaceRuntimeOptions) {
 		setActiveProjectId: (id) => store.projects.setActiveProjectId(id),
 		convexClient: options.convexClient,
 		ownerId: options.ownerId,
-		// Wrap the plain Error from projectManager into a createError so that
-		// failRuntimeWithError receives the correct type.
 		onError: (err, cause) =>
 			runtime.failRuntimeWithError(
 				createError(err.message ?? 'A project operation failed.'),
 				cause ?? err
 			)
 	});
-
-	// ── Derived state ─────────────────────────────────────────────────────────
-	// Computed from the store — no duplication of $state.
 
 	const folderMap = $derived(
 		new Map<string, string>(
@@ -111,8 +102,6 @@ export function createWorkspaceRuntime(options: WorkspaceRuntimeOptions) {
 						: '⏳ Starting sandbox runtime…'
 	);
 
-	// ── Path helpers ──────────────────────────────────────────────────────────
-
 	function getFallbackProject(): ProjectDoc {
 		if (options.isDemo()) return demoProject;
 		return activeProject ?? store.projects.projects[0] ?? demoProject;
@@ -134,10 +123,7 @@ export function createWorkspaceRuntime(options: WorkspaceRuntimeOptions) {
 		return `${folder}/${project.entry ?? VITE_REACT_TEMPLATE.entry}`;
 	}
 
-	// ── Public interface ──────────────────────────────────────────────────────
-
 	return {
-		// ── Runtime state (reactive, from createRuntimeManager) ───────────────
 		get runtimePhase() {
 			return runtime.runtimePhase;
 		},
@@ -153,20 +139,14 @@ export function createWorkspaceRuntime(options: WorkspaceRuntimeOptions) {
 		get activeProject() {
 			return activeProject;
 		},
-
-		// ── Project manager state ─────────────────────────────────────────────
 		get creatingProject() {
 			return projectManager.creatingProject;
 		},
 		get mutatingProjectId() {
 			return projectManager.mutatingProjectId;
 		},
-
-		// ── Path helpers ──────────────────────────────────────────────────────
 		getProjectForPath,
 		getEntryPath,
-
-		/** Stable shape consumed by IDEContext.getWorkspaceProjects */
 		getWorkspaceProjects: () =>
 			store.projects.projects.map((p) => ({
 				id: p._id,
@@ -175,8 +155,6 @@ export function createWorkspaceRuntime(options: WorkspaceRuntimeOptions) {
 				room: p.room ?? '',
 				entry: p.entry
 			})),
-
-		// ── Runtime lifecycle ─────────────────────────────────────────────────
 		startRuntime: () => runtime.startRuntime(),
 		stopRuntime: () => runtime.stopRuntime(),
 		failRuntimeWithError: (err: ReturnType<typeof createError>, cause?: unknown) =>
@@ -185,8 +163,6 @@ export function createWorkspaceRuntime(options: WorkspaceRuntimeOptions) {
 			if (!runtime.webcontainer) throw new Error('WebContainer is not initialized.');
 			return runtime.webcontainer;
 		},
-
-		// ── Project CRUD (delegated to projectManager) ────────────────────────
 		createProjectCard: projectManager.createProjectCard,
 		commitRename: projectManager.commitRename,
 		confirmDelete: projectManager.confirmDelete

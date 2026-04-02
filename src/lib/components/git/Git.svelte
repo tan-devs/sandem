@@ -2,7 +2,7 @@
 	import { RefreshCw, Check } from '@lucide/svelte';
 	import { ActivityPanel } from '$lib/components/activity';
 	import Button from '$lib/components/primitives/Button.svelte';
-	import { requireIDEContext } from '$lib/context/ide-context.js';
+	import { requireIDEContext } from '$lib/context/webcontainer/ide-context.js';
 	import { createGitActivity } from '$lib/controllers/git';
 	import { editorStore } from '$lib/stores/editor';
 

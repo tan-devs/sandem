@@ -24,3 +24,9 @@ export type RepoLayoutData = {
 	projects: PROJECT_DOC[];
 	workspaceTree?: Record<string, unknown>; // authenticated path only
 };
+
+export type AppLayoutData = {
+	authState: { isAuthenticated: boolean };
+	currentUser: UserDoc | null;
+	projects: ProjectDoc[];
+};

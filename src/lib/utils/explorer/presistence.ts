@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import type { Project } from '$lib/context/ide-context.js';
+import type { Project } from '$lib/context/webcontainer/ide-context.js';
 import type { EditorRuntimeDependencies } from '$types/hooks.js';
 
 // ---------------------------------------------------------------------------

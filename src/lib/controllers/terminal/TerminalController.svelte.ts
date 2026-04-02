@@ -1,4 +1,4 @@
-import type { IDEContext } from '$lib/context';
+import type { IDEContext } from '$lib/context/webcontainer';
 import type { TerminalStore } from '$lib/stores/terminal/terminal.store.svelte.js';
 import { appendTerminalAudit } from '$lib/stores/collaboration';
 import { createTerminalShell } from '$lib/services/terminal/createTerminalShell.svelte.js';

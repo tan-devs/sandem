@@ -1,4 +1,4 @@
-# Explorer — Architecture & Data Flow
+# Explorer System
 
 > **Philosophy: Data Injection (DI) + Pseudo-Pure Functions**
 >

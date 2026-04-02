@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { requireIDEContext } from '$lib/context';
+	import { requireIDEContext } from '$lib/context/webcontainer';
 	import { editorStore } from '$lib/stores/editor';
 	import { findNodeByPath } from '$lib/utils/explorer/file-tree.js';
 

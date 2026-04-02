@@ -2,33 +2,10 @@
  * WorkspaceController.svelte.ts
  *
  * Assembly root for the workspace system.
- * Analogous to TerminalController in the terminal system.
  *
- * This is the only file allowed to instantiate workspace services.
- * +layout.svelte calls createWorkspaceController() and consumes
- * the returned flat API. Nothing else should reach into sub-services.
- *
- * Instantiation order:
- *   1. createWorkspaceProjectsStore()     — projects reactive state ($state, pure)
- *   2. createPanelsController(...)        — panels $state + service + PaneAPI $effect
- *   3. createWorkspaceRuntime(...)        — runtime + project orchestration
- *   4. createWorkspaceEditorSync(...)     — Liveblocks ↔ WebContainer ↔ Convex bridge
- *   5. useWorkspace(...)                  — project $effects + mount/cleanup
- *   6. setIDEContext(...)                 — registers workspace surface in Svelte context
- *
- * Returned API surface (all delegated — no logic lives here):
- *
- * | Category       | Properties / Methods                                              |
- * | -------------- | ----------------------------------------------------------------- |
- * | Lifecycle      | mount, destroyEditorSync                                          |
- * | Runtime state  | runtimePhase, runtimeError, ready, statusText                     |
- * | Panel object   | panels  (IDEPanels-compatible — pass to ActivityBar/useActivity)  |
- * | Panel state    | leftPane, downPane, rightPane                                     |
- * | Panel actions  | setLeft, setDown, setRight, toggleLeft, toggleDown, toggleRight   |
- * |                | resetPanes                                                        |
- * | Project state  | activeProjectId                                                   |
- * | Runtime action | startRuntime                                                      |
- * | Editor sync    | editorSync (watch, unwatch, flush, flushAll, destroy)             |
+ * CHANGE: Accepts optional `getExternalWebcontainer` from sandbox context
+ * and passes it down to createWorkspaceRuntime → createRuntimeManager,
+ * bypassing WebContainer.boot() when the singleton is already booting.
  */
 
 import { createWorkspaceStore } from '$lib/stores/workspace/workspace.store.svelte.js';
@@ -42,11 +19,12 @@ import {
 	type WorkspaceEditorSync
 } from '$lib/services/workspace/createWorkspaceEditorsync.svelte';
 import { useWorkspace } from '$lib/hooks/useWorkspace.svelte.js';
-import { setIDEContext, type IDEContext } from '$lib/context/ide-context.js';
+import { type IDEContext, setIDEContext } from '$lib/context/webcontainer';
+import { setWorkspaceContext } from '$lib/context/workspace';
 import { api } from '$convex/_generated/api.js';
 import { projectFolderName } from '$lib/utils/explorer/projects.js';
 import type { PaneAPI } from 'paneforge';
-import type { FileSystemTree } from '@webcontainer/api';
+import type { FileSystemTree, WebContainer } from '@webcontainer/api';
 import type { RepoLayoutData } from '$types/routes.js';
 import type { Id } from '$convex/_generated/dataModel.js';
 
@@ -60,23 +38,20 @@ export type WorkspaceControllerOptions = {
 	getSidebar: () => PaneAPI | undefined;
 	getProjectsData: () => RepoLayoutData['projects'] | undefined;
 	getProjectsError: () => unknown;
+	/**
+	 * When provided, skip WebContainer.boot() and use this instance.
+	 * Pass `wcSingleton.getWebcontainer` from sandbox context.
+	 * If undefined, the runtime boots its own instance (legacy fallback).
+	 */
+	getExternalWebcontainer?: () => WebContainer;
 };
 
 export function createWorkspaceController(options: WorkspaceControllerOptions) {
 	// ── 1. Projects store ─────────────────────────────────────────────────────
-	//
-	// Panels store is now owned by PanelsController (step 2).
-	// workspace.store still composes both — we destructure projects out of it
-	// so the rest of the controller is unchanged.
 
 	const store = createWorkspaceStore();
 
 	// ── 2. Panels ─────────────────────────────────────────────────────────────
-	//
-	// Self-contained: owns its own $state, service (persist/toggle), and the
-	// $effect that syncs store.leftPane → PaneAPI.expand/collapse.
-	// Exposes `panels` (IDEPanels-compatible) for the activity system and
-	// individual getters/setters for the public API below.
 
 	const panelsCtrl = createPanelsController({ getSidebar: options.getSidebar });
 
@@ -89,7 +64,9 @@ export function createWorkspaceController(options: WorkspaceControllerOptions) {
 		isDemo: () => options.isGuest(),
 		isGuest: () => options.isGuest(),
 		ownerId: () => options.ownerId() ?? ('' as Id<'users'>),
-		convexClient: options.convexClient
+		convexClient: options.convexClient,
+		// Pass through — undefined is safe, runtime falls back to boot()
+		getExternalWebcontainer: options.getExternalWebcontainer
 	});
 
 	// ── 4. Editor sync ────────────────────────────────────────────────────────
@@ -114,9 +91,6 @@ export function createWorkspaceController(options: WorkspaceControllerOptions) {
 	});
 
 	// ── 5. Hook ───────────────────────────────────────────────────────────────
-	//
-	// useWorkspace registers project-related $effects (project sync, localStorage
-	// persistence). PaneAPI sync is owned by usePanels inside PanelsController.
 
 	const { mount } = useWorkspace({
 		store,
@@ -130,47 +104,36 @@ export function createWorkspaceController(options: WorkspaceControllerOptions) {
 	// ── 6. IDE context ────────────────────────────────────────────────────────
 
 	setIDEContext({
+		getWebcontainer: runtime.getWebcontainer,
+		getProject: runtime.getProjectForPath as IDEContext['getProject'],
+		getEntryPath: runtime.getEntryPath,
+		getPanels: () => panelsCtrl.panels,
+		editorSync
+	});
+
+	// ── 7. Workspace context ──────────────────────────────────────────────────
+
+	setWorkspaceContext({
+		getWorkspaceProjects: runtime.getWorkspaceProjects,
 		getActiveProjectId: () => store.projects.activeProjectId,
 		getRenamingProjectId: () => store.projects.renamingProjectId,
 		getPendingDeleteProjectId: () => store.projects.pendingDeleteProjectId,
 		getMutatingProjectId: () => runtime.mutatingProjectId,
 		isCreatingProject: () => runtime.creatingProject,
-
-		getWebcontainer: runtime.getWebcontainer,
-
-		getProject: runtime.getProjectForPath as IDEContext['getProject'],
-
-		getEntryPath: runtime.getEntryPath,
-		getWorkspaceProjects: runtime.getWorkspaceProjects,
-
-		// ── Panels ────────────────────────────────────────────────────────────
-		//
-		// Panels are owned by PanelsController, not WorkspaceStore. Exposing
-		// them here via IDEContext is the correct DI path for page-level
-		// components (WorkspacePaneLayout, Editor, Terminal) that can't receive
-		// props from +layout.svelte through SvelteKit's routing boundary.
-		// IDEContext is already the established DI mechanism — this keeps the
-		// "no singleton imports" rule intact without bending SvelteKit routing.
-		getPanels: () => panelsCtrl.panels,
-
 		createProject: runtime.createProjectCard,
 		selectProject: (id) => store.projects.selectProject(id),
 		startRenameProject: (id) => store.projects.startRename(id),
 		cancelRenameProject: () => store.projects.cancelRename(),
 		commitRenameProject: runtime.commitRename,
 		requestDeleteProject: (id) => store.projects.requestDelete(id),
-		confirmDeleteProject: runtime.confirmDelete,
-		editorSync
+		confirmDeleteProject: runtime.confirmDelete
 	});
 
 	// ── Public API ────────────────────────────────────────────────────────────
 
 	return {
-		// ── Lifecycle ──────────────────────────────────────────────────────────
 		mount,
 		destroyEditorSync: () => editorSync.destroy(),
-
-		// ── Runtime state ──────────────────────────────────────────────────────
 		get runtimePhase() {
 			return runtime.runtimePhase;
 		},
@@ -183,15 +146,7 @@ export function createWorkspaceController(options: WorkspaceControllerOptions) {
 		get statusText() {
 			return runtime.statusText;
 		},
-
-		// ── Panel object ───────────────────────────────────────────────────────
-		//
-		// IDEPanels-compatible — pass directly to ActivityBar and useActivity:
-		//   <ActivityBar getPanels={() => ctrl.panels} />
-		//   useActivity({ getPanels: () => ctrl.panels })
 		panels: panelsCtrl.panels,
-
-		// ── Panel state ────────────────────────────────────────────────────────
 		get leftPane() {
 			return panelsCtrl.leftPane;
 		},
@@ -201,8 +156,6 @@ export function createWorkspaceController(options: WorkspaceControllerOptions) {
 		get rightPane() {
 			return panelsCtrl.rightPane;
 		},
-
-		// ── Panel actions ──────────────────────────────────────────────────────
 		setLeft: panelsCtrl.setLeft,
 		setDown: panelsCtrl.setDown,
 		setRight: panelsCtrl.setRight,
@@ -210,16 +163,10 @@ export function createWorkspaceController(options: WorkspaceControllerOptions) {
 		toggleDown: panelsCtrl.toggleDown,
 		toggleRight: panelsCtrl.toggleRight,
 		resetPanes: panelsCtrl.resetAll,
-
-		// ── Project state ──────────────────────────────────────────────────────
 		get activeProjectId() {
 			return store.projects.activeProjectId;
 		},
-
-		// ── Runtime action ─────────────────────────────────────────────────────
 		startRuntime: () => runtime.startRuntime(),
-
-		// ── Editor sync ────────────────────────────────────────────────────────
 		editorSync
 	};
 }

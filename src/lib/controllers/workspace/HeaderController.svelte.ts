@@ -3,7 +3,7 @@
  * This keeps all business logic separate from the UI
  */
 
-import type { HeaderConfig, HeaderLink } from '$lib/config/header.js';
+import type { HeaderConfig, HeaderLink } from '$lib/utils/header.js';
 
 export interface HeaderActions {
 	onSearch: (query: string) => void | Promise<void>;

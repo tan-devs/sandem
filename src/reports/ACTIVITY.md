@@ -1,4 +1,4 @@
-# Activity — Architecture & Data Flow
+# Activity System
 
 > One `$state` store, two pure services, composed via a hook and exposed through a controller. Components never touch the store directly.
 

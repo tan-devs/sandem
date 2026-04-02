@@ -1,31 +1,45 @@
 <script lang="ts">
+	/**
+	 * routes/(app)/[repo]/+layout.svelte
+	 *
+	 * IDE shell. Consumes the pre-booted WebContainer singleton and preloaded
+	 * projects from sandbox context set by (app)/+layout.svelte.
+	 *
+	 * Auth client is initialized in (app)/+layout.svelte — useAuth() here
+	 * reads from that already-initialized client, no re-initialization needed.
+	 */
+
 	import { onMount, type Snippet } from 'svelte';
 
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api.js';
 	import { PaneGroup, Pane, type PaneAPI } from 'paneforge';
 
-	import { createSvelteAuthClient, useAuth } from '$lib/svelte';
-	import { authClient } from '$lib/context';
+	import { useAuth } from '$lib/svelte';
 	import { createWorkspaceController } from '$lib/controllers/workspace';
 	import { useActivity } from '$lib/hooks/useActivity.svelte.js';
+	import { requireSandboxContext } from '$lib/context/webcontainer';
 
 	import type { RepoLayoutData } from '$types/routes.js';
 	import type { Id } from '$convex/_generated/dataModel.js';
 
 	import { Statusbar } from '$lib/components/workspace';
 	import { Resizer, ErrorPanel } from '$lib/components/primitives';
-
 	import { ActivityBar } from '$lib/components/activity';
-
 	import { SidebarPanel } from '$lib/components/panels';
 
 	let { children, data }: { children: Snippet; data: RepoLayoutData } = $props();
 
-	const convexClient = useConvexClient();
+	// ── Sandbox context ───────────────────────────────────────────────────────
+	// wcSingleton is already booting (started in (app)/+layout.svelte onMount).
+	// preloadedProjects were fetched silently while user was on home page.
 
-	createSvelteAuthClient({ authClient, getServerState: () => data.authState });
+	const sandbox = requireSandboxContext();
+
+	const convexClient = useConvexClient();
 	const auth = useAuth();
+
+	// ── Identity ──────────────────────────────────────────────────────────────
 
 	const currentUserResponse = useQuery(
 		api.auth.getCurrentUser,
@@ -37,13 +51,24 @@
 	const isGuest = $derived(!currentUser);
 	const ownerId = $derived<Id<'users'> | null>(currentUser?._id ?? null);
 
+	// ── Projects ──────────────────────────────────────────────────────────────
+	// initialData comes from sandbox.getPreloadedProjects() — already fetched
+	// at app layout level. Falls back to data.projects (SSR) if not yet ready.
+
 	const projectsResponse = useQuery(
 		api.projects.getAllProjects,
 		() => (ownerId ? { ownerId } : 'skip'),
-		() => ({ initialData: data.projects, keepPreviousData: true })
+		() => ({
+			initialData: sandbox.getPreloadedProjects().length
+				? sandbox.getPreloadedProjects()
+				: data.projects,
+			keepPreviousData: true
+		})
 	);
 
 	let sidebar = $state<PaneAPI>();
+
+	// ── Workspace controller ──────────────────────────────────────────────────
 
 	const ctrl = createWorkspaceController({
 		getData: () => data,
@@ -52,7 +77,8 @@
 		convexClient,
 		getSidebar: () => sidebar,
 		getProjectsData: () => projectsResponse.data,
-		getProjectsError: () => projectsResponse.error
+		getProjectsError: () => projectsResponse.error,
+		getExternalWebcontainer: () => sandbox.wc.getWebcontainer()
 	});
 
 	const activity = useActivity({ getPanels: () => ctrl.panels });

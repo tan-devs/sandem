@@ -1,4 +1,4 @@
-import type { IDEContext } from '$lib/context/';
+import type { IDEContext } from '$lib/context/webcontainer';
 import type { EditorStore } from '$lib/stores/editor';
 import type { IDEPanelsAdapter } from '$lib/controllers/panels';
 

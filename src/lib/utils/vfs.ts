@@ -1,5 +1,5 @@
 import type { FileSystemTree, DirectoryNode, FileNode, SymlinkNode } from '@webcontainer/api';
-import type { Project } from '$lib/context/ide-context.js';
+import type { Project } from '$lib/context/webcontainer/ide-context.js';
 import { slugifyProjectName } from '$lib/utils';
 
 // ---------------------------------------------------------------------------

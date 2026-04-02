@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 import type * as Monaco from 'monaco-editor';
-import type { Project } from '$lib/context';
+import type { Project } from '$lib/context/webcontainer';
 import type { EditorRuntimeDependencies } from '$types/hooks.js';
 import { createMonacoInstance, MONACO_OPTIONS } from '$lib/services/editor';
 import {

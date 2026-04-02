@@ -15,7 +15,7 @@ import {
 	shouldShowEmptyEditorState
 } from '$lib/utils/ide';
 
-import type { IDEContext } from '$lib/context';
+import type { IDEContext } from '$lib/context/webcontainer';
 import type { createEditorStore } from '$lib/stores/editor';
 import type { IDEPanelsAdapter } from '$lib/controllers/panels';
 import type { QuickAction } from '$types/editor.js';

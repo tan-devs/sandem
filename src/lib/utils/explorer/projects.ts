@@ -1,4 +1,4 @@
-import type { ProjectDoc } from '$lib/context';
+import type { ProjectDoc } from '$lib/context/webcontainer';
 
 // ---------------------------------------------------------------------------
 // Slug / name helpers

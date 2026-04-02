@@ -4,8 +4,6 @@
  * The only file allowed to instantiate FileTree + ProjectSync services
  * and compose them with the state store. Returns a single flat API
  * object consumed by Explorer.svelte.
- *
- * Renamed from `ExplorerContoller.svelte.ts` (typo fixed).
  */
 
 import {
@@ -19,8 +17,9 @@ import {
 	Ellipsis
 } from '@lucide/svelte';
 
-import type { IDEContext, ProjectDoc } from '$lib/context/ide-context.js';
-import type { EditorStore } from '$lib/stores/editor/editor.store.svelte.js';
+import type { IDEContext, ProjectDoc } from '$lib/context/webcontainer';
+import type { WorkspaceContext } from '$lib/context/workspace';
+import type { EditorStore } from '$lib/stores/editor';
 import type { FileNode } from '$types/editor.js';
 import type {
 	ActionButton,
@@ -54,6 +53,12 @@ import {
 
 export type ExplorerControllerDeps = {
 	ide: IDEContext;
+	/**
+	 * Project CRUD surface. Optional: when absent (single-project IDE mode)
+	 * workspace-specific affordances (project list, create/rename/delete) are
+	 * simply unavailable, but file-tree operations work normally.
+	 */
+	workspace?: WorkspaceContext;
 	editorStore: EditorStore;
 };
 
@@ -61,14 +66,14 @@ export type ExplorerController = ReturnType<typeof createExplorerController>;
 
 // ─── Factory ──────────────────────────────────────────────────────────────────
 
-export function createExplorerController({ ide, editorStore }: ExplorerControllerDeps) {
+export function createExplorerController({ ide, workspace, editorStore }: ExplorerControllerDeps) {
 	// ── Services & state ──────────────────────────────────────────────────────
 
 	const state = createExplorerStateStore();
 
 	const fileTree = createFileTree(ide.getWebcontainer, {
 		getWorkspaceRootFolders: () =>
-			(ide.getWorkspaceProjects?.() ?? []).map((p) => projectFolderName(p))
+			(workspace?.getWorkspaceProjects() ?? []).map((p) => projectFolderName(p))
 	});
 
 	const projectSync = createProjectSync({
@@ -104,10 +109,9 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 	const activeProjectFolder = $derived(activeProject ? projectFolderName(activeProject) : null);
 	const activeTabPath = $derived(editorStore.activeTabPath);
 
-	// $derived.by() — not $derived(() => ...) — so nodeCount is number | null,
-	// not () => number | null.
 	const nodeCount = $derived.by<number | null>(() => {
 		if (!activeProject) return null;
+		if (!activeProject.nodes) return null; // ← add this guard
 		return activeProject.nodes.filter((node) => node.type === 'file').length;
 	});
 
@@ -273,10 +277,10 @@ export function createExplorerController({ ide, editorStore }: ExplorerControlle
 
 		if (node.depth === 0) {
 			const rootFolder = node.path.split('/')[0] ?? '';
-			const project = (ide.getWorkspaceProjects?.() ?? []).find(
+			const project = (workspace?.getWorkspaceProjects() ?? []).find(
 				(p) => projectFolderName(p) === rootFolder
 			);
-			if (project) ide.selectProject?.(project.id);
+			if (project) workspace?.selectProject(project.id);
 		}
 
 		fileTree.toggleDir(node.path);

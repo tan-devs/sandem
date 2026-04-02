@@ -1,6 +1,6 @@
 import type * as Monaco from 'monaco-editor';
 import { getLanguage } from '$lib/utils/ide/language.js';
-import type { Project } from '$lib/context/ide-context.js';
+import type { Project } from '$lib/context/webcontainer/ide-context.js';
 import type { EditorRuntimeDependencies } from '$types/hooks.js';
 
 // ---------------------------------------------------------------------------

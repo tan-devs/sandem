@@ -3,7 +3,7 @@
 	import { Accordion } from 'bits-ui';
 
 	import type { FileNode } from '$types/editor';
-	import type { ProjectDoc } from '$lib/context/ide-context.js';
+	import type { ProjectDoc } from '$lib/context/webcontainer/ide-context.js';
 	import type { EditorTab } from '$lib/stores/editor';
 	import type { ExplorerDialogState, TimelineEvent, ContextMenuState } from '$types/explorer';
 

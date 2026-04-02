@@ -26,12 +26,13 @@ export const authComponent: ReturnType<typeof createClient<DataModel>> = createC
  * or mutations.
  */
 export const createAuth = (ctx: GenericCtx<DataModel>) => {
+	const env = convexEnv();
 	return betterAuth({
-		baseURL: convexEnv.SITE_URL,
+		baseURL: env.SITE_URL,
 		// Binds Better Auth's storage to the Convex component's internal tables.
 		// These are separate from your app's `users` table in schema.ts.
 		database: authComponent.adapter(ctx),
-		secret: convexEnv.BETTER_AUTH_SECRET,
+		secret: env.BETTER_AUTH_SECRET,
 		emailAndPassword: {
 			enabled: true,
 			requireEmailVerification: false
@@ -39,8 +40,8 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 		socialProviders: {
 			github: {
 				enabled: true,
-				clientId: convexEnv.GITHUB_CLIENT_ID,
-				clientSecret: convexEnv.GITHUB_CLIENT_SECRET
+				clientId: env.GITHUB_CLIENT_ID,
+				clientSecret: env.GITHUB_CLIENT_SECRET
 			}
 		},
 		plugins: [

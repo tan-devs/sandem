@@ -1,5 +1,5 @@
 import type { FileSystemTree } from '@webcontainer/api';
-import type { NodeDoc } from '$lib/context/ide-context.js';
+import type { NodeDoc } from '$lib/context/webcontainer/ide-context.js';
 
 // ---------------------------------------------------------------------------
 // Node-shaped local types (subset of NodeDoc used in path helpers)
