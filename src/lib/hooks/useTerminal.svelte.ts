@@ -34,7 +34,7 @@ import type { TerminalWorkspace } from '$lib/services/terminal/createTerminalWor
 
 const STORAGE_KEY = 'sandem.terminal.sessions.v1';
 
-export function useTerminal(deps: { store: TerminalStore; workspace: TerminalWorkspace }) {
+export function useTerminal(deps: { store: typeof TerminalStore; workspace: TerminalWorkspace }) {
 	const { store, workspace } = deps;
 
 	// ── Effect 1: Sync State to Runtime ──────────────────────────────────────

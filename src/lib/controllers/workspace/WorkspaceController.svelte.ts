@@ -33,17 +33,23 @@ export type { ConvexOperations, WorkspaceEditorSync };
 export type WorkspaceControllerOptions = {
 	getData: () => RepoLayoutData;
 	isGuest: () => boolean;
-	ownerId: () => Id<'users'> | null;
+	/**
+	 * Always a plain string. Real users pass their Convex Id (which is a
+	 * branded string), guests pass a localStorage-persisted UUID. The cast
+	 * to Id<'users'> happens inside the controller at the runtime boundary.
+	 */
+	ownerId: () => string;
 	convexClient: ConvexOperations;
 	getSidebar: () => PaneAPI | undefined;
 	getProjectsData: () => RepoLayoutData['projects'] | undefined;
 	getProjectsError: () => unknown;
 	/**
 	 * When provided, skip WebContainer.boot() and use this instance.
-	 * Pass `wcSingleton.getWebcontainer` from sandbox context.
+	 * Use wcSingleton.waitForWebcontainer() — the async form — so this is
+	 * safe to call before boot completes.
 	 * If undefined, the runtime boots its own instance (legacy fallback).
 	 */
-	getExternalWebcontainer?: () => WebContainer;
+	getExternalWebcontainer?: () => Promise<WebContainer>;
 };
 
 export function createWorkspaceController(options: WorkspaceControllerOptions) {
@@ -60,10 +66,12 @@ export function createWorkspaceController(options: WorkspaceControllerOptions) {
 	const runtime = createWorkspaceRuntime({
 		store,
 		getWorkspaceTree: () =>
-			(options.getData().workspaceTree as unknown as FileSystemTree) ?? ({} as FileSystemTree),
-		isDemo: () => options.isGuest(),
+			(options.getData().workspaceTree as FileSystemTree) ?? ({} as FileSystemTree),
+		isDemo: () => false,
 		isGuest: () => options.isGuest(),
-		ownerId: () => options.ownerId() ?? ('' as Id<'users'>),
+		// options.ownerId is () => string — cast here since createRepoProjectManager
+		// expects Id<'users'>; guest Convex ops are skipped at the service layer.
+		ownerId: () => options.ownerId() as Id<'users'>,
 		convexClient: options.convexClient,
 		// Pass through — undefined is safe, runtime falls back to boot()
 		getExternalWebcontainer: options.getExternalWebcontainer

@@ -104,9 +104,12 @@ wcSingleton.getWebcontainer()     — sync, throws if phase !== 'ready'
 wcSingleton.waitForWebcontainer() — async, safe to call anytime
 ```
 
-`createRuntimeManager` accepts `getExternalWebcontainer?: () => WebContainer`.
+`createRuntimeManager` accepts `getExternalWebcontainer?: () => Promise<WebContainer>`.
 When provided it skips `WebContainer.boot()` and uses the singleton.
 `stopRuntime()` skips `teardown()` since it doesn't own the instance.
+
+Pass `wcSingleton.waitForWebcontainer` (async, always safe) — **not**
+`wcSingleton.getWebcontainer` (sync, throws if boot isn't complete yet).
 
 ---
 
@@ -157,6 +160,19 @@ Liveblocks Yjs doc ──► WebContainer fs.writeFile  (75ms debounce)
 ---
 
 ## WorkspaceController API Surface
+
+## ownerId Contract
+
+`WorkspaceControllerOptions.ownerId` accepts `() => string`.
+
+- **Authenticated users** — pass `currentUser._id` (an `Id<'users'>`, which satisfies `string`)
+- **Guests** — pass a UUID from `localStorage` (`getOrCreateGuestId()`)
+
+The cast to `Id<'users'>` happens once, inside `WorkspaceController`, at the
+`createWorkspaceRuntime` boundary. Guest Convex operations are skipped at the
+service layer so the cast is safe at runtime.
+
+---
 
 | Category       | Properties / Methods                                             |
 | -------------- | ---------------------------------------------------------------- |

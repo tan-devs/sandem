@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { requireIDEContext } from '$lib/context/webcontainer';
-	import { terminalStore } from '$lib/stores/terminal';
+	import { TerminalStore } from '$lib/stores/terminal';
 	import { createTerminalController } from '$lib/controllers/terminal';
 	import { TerminalPanelHeader, TerminalToolbar, TerminalViewport } from '$lib/components/terminal';
 
@@ -20,7 +20,7 @@
 	const ide = requireIDEContext();
 	const ctrl = createTerminalController({
 		ide,
-		store: terminalStore,
+		store: TerminalStore,
 		getPanels: () => ide.getPanels?.()
 	});
 

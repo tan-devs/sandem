@@ -50,7 +50,7 @@ type PanelLayout = {
 
 export type TerminalWorkspaceOptions = {
 	/** Unified store — owns all panel/session/permissions state. */
-	store: TerminalStore;
+	store: typeof TerminalStore;
 	createShell: ShellFactory;
 	recordAudit: (entry: AuditEntry) => void;
 	getLayout: () => PanelLayout | undefined;

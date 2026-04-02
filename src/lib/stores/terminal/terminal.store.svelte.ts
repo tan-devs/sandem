@@ -1,4 +1,5 @@
-import { createTerminalPanelStore, createTerminalSessionStore } from '$lib/stores/terminal';
+import { createTerminalPanelStore } from './terminal.panel.store.svelte.js';
+import { createTerminalSessionStore } from './terminal.session.store.svelte.js';
 
 export function createTerminalStore() {
 	const panel = createTerminalPanelStore();
@@ -23,5 +24,5 @@ export function createTerminalStore() {
 	};
 }
 
-export type TerminalStore = ReturnType<typeof createTerminalStore>;
-export const terminalStore = createTerminalStore();
+// runs at SSR module evaluation time
+export const TerminalStore = createTerminalStore();

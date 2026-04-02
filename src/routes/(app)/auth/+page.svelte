@@ -3,17 +3,19 @@
 	import { api } from '$convex/_generated/api.js';
 	import { useQuery } from 'convex-svelte';
 	import { useAuth } from '$lib/svelte/index.js';
-	import Button from '$lib/components/primitives/Button.svelte';
-	import Form from '$lib/components/primitives/Form.svelte';
-	import Grid from '$lib/components/primitives/Grid.svelte';
-	import Tabs from '$lib/components/primitives/Tabs.svelte';
-	import type { AuthLayoutData } from '../../../types/routes.js';
+	import { Button, Form, Grid, Tabs } from '$lib/components/primitives';
+
+	import { goto } from '$app/navigation';
+	import type { AuthLayoutData } from '$types/routes.js';
 
 	let { data }: { data: AuthLayoutData } = $props();
 
 	const auth = useAuth();
 	const isLoading = $derived(auth.isLoading);
 	const isAuthenticated = $derived(auth.isAuthenticated);
+
+	const STORAGE_KEY = 'sandem.activeProjectId';
+	const OAUTH_REDIRECT_FLAG = 'sandem.auth:redirect_after_signin';
 
 	const currentUserResponse = useQuery(
 		api.auth.getCurrentUser,
@@ -28,6 +30,11 @@
 	let password = $state('');
 	let submitting = $state(false);
 	let errorMsg = $state('');
+
+	function getLastProjectPath(): string {
+		const lastId = localStorage.getItem(STORAGE_KEY);
+		return lastId ? `/${lastId}` : '/';
+	}
 
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
@@ -53,6 +60,8 @@
 					}
 				);
 			}
+			// Only reaches here if no error was thrown
+			if (!errorMsg) goto(getLastProjectPath());
 		} catch (err) {
 			console.error('Auth error:', err);
 		} finally {
@@ -61,9 +70,10 @@
 	}
 
 	async function handleGithub() {
+		// Flag survives the OAuth redirect so the $effect above can redirect on return
+		sessionStorage.setItem(OAUTH_REDIRECT_FLAG, 'true');
 		await authClient.signIn.social({ provider: 'github' });
 	}
-
 	async function signOut() {
 		await authClient.signOut();
 	}
@@ -99,9 +109,13 @@
 					<p class="session-name">{user.name ?? 'User'}</p>
 					<p class="muted">{user.email}</p>
 				</div>
-				<Button variant="outline" tone="warning" onclick={signOut}>Sign out</Button>
+				<div style="display:flex;gap:0.5rem">
+					<Button variant="outline" tone="accent" onclick={() => goto(getLastProjectPath())}>
+						Go to projects
+					</Button>
+					<Button variant="outline" tone="warning" onclick={signOut}>Sign out</Button>
+				</div>
 			</div>
-			<p class="muted">redirecting to projects<span class="blink">_</span></p>
 		</div>
 	{:else}
 		<div class="stage">

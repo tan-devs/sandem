@@ -107,6 +107,26 @@ export const getAllProjects = query({
 	}
 });
 
+/** List all projects owned by a user, each with their nodes attached. */
+export const getAllProjectsWithNodes = query({
+	args: { ownerId: v.id('users') },
+	handler: async (ctx, args) => {
+		if (!args.ownerId) return [];
+		const projects = await ctx.db
+			.query('projects')
+			.withIndex('by_owner', (q) => q.eq('ownerId', args.ownerId))
+			.collect();
+		return Promise.all(
+			projects.map(async (project) => ({
+				...project,
+				// Queried by ownerId so the caller is always the owner.
+				isOwner: true,
+				nodes: await getNodesForProject(ctx, project._id)
+			}))
+		);
+	}
+});
+
 /** Fetch a single project by its _id. Enforces read permission. */
 export const getProject = query({
 	args: { id: v.id('projects') },

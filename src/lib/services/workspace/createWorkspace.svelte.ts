@@ -19,43 +19,40 @@ import { createWorkspaceStore } from '$lib/stores/workspace/workspace.store.svel
 import { useWorkspace } from '$lib/hooks/useWorkspace.svelte.js';
 import { createWorkspaceRuntime } from './createWorkspaceRuntime.svelte.js';
 import type { ConvexOperations } from '$lib/services/webcontainer';
-import type { FileSystemTree } from '@webcontainer/api';
 import type { RepoLayoutData } from '$types/routes.js';
+import type { PaneAPI } from 'paneforge';
+import type { WebContainer, FileSystemTree } from '@webcontainer/api';
 
 export interface WorkspaceControllerOptions {
-	getInitialProjects: () => RepoLayoutData['projects'];
+	getData: () => RepoLayoutData; // ← replaces getInitialProjects + getWorkspaceTree
 	getProjectsData: () => RepoLayoutData['projects'] | undefined;
 	getProjectsError: () => unknown;
-	getWorkspaceTree: () => FileSystemTree;
-	isDemo: () => boolean;
 	isGuest: () => boolean;
-	ownerId: () => string;
+	ownerId: () => string; // ← now a permanent guest id or a real user id
 	convexClient: ConvexOperations;
+	getSidebar: () => PaneAPI | undefined; // ← new
+	getExternalWebcontainer: () => Promise<WebContainer>; // ← new
 }
 
 export function createWorkspaceController(options: WorkspaceControllerOptions) {
 	const store = createWorkspaceStore();
 
-	// Runtime is created before the hook so its error sink is available
-	// to any $effects that useWorkspace registers.
 	const runtime = createWorkspaceRuntime({
 		store,
-		isDemo: options.isDemo,
+		isDemo: () => false,
 		isGuest: options.isGuest,
-		ownerId: options.ownerId,
-		getWorkspaceTree: options.getWorkspaceTree,
-		convexClient: options.convexClient
+		ownerId: () => options.ownerId(),
+		getWorkspaceTree: () => (options.getData().workspaceTree ?? {}) as FileSystemTree,
+		convexClient: options.convexClient,
+		getExternalWebcontainer: options.getExternalWebcontainer // ← threaded through
 	});
 
-	// useWorkspace owns: project sync effect, localStorage effect,
-	// startRuntime(), and window error/rejection listeners.
-	// Sidebar DOM sync has moved to usePanels inside PanelsController.
 	const hook = useWorkspace({
 		store,
 		runtime,
 		getProjectsData: options.getProjectsData,
 		getProjectsError: options.getProjectsError,
-		getInitialProjects: options.getInitialProjects,
+		getInitialProjects: () => options.getData().projects, // ← derived from getData
 		isGuest: options.isGuest
 	});
 

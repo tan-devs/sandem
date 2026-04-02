@@ -14,6 +14,7 @@
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api.js';
 	import { PaneGroup, Pane, type PaneAPI } from 'paneforge';
+	import { wcSingleton } from '$lib/services/webcontainer/createWebcontainerSingleton.svelte';
 
 	import { useAuth } from '$lib/svelte';
 	import { createWorkspaceController } from '$lib/controllers/workspace';
@@ -21,7 +22,6 @@
 	import { requireSandboxContext } from '$lib/context/webcontainer';
 
 	import type { RepoLayoutData } from '$types/routes.js';
-	import type { Id } from '$convex/_generated/dataModel.js';
 
 	import { Statusbar } from '$lib/components/workspace';
 	import { Resizer, ErrorPanel } from '$lib/components/primitives';
@@ -49,7 +49,24 @@
 
 	const currentUser = $derived(currentUserResponse.data ?? data.currentUser);
 	const isGuest = $derived(!currentUser);
-	const ownerId = $derived<Id<'users'> | null>(currentUser?._id ?? null);
+
+	// Always a string — real users get their Convex _id, guests get a stable
+	// UUID generated once and persisted in localStorage so it survives page reloads.
+	function getOrCreateGuestId(): string {
+		const KEY = 'guest_owner_id';
+		let id = localStorage.getItem(KEY);
+		if (!id) {
+			id = crypto.randomUUID();
+			localStorage.setItem(KEY, id);
+		}
+		return id;
+	}
+
+	// Typed Id<'users'> for Convex queries — only set when authenticated.
+	const convexOwnerId = $derived(currentUser?._id);
+	// Always-string id for the workspace controller — guests get a stable
+	// UUID from localStorage, authenticated users get their Convex id.
+	const ownerId = $derived(currentUser?._id ?? getOrCreateGuestId());
 
 	// ── Projects ──────────────────────────────────────────────────────────────
 	// initialData comes from sandbox.getPreloadedProjects() — already fetched
@@ -57,7 +74,7 @@
 
 	const projectsResponse = useQuery(
 		api.projects.getAllProjects,
-		() => (ownerId ? { ownerId } : 'skip'),
+		() => (convexOwnerId ? { ownerId: convexOwnerId } : 'skip'),
 		() => ({
 			initialData: sandbox.getPreloadedProjects().length
 				? sandbox.getPreloadedProjects()
@@ -72,23 +89,21 @@
 
 	const ctrl = createWorkspaceController({
 		getData: () => data,
+		getProjectsData: () => projectsResponse.data,
+		getProjectsError: () => projectsResponse.error,
 		isGuest: () => isGuest,
 		ownerId: () => ownerId,
 		convexClient,
 		getSidebar: () => sidebar,
-		getProjectsData: () => projectsResponse.data,
-		getProjectsError: () => projectsResponse.error,
-		getExternalWebcontainer: () => sandbox.wc.getWebcontainer()
+		getExternalWebcontainer: () => wcSingleton.waitForWebcontainer()
 	});
 
 	const activity = useActivity({ getPanels: () => ctrl.panels });
 
 	onMount(() => {
+		console.log('[layout] workspaceTree keys:', Object.keys(data.workspaceTree ?? {}));
 		const cleanup = ctrl.mount();
-		return () => {
-			ctrl.destroyEditorSync();
-			cleanup?.();
-		};
+		return () => cleanup?.();
 	});
 </script>
 
@@ -117,9 +132,6 @@
 							{#snippet actions()}
 								<button class="action" onclick={() => void ctrl.startRuntime()}>
 									Retry runtime
-								</button>
-								<button class="action" onclick={() => ctrl.resetPanes()}>
-									Reset pane visibility
 								</button>
 							{/snippet}
 						</ErrorPanel>

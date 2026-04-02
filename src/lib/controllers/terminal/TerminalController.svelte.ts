@@ -13,7 +13,7 @@ type PanelLayout = { upPane?: boolean; downPane?: boolean };
 
 export type TerminalControllerOptions = {
 	ide: IDEContext;
-	store: TerminalStore;
+	store: typeof TerminalStore;
 	/**
 	 * Returns the current panel visibility state.
 	 * Pass `() => panelsCtrl.panels` from the workspace.

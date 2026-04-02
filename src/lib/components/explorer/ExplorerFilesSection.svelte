@@ -5,7 +5,7 @@
 	import type { FileNode } from '$types/editor';
 	import type { ContextMenuState, ContextMenuAction } from '$types/explorer';
 	import FileTreeView from '$lib/components/primitives/FileTreeView.svelte';
-	import ExplorerContextMenu from './ExploerContextMenu.svelte';
+	import { ExplorerContextMenu } from '$lib/components/explorer';
 
 	interface Props {
 		tree: FileNode[];

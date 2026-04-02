@@ -5,3 +5,4 @@ export { default as ExplorerOpenEditors } from './ExplorerOpenEditors.svelte';
 export { default as ExplorerOutline } from './ExplorerOutline.svelte';
 export { default as ExplorerTimeline } from './ExplorerTimeline.svelte';
 export { default as ExplorerProjectInfo } from './ExplorerProjectInfo.svelte';
+export { default as ExplorerContextMenu } from './ExplorerContextMenu.svelte';

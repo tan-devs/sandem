@@ -61,7 +61,7 @@ export type RuntimeManagerOptions = {
 	 * this instance directly. Pass `wcSingleton.getWebcontainer` here when
 	 * the singleton has already been booted at the app layout level.
 	 */
-	getExternalWebcontainer?: () => WebContainer;
+	getExternalWebcontainer?: () => Promise<WebContainer>;
 };
 
 export function createRuntimeManager(options: RuntimeManagerOptions) {
@@ -82,17 +82,28 @@ export function createRuntimeManager(options: RuntimeManagerOptions) {
 		try {
 			// Use external singleton if provided — avoids a second WebContainer.boot() call.
 			if (options.getExternalWebcontainer) {
-				webcontainer = options.getExternalWebcontainer();
+				console.log('[RuntimeManager] using external WC singleton ✓');
+				webcontainer = await options.getExternalWebcontainer();
 			} else {
+				console.warn('[RuntimeManager] WARNING: booting new WC instance — double-boot risk');
 				webcontainer = await getWebContainer();
 			}
-
 			await webcontainer.mount(options.getWorkspaceTree());
 
 			runtimePhase = 'installing';
 
+			const tree = options.getWorkspaceTree();
+			console.log('[RuntimeManager] tree keys:', Object.keys(tree));
+			console.log(
+				'[RuntimeManager] package.json:',
+				tree['package.json']
+					? JSON.parse((tree['package.json'] as { file: { contents: string } }).file.contents)
+					: 'MISSING'
+			);
+
 			const install = await webcontainer.spawn('npm', ['install']);
 			const exitCode = await install.exit;
+			console.log('[RuntimeManager] npm exit code raw:', exitCode);
 
 			if (exitCode !== 0) {
 				throw new Error(`npm install failed with exit code ${exitCode}`);

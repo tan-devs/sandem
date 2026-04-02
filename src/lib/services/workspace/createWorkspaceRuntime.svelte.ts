@@ -16,8 +16,8 @@ import {
 import { VITE_REACT_TEMPLATE } from '$lib/utils';
 import { projectFolderName } from '$lib/utils/explorer/projects.js';
 import { createError } from '$lib/sveltekit/index.js';
-import type { Doc } from '$convex/_generated/dataModel.js';
-import type { FileSystemTree, WebContainer } from '@webcontainer/api';
+import type { Doc, Id } from '$convex/_generated/dataModel.js';
+import { WebContainer, type FileSystemTree } from '@webcontainer/api';
 import type { WorkspaceStore } from '$lib/stores/workspace/workspace.store.svelte.js';
 
 export type { ConvexOperations };
@@ -29,14 +29,14 @@ export type WorkspaceRuntimeOptions = {
 	getWorkspaceTree: () => FileSystemTree;
 	isDemo: () => boolean;
 	isGuest: () => boolean;
-	ownerId: () => string;
+	ownerId: () => string | null;
 	convexClient: ConvexOperations;
 	/**
 	 * When provided, the runtime skips WebContainer.boot() and uses this
 	 * instance directly. Pass `wcSingleton.getWebcontainer` from the
 	 * sandbox context set by (app)/+layout.svelte.
 	 */
-	getExternalWebcontainer?: () => WebContainer;
+	getExternalWebcontainer?: () => Promise<WebContainer>;
 };
 
 const DEMO_FOLDER = 'demo';
@@ -54,7 +54,6 @@ export function createWorkspaceRuntime(options: WorkspaceRuntimeOptions) {
 		getProjects: () => store.projects.projects,
 		getEntryPath: () => getEntryPath(),
 		getWorkspaceTree: options.getWorkspaceTree,
-		// Thread the singleton through — undefined means fall back to boot()
 		getExternalWebcontainer: options.getExternalWebcontainer
 	});
 
@@ -64,7 +63,10 @@ export function createWorkspaceRuntime(options: WorkspaceRuntimeOptions) {
 		getActiveProjectId: () => store.projects.activeProjectId,
 		setActiveProjectId: (id) => store.projects.setActiveProjectId(id),
 		convexClient: options.convexClient,
-		ownerId: options.ownerId,
+		// options.ownerId is () => string — guests get a localStorage UUID,
+		// real users get their Convex Id. Cast here since createRepoProjectManager
+		// expects Id<'users'>; guest operations are skipped at the Convex layer.
+		ownerId: () => options.ownerId() as Id<'users'>,
 		onError: (err, cause) =>
 			runtime.failRuntimeWithError(
 				createError(err.message ?? 'A project operation failed.'),

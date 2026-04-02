@@ -14,13 +14,17 @@
 	 *      without re-fetching or re-booting
 	 */
 
-	import { onMount, type Snippet } from 'svelte';
+	import { browser } from '$app/environment';
+	import { type Snippet } from 'svelte';
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api.js';
+
 	import { createSvelteAuthClient } from '$lib/svelte';
 	import { authClient } from '$lib/context/auth';
-	import { wcSingleton } from '$lib/services/webcontainer/createWebcontainerSingleton.svelte';
 	import { setSandboxContext } from '$lib/context/webcontainer';
+	import { wcSingleton } from '$lib/services/webcontainer';
+	import { AppHeader } from '$lib/components/workspace';
+
 	import type { Id } from '$convex/_generated/dataModel.js';
 	import type { AppLayoutData } from '$types/routes.js';
 
@@ -48,25 +52,38 @@
 		() => ({ initialData: data.projects, keepPreviousData: true })
 	);
 
+	// ── Boot WebContainer ─────────────────────────────────────────────────────
+	// Called synchronously (not in onMount) so the boot promise is in-flight
+	// before any child layout mounts and calls wcSingleton.waitForWebcontainer().
+	//
+	// Svelte fires onMount bottom-up (children before parents), so if this were
+	// inside onMount, [repo]/+layout.svelte's onMount would call
+	// waitForWebcontainer() before boot() had ever been invoked — hanging forever.
+	//
+	// Guarded by `browser` because WebContainer is client-only and this script
+	// runs on the server during SSR.
+
+	if (browser) {
+		void wcSingleton.boot().catch((err) => {
+			console.warn('[AppLayout] WebContainer pre-boot failed:', err);
+		});
+	}
+
 	// ── Sandbox context ───────────────────────────────────────────────────────
-	// Set before any child mounts so [repo]/+layout.svelte can read it
-	// synchronously at the top of its <script>.
+	// Set after boot() is called so wcSingleton already has its internal promise
+	// initialised by the time any child reads it via requireSandboxContext().
 
 	setSandboxContext({
 		wc: wcSingleton,
 		getPreloadedProjects: () => projectsResponse.data ?? data.projects ?? [],
 		isGuest: () => isGuest
 	});
-
-	// ── Boot WebContainer ─────────────────────────────────────────────────────
-	// Fire-and-forget on mount. No await — we don't want to block rendering.
-	// wcSingleton.boot() is idempotent: safe to call multiple times.
-
-	onMount(() => {
-		void wcSingleton.boot().catch((err) => {
-			console.warn('[AppLayout] WebContainer pre-boot failed:', err);
-		});
-	});
 </script>
 
+<!-- html -->
+
+<AppHeader />
+
 {@render children()}
+
+<!-- /html -->
